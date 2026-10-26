@@ -76,7 +76,7 @@ GET    /files/:fileVersionId/preview           → 同上，Content-Disposition:
 
 ## 5. 通知与审批的通用关联
 
-- 任务、行动项、审批、通知、审计一律 `source_type`（枚举：`meeting/travel/funding/expense/time_entry/change_request/quality_issue/decision/plan/budget/access_grant/report`）+ `source_id`。
+- 任务、行动项、审批、通知、审计一律 `source_type`（枚举：`meeting/travel/funding/expense/time_entry/change_request/quality_issue/decision/plan/budget/access_grant/report/project`——`project` 为 v1.1 增补，2026-10-26 裁定：文件等对象可直接挂载项目）+ `source_id`。
 - 待办中心（迭代 1）查询这些公共表的并集视图，不各模块自建待办。
 
 ## 6. 错误码（`shared/errors.ts` 常量 + tRPC code 映射）

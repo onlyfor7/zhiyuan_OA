@@ -17,16 +17,8 @@ import { verifyDownloadToken } from "../services/file/tokens";
  * 鉴权：session cookie 或 ≤15min 短期令牌；无权限与不存在同形 404（arch/03 §5）。
  */
 
-/**
- * 临时偏差（STATUS.md「偏差与仲裁」2026-10-26 后端登记，待架构裁定）：
- * arch/02 §5 冻结的 SOURCE_TYPE 无 "project"，而迭代 0 文件上传需直接挂载项目（验收场景 3）。
- * 裁定前上传端点接受 SOURCE_TYPE ∪ {project}；建议增补 project 进 SOURCE_TYPE，
- * 或迭代 1 由 archive_links 承接项目维度文件挂接。
- */
-const UPLOAD_SOURCE_TYPE = z.enum([...SOURCE_TYPE, "project"]);
-
 const uploadInputSchema = z.object({
-  sourceType: UPLOAD_SOURCE_TYPE,
+  sourceType: z.enum(SOURCE_TYPE),
   sourceId: z.uuid(),
   businessDate: z
     .string()

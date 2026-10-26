@@ -11,7 +11,7 @@ export const LEDGER_ENTRY_TYPE = [
 ] as const;
 export type LedgerEntryType = (typeof LEDGER_ENTRY_TYPE)[number];
 
-/** 公共来源类型（arch/02 §5，冻结） */
+/** 公共来源类型（arch/02 §5，冻结；"project" 为 2026-10-26 v1.1 架构增补：文件等对象可直接挂载项目） */
 export const SOURCE_TYPE = [
   "meeting",
   "travel",
@@ -25,6 +25,7 @@ export const SOURCE_TYPE = [
   "budget",
   "access_grant",
   "report",
+  "project",
 ] as const;
 export type SourceType = (typeof SOURCE_TYPE)[number];
 
