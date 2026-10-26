@@ -1,0 +1,36 @@
+/** 权限动作注册表（arch/03 §3 全量动作先注册；判定路径随业务迭代实现） */
+export const PERMISSION = {
+  PROJECT_READ: "project.read",
+  PROJECT_MANAGE: "project.manage",
+  MEETING_READ: "meeting.read",
+  MEETING_CREATE: "meeting.create",
+  TRAVEL_READ: "travel.read",
+  TRAVEL_CREATE: "travel.create",
+  TRAVEL_APPROVE: "travel.approve",
+  BUDGET_READ: "budget.read",
+  BUDGET_MANAGE: "budget.manage",
+  FUNDING_READ: "funding.read",
+  FUNDING_CREATE: "funding.create",
+  FUNDING_APPROVE: "funding.approve",
+  EXPENSE_READ: "expense.read",
+  EXPENSE_CREATE: "expense.create",
+  EXPENSE_APPROVE: "expense.approve",
+  EXPENSE_PAY: "expense.pay",
+  TIME_SUBMIT: "time.submit",
+  TIME_APPROVE: "time.approve",
+  TIME_LOCK: "time.lock",
+  TIME_UNLOCK: "time.unlock",
+  QUALITY_READ: "quality.read",
+  QUALITY_MANAGE: "quality.manage",
+  DECISION_READ: "decision.read",
+  DECISION_MANAGE: "decision.manage",
+  ARCHIVE_READ: "archive.read",
+  ARCHIVE_MANAGE: "archive.manage",
+  GRANT_MANAGE: "grant.manage",
+  AUDIT_READ: "audit.read",
+  EXPORT_RUN: "export.run",
+  ADMIN_CONFIG: "admin.config",
+} as const;
+export type Permission = (typeof PERMISSION)[keyof typeof PERMISSION];
+
+export const PERMISSIONS: readonly string[] = Object.values(PERMISSION);

@@ -4,10 +4,22 @@
   "type": "module",
   "scripts": {
     "dev": "echo \"[@lexflow/server] dev 占位：待工单 03（后端会话）实现\"",
-    "typecheck": "echo \"[@lexflow/server] typecheck 占位：待工单 03（后端会话）实现\"",
-    "test": "echo \"[@lexflow/server] test 占位：待工单 03/05（后端/测试会话）实现\"",
-    "db:generate": "echo \"[@lexflow/server] db:generate 占位：待工单 02（数据会话）实现\"",
-    "db:migrate": "echo \"[@lexflow/server] db:migrate 占位：待工单 02（数据会话）实现\"",
-    "db:seed": "echo \"[@lexflow/server] db:seed 占位：待工单 02（数据会话）实现\""
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx src/db/seed/index.ts"
+  },
+  "dependencies": {
+    "@lexflow/shared": "*",
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.23.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
+    "tsx": "^4.23.15",
+    "vitest": "^5.0.5"
   }
 }

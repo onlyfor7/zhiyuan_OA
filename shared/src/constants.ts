@@ -1,0 +1,53 @@
+/** 业务编号前缀注册表（arch/00 §3.5，冻结；新增前缀须架构会话裁定） */
+export const CODE_PREFIX = {
+  MTG: "MTG", // 会议
+  TRV: "TRV", // 出差
+  BUD: "BUD", // 预算
+  FND: "FND", // 经费申请
+  EXP: "EXP", // 费用报销
+  TS: "TS", // 工时周期
+  APR: "APR", // 审批实例
+  LED: "LED", // 台账分录
+  PRJ: "PRJ", // 项目
+  TSK: "TSK", // 任务
+  QLT: "QLT", // 质量问题
+  DEC: "DEC", // 决策单
+  RPT: "RPT", // 周报
+  // arch/01 要求 clients/matters 持唯一 code，但 arch/00 §3.5 注册表未含其前缀；
+  // 暂补 CLT/MTR 供种子与后续迭代使用，待架构会话确认（见 STATUS.md 偏差与仲裁）。
+  CLT: "CLT", // 客户
+  MTR: "MTR", // 事项
+} as const;
+export type CodePrefix = (typeof CODE_PREFIX)[keyof typeof CODE_PREFIX];
+
+/** system_config 配置键名（默认值在 DB 种子；代码引用键名，不散落硬编码。需求基线 §18） */
+export const CONFIG_KEY = {
+  /** 默认币种与时区 */
+  DEFAULTS_CURRENCY_TIMEZONE: "defaults.currency_timezone",
+  /** 会议纪要期限（业务日） */
+  MEETING_MINUTES_DEADLINE: "meeting.minutes_deadline_business_days",
+  /** 出差报销提醒 */
+  TRAVEL_EXPENSE_REMINDER: "travel.expense_reminder_days",
+  /** 预算不足策略：escalate 升级审批 / block 禁止 */
+  BUDGET_INSUFFICIENT_POLICY: "budget.insufficient_policy",
+  /** 票据要求与重复票据策略 */
+  EXPENSE_RECEIPT_RULES: "expense.receipt_rules",
+  /** 工时周期（按周提交；项目负责人工时由指定上级审批） */
+  TIMESHEET_PERIOD: "timesheet.period",
+  /** 工时校验（单日上限/重叠/常规阈值） */
+  TIMESHEET_VALIDATION: "timesheet.validation",
+  /** 工时成本费率可见性 */
+  TIMESHEET_COST_RATE: "timesheet.cost_rate_visibility",
+  /** 会议预填工时 */
+  TIMESHEET_MEETING_PREFILL: "timesheet.meeting_prefill",
+  /** 出差预填工时 */
+  TIMESHEET_TRAVEL_PREFILL: "timesheet.travel_prefill",
+  /** 结项未决事项检查 */
+  PROJECT_CLOSURE_PENDING_CHECK: "project.closure_pending_check",
+  /** 审批金额阈值（开发种子值，非业务真理） */
+  APPROVAL_AMOUNT_THRESHOLDS: "approval.amount_thresholds",
+} as const;
+export type ConfigKey = (typeof CONFIG_KEY)[keyof typeof CONFIG_KEY];
+
+/** 编号格式：前缀-年份-五位序号（arch/00 §3.5） */
+export const CODE_SERIAL_PADDING = 5;

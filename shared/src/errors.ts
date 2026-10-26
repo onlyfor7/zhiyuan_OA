@@ -1,0 +1,26 @@
+/** 统一业务错误码（arch/02 §6，冻结） */
+export const ERROR_CODE = {
+  /** 未登录/会话失效 */
+  AUTH_REQUIRED: "AUTH_REQUIRED",
+  /** 详情/直链的无权限统一形态（NOT_FOUND，不泄露存在性） */
+  ACCESS_DENIED_OR_GONE: "ACCESS_DENIED_OR_GONE",
+  /** zod 字段校验失败 */
+  VALIDATION_FAILED: "VALIDATION_FAILED",
+  /** row_version 不匹配或状态机不允许的迁移 */
+  STATE_CONFLICT: "STATE_CONFLICT",
+  /** 幂等键命中但负载不同 */
+  DUPLICATE_SUBMIT: "DUPLICATE_SUBMIT",
+  /** 申请人不得自审 */
+  SELF_APPROVAL_BLOCKED: "SELF_APPROVAL_BLOCKED",
+  /** 策略为禁止时的超预算 */
+  BUDGET_EXCEEDED: "BUDGET_EXCEEDED",
+  /** 重复票据命中 */
+  DUPLICATE_RECEIPT: "DUPLICATE_RECEIPT",
+  /** 工时周期已锁定 */
+  PERIOD_LOCKED: "PERIOD_LOCKED",
+  /** 已归档只读 */
+  ARCHIVED_READONLY: "ARCHIVED_READONLY",
+  /** 兜底，无堆栈，带 requestId */
+  INTERNAL: "INTERNAL",
+} as const;
+export type ErrorCode = (typeof ERROR_CODE)[keyof typeof ERROR_CODE];
