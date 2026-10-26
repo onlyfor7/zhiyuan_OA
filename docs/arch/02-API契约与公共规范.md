@@ -39,6 +39,17 @@
 
 前端类型来源优先级：tRPC 推断（`AppRouter` 类型）> shared DTO。**禁止前端自行重新定义已存在的后端类型。**
 
+### 3.1 枚举默认值冻结（v1.1，2026-10-26 增补）
+
+| 枚举 | 默认取值集（管理端可配置扩充，键名不得改） | 依据 |
+|---|---|---|
+| 会议类型 `meeting_type` | `project` 项目会议 / `client` 客户会议 / `quality_review` 质量复核会 / `weekly` 项目周会 / `decision` 决策会 | MTG-002 |
+| 费用类别 `expense_category` | `transport` 交通 / `accommodation` 住宿 / `meals` 餐费 / `meeting` 会议 / `materials` 资料 / `translation` 翻译 / `notarization` 公证 / `travel_other` 差旅其他 | EXP-003 |
+| 工时活动类型（已在 shared 落地） | `professional_work / meeting / travel / quality_review / internal_admin / other` | TIM-002 |
+| 通知事件类型（已在 shared 落地） | `meeting_starting / minutes_overdue / action_item_due / travel_approval / travel_return_expense / budget_exceeded / timesheet_gap / grant_expiring` | §12.2 |
+
+会议类型与费用类别在迭代 2/3 建表时由数据会话补入 `shared/enums/domain.ts` 与 DB 枚举/配置表；「可配置」指 admin 可扩充取值与规则，冻结的是默认集与键名。
+
 ## 4. 迭代 0 冻结契约（前后端按此并行开发）
 
 ```text

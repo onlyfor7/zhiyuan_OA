@@ -3,7 +3,7 @@
 export const USER_STATUS = ["active", "disabled"] as const;
 export type UserStatus = (typeof USER_STATUS)[number];
 
-/** 密级（逐级升高；具体取值各基线未冻结，待架构会话确认） */
+/** 密级：public < internal < confidential < secret 逐级升高（arch/01 §2 v1.1 冻结） */
 export const CONFIDENTIALITY_LEVEL = ["public", "internal", "confidential", "secret"] as const;
 export type ConfidentialityLevel = (typeof CONFIDENTIALITY_LEVEL)[number];
 

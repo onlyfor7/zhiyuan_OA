@@ -43,7 +43,7 @@ export const TIME_ACTIVITY_TYPE = [
 ] as const;
 export type TimeActivityType = (typeof TIME_ACTIVITY_TYPE)[number];
 
-/** 通知事件类型（需求基线 NTF-101；取值待架构会话确认） */
+/** 通知事件类型（需求基线 §12.2，arch/02 §3.1 v1.1 冻结） */
 export const NOTIFICATION_EVENT_TYPE = [
   "meeting_starting",
   "minutes_overdue",

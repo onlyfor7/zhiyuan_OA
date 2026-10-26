@@ -13,8 +13,7 @@ export const CODE_PREFIX = {
   QLT: "QLT", // 质量问题
   DEC: "DEC", // 决策单
   RPT: "RPT", // 周报
-  // arch/01 要求 clients/matters 持唯一 code，但 arch/00 §3.5 注册表未含其前缀；
-  // 暂补 CLT/MTR 供种子与后续迭代使用，待架构会话确认（见 STATUS.md 偏差与仲裁）。
+  // CLT 客户 / MTR 事项：2026-10-26 由架构会话正式增补进注册表（arch/00 §3.5 v1.1）。
   CLT: "CLT", // 客户
   MTR: "MTR", // 事项
 } as const;
