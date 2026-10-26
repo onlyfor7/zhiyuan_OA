@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "echo \"[@lexflow/server] dev 占位：待工单 03（后端会话）实现\"",
+    "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
@@ -11,8 +11,12 @@
     "db:seed": "tsx src/db/seed/index.ts"
   },
   "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "@hono/trpc-server": "^0.4.2",
     "@lexflow/shared": "*",
+    "@trpc/server": "^11.19.0",
     "drizzle-orm": "^0.45.4",
+    "hono": "^4.13.14",
     "pg": "^8.23.1",
     "zod": "^4.6.7"
   },
