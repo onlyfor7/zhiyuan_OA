@@ -9,6 +9,10 @@ export default defineConfig({
   plugins: [inspectAttr(), react()],
   server: {
     port: 3000,
+    proxy: {
+      "/trpc": "http://localhost:3001",
+      "/files": "http://localhost:3001",
+    },
   },
   resolve: {
     alias: {
