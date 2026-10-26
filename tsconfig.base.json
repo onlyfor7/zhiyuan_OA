@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "moduleResolution": "bundler",
+    "target": "ES2022",
+    "paths": {
+      "@lexflow/shared": ["./shared/src/index.ts"]
+    }
+  }
+}
