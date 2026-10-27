@@ -28,3 +28,10 @@ export function useMatterList(keyword: string, clientId?: string) {
     }),
   );
 }
+
+/** 用户 id→名称 映射（展示层用；参照端点 limit 100 覆盖种子/中小规模团队） */
+export function useUserNameMap(): Map<string, string> {
+  const trpc = useTRPC();
+  const query = useQuery(trpc.user.list.queryOptions({ limit: 100 }));
+  return new Map((query.data?.items ?? []).map((u) => [u.id, u.name]));
+}

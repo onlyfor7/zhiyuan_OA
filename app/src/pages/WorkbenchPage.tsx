@@ -22,6 +22,9 @@ function todoLink(item: TodoItem): string {
       return "/quality";
     case "report_confirm":
       return `/projects/${item.projectId}/reports`;
+    case "minutes_draft":
+    case "minutes_confirm":
+      return `/meetings/${item.id}`;
     default:
       return "/workbench";
   }

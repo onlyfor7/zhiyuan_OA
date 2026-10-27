@@ -101,6 +101,18 @@ export default function CockpitPage() {
           <strong className={s.blockingQuality > 0 ? "risk-number" : ""}>{s.blockingQuality}</strong>
           <small>严重/致命未关闭</small>
         </div>
+        <div>
+          <span>本周会议</span>
+          <strong>{s.weeklyMeetings}</strong>
+          <small>
+            <Link to="/meetings">去查看</Link>
+          </small>
+        </div>
+        <div>
+          <span>出差中</span>
+          <strong>{s.travelingCount}</strong>
+          <small>人（去重申请人）</small>
+        </div>
       </div>
       <div className="cockpit-lower">
         <section className="project-focus">

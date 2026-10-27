@@ -169,6 +169,8 @@ export const TODO_KIND_LABEL: Record<string, string> = {
   quality_review: "质量复核",
   report_confirm: "周报确认",
   grant_handle: "授权处理",
+  minutes_draft: "待写纪要",
+  minutes_confirm: "待确认纪要",
 };
 
 export const QUALITY_EVENT_LABEL: Record<string, string> = {
@@ -178,4 +180,66 @@ export const QUALITY_EVENT_LABEL: Record<string, string> = {
   review_pass: "复核通过",
   review_return: "复核退回",
   reopen: "重开",
+};
+
+/* —— 迭代 2 会议/出差域标签（arch/05） —— */
+
+export const MEETING_TYPE_LABEL: Record<string, string> = {
+  project: "项目会议",
+  client: "客户会议",
+  quality_review: "质量复核会",
+  weekly: "项目周会",
+  decision: "决策会",
+};
+
+export const MEETING_STATUS_LABEL: Record<string, string> = {
+  planned: "已计划",
+  completed: "已完成",
+  cancelled: "已取消",
+};
+
+export const MINUTES_STATUS_LABEL: Record<string, string> = {
+  none_required: "无需纪要",
+  pending_draft: "待整理",
+  pending_confirm: "待确认",
+  confirmed: "已确认",
+};
+
+export const TRAVEL_STATUS_LABEL: Record<string, string> = {
+  draft: "草稿",
+  pending_approval: "审批中",
+  approved: "已批准",
+  rejected: "已驳回",
+  in_progress: "出差中",
+  completed: "已完成",
+  closed: "已关闭",
+  cancelled: "已取消",
+};
+
+export const SEGMENT_TYPE_LABEL: Record<string, string> = {
+  transport: "交通",
+  accommodation: "住宿",
+  client_site: "客户现场",
+  other: "其他",
+};
+
+export const TRAVEL_EVENT_LABEL: Record<string, string> = {
+  create: "创建",
+  submit: "提交审批",
+  approve: "审批通过",
+  reject: "审批驳回",
+  withdraw: "撤回",
+  change_submit: "变更提交",
+  change_approved: "变更通过",
+  depart: "出发",
+  complete: "完成",
+  close: "关闭",
+  cancel: "取消",
+};
+
+export const ATTENDANCE_LABEL: Record<string, string> = {
+  planned: "未记录",
+  attended: "出席",
+  absent: "缺席",
+  excused: "请假",
 };

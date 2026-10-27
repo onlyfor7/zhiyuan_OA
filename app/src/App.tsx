@@ -7,11 +7,17 @@ import CockpitPage from "./pages/CockpitPage";
 import DecisionNewPage from "./pages/DecisionNewPage";
 import DecisionsPage from "./pages/DecisionsPage";
 import LoginPage from "./pages/LoginPage";
+import MeetingDetailPage from "./pages/MeetingDetailPage";
+import MeetingNewPage from "./pages/MeetingNewPage";
+import MeetingsPage from "./pages/MeetingsPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import ApprovalsPage from "./pages/ApprovalsPage";
 import ProjectCreatePage from "./pages/ProjectCreatePage";
 import ProjectsPage from "./pages/ProjectsPage";
 import QualityPage from "./pages/QualityPage";
+import TravelDetailPage from "./pages/TravelDetailPage";
+import TravelNewPage from "./pages/TravelNewPage";
+import TravelPage from "./pages/TravelPage";
 import WorkbenchPage from "./pages/WorkbenchPage";
 import ProjectSpacePage, { FutureTab } from "./pages/project/ProjectSpacePage";
 import OverviewTab from "./pages/project/OverviewTab";
@@ -22,6 +28,8 @@ import DecisionsTab from "./pages/project/DecisionsTab";
 import ReportsTab from "./pages/project/ReportsTab";
 import ArchiveTab from "./pages/project/ArchiveTab";
 import MembersTab from "./pages/project/MembersTab";
+import MeetingsTab from "./pages/project/MeetingsTab";
+import TravelTab from "./pages/project/TravelTab";
 
 /**
  * 路由表（迭代 1 工单 03）。
@@ -48,13 +56,19 @@ export default function App() {
           <Route path="reports" element={<ReportsTab />} />
           <Route path="archive" element={<ArchiveTab />} />
           <Route path="members" element={<MembersTab />} />
-          <Route path="meetings" element={<FutureTab label="会议" />} />
-          <Route path="travel" element={<FutureTab label="出差" />} />
+          <Route path="meetings" element={<MeetingsTab />} />
+          <Route path="travel" element={<TravelTab />} />
           <Route path="budget" element={<FutureTab label="预算经费" />} />
           <Route path="expenses" element={<FutureTab label="费用" />} />
           <Route path="timesheet" element={<FutureTab label="工时" />} />
           <Route path="*" element={<Navigate to="overview" replace />} />
         </Route>
+        <Route path="/meetings" element={<MeetingsPage />} />
+        <Route path="/meetings/new" element={<MeetingNewPage />} />
+        <Route path="/meetings/:meetingId" element={<MeetingDetailPage />} />
+        <Route path="/travel" element={<TravelPage />} />
+        <Route path="/travel/new" element={<TravelNewPage />} />
+        <Route path="/travel/:travelId" element={<TravelDetailPage />} />
         <Route path="/quality" element={<QualityPage />} />
         <Route path="/decisions" element={<DecisionsPage />} />
         <Route path="/decisions/new" element={<DecisionNewPage />} />
