@@ -108,6 +108,77 @@ describe("迭代 1 结转硬项（arch/05 §9：N4 / grant rejected / ON CONFLIC
     expect(trpcError(different).businessCode).toBe("STATE_CONFLICT");
   });
 
+  it("N4 补：并发同键双击败者 200 applied=false；步骤推进后同键顺序重放 200", async () => {
+    // 两步升级实例（预计费用达阈值）：seq1=pm，seq2=partner
+    const created = await trpc(app, "travel.create", {
+      cookie: memberCookie,
+      input: {
+        projectId: projectAId,
+        reason: "N4 双击败者与推进重放探测",
+        destination: "天津",
+        startOn: "2027-12-01",
+        endOn: "2027-12-02",
+        estimatedCostCents: 5_000_000,
+        segments: [{ seq: 1, type: "transport", startAt: "2027-12-01T01:00:00.000Z", endAt: "2027-12-01T04:00:00.000Z" }],
+      },
+    });
+    const travelId = (created.json as { result: { data: { id: string } } }).result.data.id;
+    const detail = await trpc(app, "travel.getById", { cookie: memberCookie, input: { id: travelId }, method: "GET" });
+    await trpc(app, "travel.submit", {
+      cookie: memberCookie,
+      input: {
+        id: travelId,
+        rowVersion: (detail.json as { result: { data: { rowVersion: number } } }).result.data.rowVersion,
+        idempotencyKey: crypto.randomUUID(),
+      },
+    });
+    const d2 = await trpc(app, "travel.getById", { cookie: memberCookie, input: { id: travelId }, method: "GET" });
+    const instanceId = (d2.json as { result: { data: { approvalInstance: { id: string } } } }).result.data.approvalInstance.id;
+
+    // ① 并发同键双击：Promise.all 同键同步骤，败者须 200 applied=false（非 409）
+    const sameKey = crypto.randomUUID();
+    const [winner, loser] = await Promise.all([
+      trpc(app, "approval.act", {
+        cookie: pmCookie,
+        input: { instanceId, stepSeq: 1, action: "approve", idempotencyKey: sameKey },
+      }),
+      trpc(app, "approval.act", {
+        cookie: pmCookie,
+        input: { instanceId, stepSeq: 1, action: "approve", idempotencyKey: sameKey },
+      }),
+    ]);
+    expect([winner.status, loser.status]).toEqual([200, 200]);
+    const appliedTrue = [winner, loser].filter(
+      (r) => (r.json as { result: { data: { applied: boolean } } }).result.data.applied === true,
+    ).length;
+    expect(appliedTrue).toBe(1); // 单生效
+    const loserApplied = [winner, loser].some(
+      (r) => (r.json as { result: { data: { applied: boolean } } }).result.data.applied === false,
+    );
+    expect(loserApplied).toBe(true); // 败者 200 + applied=false
+
+    // ② 步骤推进后的同键顺序重放：seq1 已用 key K 处理并推进到 seq2，再带 K 重放 seq1 → 200 applied=false
+    const replayAdvanced = await trpc(app, "approval.act", {
+      cookie: pmCookie,
+      input: { instanceId, stepSeq: 1, action: "approve", idempotencyKey: sameKey },
+    });
+    expect(replayAdvanced.status).toBe(200);
+    expect((replayAdvanced.json as { result: { data: { applied: boolean } } }).result.data.applied).toBe(false);
+
+    // 终态后异键重放仍为 409（语义不回归）
+    const step2 = await trpc(app, "approval.act", {
+      cookie: partnerCookie,
+      input: { instanceId, stepSeq: 2, action: "approve", idempotencyKey: crypto.randomUUID() },
+    });
+    expect(step2.status).toBe(200);
+    const stranger = await trpc(app, "approval.act", {
+      cookie: partnerCookie,
+      input: { instanceId, stepSeq: 2, action: "approve", idempotencyKey: crypto.randomUUID() },
+    });
+    expect(stranger.status).toBe(409);
+    expect(trpcError(stranger).businessCode).toBe("STATE_CONFLICT");
+  });
+
   it("grant 驳回落 rejected 态（arch/01 §3 v1.1）", async () => {
     const viewerCookie = (await loginAs(app, "viewer@lexflow.demo")).cookie;
     const viewerId = await me(app, viewerCookie);

@@ -260,23 +260,27 @@ export interface ActResult {
   applied: boolean;
 }
 
+/** N4：该幂等键是否已落在本实例任一步骤（重读库，供重放判定；判定时点值而非请求开始时点） */
+async function wasKeyActed(db: DbOrTx, instanceId: string, key: string | null | undefined): Promise<boolean> {
+  if (!key) return false;
+  const rows = await db
+    .select({ id: approvalSteps.id })
+    .from(approvalSteps)
+    .where(and(eq(approvalSteps.instanceId, instanceId), eq(approvalSteps.actedIdempotencyKey, key)))
+    .limit(1);
+  return rows.length > 0;
+}
+
+/** 有域专属终态事件的业务类型：引擎不再发通用 approval_result（arch 裁定 2026-10-27） */
+const BIZ_WITH_DOMAIN_RESULT_EVENT = new Set(["travel", "travel_change"]);
 export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
   const instance = await loadInstance(db, input.instanceId);
+  // N4 重放短路（arch/04 §4 v1.2）：该 key 已落在本实例任一步骤 → 200 applied=false。
+  // 先于终态/当前步校验：覆盖「步骤已推进后的同键顺序重放」与「并发同键双击败者」。
+  if (await wasKeyActed(db, instance.id, input.idempotencyKey)) {
+    return { instance, applied: false };
+  }
   if (instance.status !== "pending") {
-    // N4：终态实例上的同键重放 → 200 applied=false（按 acted_idempotency_key 识别）；异键 → 409
-    if (input.idempotencyKey) {
-      const acted = await db
-        .select({ id: approvalSteps.id })
-        .from(approvalSteps)
-        .where(
-          and(
-            eq(approvalSteps.instanceId, instance.id),
-            eq(approvalSteps.actedIdempotencyKey, input.idempotencyKey),
-          ),
-        )
-        .limit(1);
-      if (acted.length > 0) return { instance, applied: false };
-    }
     throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "审批实例已终态，不可再操作");
   }
   if (groupKey(instance.currentStepSeq) !== groupKey(input.stepSeq)) {
@@ -319,7 +323,7 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
       })
       .where(and(eq(approvalSteps.id, step.id), eq(approvalSteps.status, "pending")))
       .returning();
-    if (updated.length === 0) return replayOrConflict(db, step, input); // N4：同键 200，异键 409
+    if (updated.length === 0) return replayOrConflict(db, step.id, input, instance); // N4：重读再判，同键 200，异键 409
     return { instance, applied: true };
   }
 
@@ -342,7 +346,7 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
     .where(and(eq(approvalSteps.id, step.id), eq(approvalSteps.status, "pending")))
     .returning({ id: approvalSteps.id });
   if (acted.length === 0) {
-    return replayOrConflict(db, step, input);
+    return replayOrConflict(db, step.id, input, instance);
   }
 
   if (input.action === "reject") {
@@ -414,13 +418,16 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
   await finalize(db, instance, "approved");
   const handler = handlers.get(instance.bizType);
   if (handler) await handler.onApproved(db, instance);
-  await notify(db, {
-    eventType: "approval_result",
-    recipientId: instance.applicantId,
-    sourceType: bizSourceType(instance.bizType),
-    sourceId: instance.bizId,
-    payload: { approvalInstanceId: instance.id, result: "approved" },
-  });
+  if (!BIZ_WITH_DOMAIN_RESULT_EVENT.has(instance.bizType)) {
+    // 域专属终态事件由业务 handler 发送（如 travel_approval）；引擎只发无专属事件的业务
+    await notify(db, {
+      eventType: "approval_result",
+      recipientId: instance.applicantId,
+      sourceType: bizSourceType(instance.bizType),
+      sourceId: instance.bizId,
+      payload: { approvalInstanceId: instance.id, result: "approved" },
+    });
+  }
   return { instance: await loadInstance(db, instance.id), applied: true };
 }
 
@@ -450,12 +457,22 @@ export async function withdraw(db: DbOrTx, input: WithdrawInput): Promise<Approv
 
 async function replayOrConflict(
   db: DbOrTx,
-  step: { id: string; actedIdempotencyKey: string | null },
+  stepId: string,
   input: ActInput,
+  instance: ApprovalInstanceRow,
 ): Promise<ActResult> {
-  // N4：同键重放 → 200 返回现状（applied=false）；异键重放已处理步骤 → 409
+  // N4：条件更新影响 0 行 → 重读步骤行（判定时点值），并按「该 key 是否已落在本实例任一步骤」裁决：
+  // 已处理过（含并发同键双击败者）→ 200 applied=false；从未见过该 key 且步骤已处理 → 409。
+  const fresh = await db
+    .select({ actedIdempotencyKey: approvalSteps.actedIdempotencyKey })
+    .from(approvalSteps)
+    .where(eq(approvalSteps.id, stepId))
+    .limit(1);
   const current = await loadInstance(db, input.instanceId);
-  if (input.idempotencyKey && step.actedIdempotencyKey === input.idempotencyKey) {
+  if (input.idempotencyKey && (fresh[0]?.actedIdempotencyKey === input.idempotencyKey)) {
+    return { instance: current, applied: false };
+  }
+  if (await wasKeyActed(db, instance.id, input.idempotencyKey)) {
     return { instance: current, applied: false };
   }
   throw new BusinessError(
