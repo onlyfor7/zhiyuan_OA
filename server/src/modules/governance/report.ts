@@ -2,7 +2,7 @@ import { and, desc, eq, sql, type SQL } from "drizzle-orm";
 
 import { ERROR_CODE } from "@lexflow/shared";
 
-import { archiveDirectories, archiveLinks, changeRequests, decisions, qualityIssues, tasks, weeklyReports } from "../../db/schema";
+import { archiveDirectories, archiveLinks, changeRequests, decisions, expenseReports, qualityIssues, tasks, weeklyReports } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
 import { can, requireProjectRead } from "../../services/access";
@@ -79,6 +79,24 @@ async function aggregateContent(
     .where(eq(decisions.projectId, projectId))
     .limit(10);
 
+  // 本周费用节（arch/06 §8：本周已批准报销额/笔数，来源可溯）
+  const approvedExpenses = await db
+    .select({ code: expenseReports.code, totalCents: expenseReports.totalCents })
+    .from(expenseReports)
+    .where(
+      and(
+        sql`exists (SELECT 1 FROM expense_items ei WHERE ei.expense_report_id = ${expenseReports.id} AND ei.project_id = ${projectId})`,
+        sql`${expenseReports.status} in ('approved_pending_payment', 'paid')`,
+        sql`${expenseReports.updatedAt}::date BETWEEN ${periodStart}::date AND ${periodEnd}::date`,
+      ),
+    )
+    .groupBy(expenseReports.id, expenseReports.code, expenseReports.totalCents);
+  const expenseAmount = approvedExpenses.reduce((sum, e) => sum + Number(e.totalCents), 0);
+  const expensesSection =
+    approvedExpenses.length > 0
+      ? `本周已批准报销 ${approvedExpenses.length} 笔，合计 ${expenseAmount} 分（${approvedExpenses.map((e) => e.code).join("、")}）。`
+      : "本周无已批准报销。";
+
   return {
     progress: doneTasks.length
       ? `本周完成任务：${doneTasks.map((t) => t.title).join("；")}`
@@ -95,6 +113,7 @@ async function aggregateContent(
     ].join("；") || "本周无决策事项。",
     risks: quality.some((q) => q.status === "pending_review") ? "存在待复核质量问题，需关注。" : "",
     next_week: "",
+    expenses: expensesSection,
   };
 }
 

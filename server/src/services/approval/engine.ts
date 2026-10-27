@@ -16,7 +16,7 @@ import { notify } from "../../modules/notify";
  * countersign=all 且多候选人 → 展开为 seq=i*1000+j（j=1..N），组键=floor(seq/1000)。
  */
 
-export type BizType = "change_request" | "access_grant" | "travel" | "travel_change";
+export type BizType = "change_request" | "access_grant" | "travel" | "travel_change" | "budget" | "funding" | "expense" | "expense_adjustment";
 
 export interface ApprovalInstanceRow {
   id: string;
@@ -179,6 +179,8 @@ export interface SubmitInput {
   applicantId: string;
   formSnapshot: Record<string, unknown>;
   idempotencyKey: string;
+  /** 超预算 escalate 等场景追加的管理层步骤（arch/06 §4.4；加性参数，不影响既有调用） */
+  extraStepRoles?: string[];
 }
 
 export async function submit(db: DbOrTx, input: SubmitInput): Promise<ApprovalInstanceRow> {
@@ -192,6 +194,19 @@ export async function submit(db: DbOrTx, input: SubmitInput): Promise<ApprovalIn
 
   const policy = await resolvePolicy(db, input.bizType, input.formSnapshot);
   const steps = await resolveSteps(db, policy, input.projectId ?? null, input.applicantId);
+  // escalate：在策略步骤之后追加管理层步骤（原因已写入 formSnapshot）
+  for (const role of input.extraStepRoles ?? []) {
+    const candidates = (await resolveRoleCandidates(db, role, input.projectId ?? null)).filter(
+      (id) => id !== input.applicantId,
+    );
+    if (candidates.length === 0) {
+      throw new BusinessError(
+        ERROR_CODE.SELF_APPROVAL_BLOCKED,
+        `追加步骤（${role}）无可用审批人（申请人本人不可自审）`,
+      );
+    }
+    steps.push({ seq: steps.length + 1, countersign: "any", candidates, approverRole: role });
+  }
   const code = await nextCode("APR", db);
 
   const [instance] = await db

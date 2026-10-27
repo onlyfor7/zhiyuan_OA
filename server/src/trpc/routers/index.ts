@@ -17,6 +17,9 @@ import { dashboardRouter } from "./dashboard";
 import { auditRouter } from "./audit";
 import { meetingRouter } from "./meeting";
 import { travelRouter } from "./travel";
+import { budgetRouter } from "./budget";
+import { fundingRouter } from "./funding";
+import { expenseRouter } from "./expense";
 import { router } from "../trpc";
 
 /** AppRouter：前端经 `import type { AppRouter } from "@lexflow/server"` 消费推断类型 */
@@ -40,6 +43,9 @@ export const appRouter = router({
   audit: auditRouter,
   meeting: meetingRouter,
   travel: travelRouter,
+  budget: budgetRouter,
+  funding: fundingRouter,
+  expense: expenseRouter,
 });
 
 export type AppRouter = typeof appRouter;

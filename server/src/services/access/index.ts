@@ -1,7 +1,7 @@
 import { PERMISSION, ERROR_CODE, type AccessGrantScopeType } from "@lexflow/shared";
 import { and, eq, gt, isNull, or, sql, type SQL } from "drizzle-orm";
 
-import { accessGrants, fileObjects, fileVersions, projects } from "../../db/schema";
+import { accessGrants, expenseItems, expenseReports, fileObjects, fileVersions, projects } from "../../db/schema";
 import { BusinessError } from "../../lib/errors";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
@@ -118,6 +118,24 @@ export async function canReadFile(
     if (user.projectRoles.has(fileObject.sourceId)) return true;
     if (await hasActiveGrant(db, user.id, "project", fileObject.sourceId, PERMISSION.ARCHIVE_READ)) {
       return true;
+    }
+  }
+  // 费用票据分支（arch/06 §7：继承费用权限——申请人/财务/明细项目成员；不扩散法律内容权）
+  if (fileObject.sourceType === "expense" && fileObject.sourceId) {
+    if (user.globalRoles.includes("finance")) return true;
+    const hit = await db
+      .select({
+        applicantId: expenseReports.applicantId,
+        itemProjectId: expenseItems.projectId,
+      })
+      .from(expenseItems)
+      .innerJoin(fileVersions, eq(fileVersions.id, expenseItems.receiptFileVersionId))
+      .innerJoin(expenseReports, eq(expenseReports.id, expenseItems.expenseReportId))
+      .where(eq(fileVersions.fileObjectId, fileObjectId))
+      .limit(1);
+    if (hit[0]) {
+      if (hit[0].applicantId === user.id) return true;
+      if (user.projectRoles.has(hit[0].itemProjectId)) return true;
     }
   }
   return hasActiveGrant(db, user.id, "file", fileObjectId, PERMISSION.ARCHIVE_READ);

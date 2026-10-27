@@ -6,7 +6,11 @@ import {
   approvalInstances,
   approvalSteps,
   auditEvents,
+  budgets,
+  budgetLedger,
   decisions,
+  expenseReports,
+  fundingRequests,
   meetingMinutes,
   meetings,
   notifications,
@@ -283,6 +287,20 @@ export async function todoMine(db: DbOrTx, user: SessionUser) {
     .where(and(eq(meetings.minutesStatus, "pending_confirm"), eq(meetingMinutes.confirmerId, user.id)))
     .limit(20);
 
+  // 我的申请状态卡（arch/06 §8：funding/expense mine 摘要）
+  const myFundings = await db
+    .select({ id: fundingRequests.id, code: fundingRequests.code, status: fundingRequests.approvalStatus, amountCents: fundingRequests.amountCents })
+    .from(fundingRequests)
+    .where(eq(fundingRequests.applicantId, user.id))
+    .orderBy(desc(fundingRequests.createdAt))
+    .limit(5);
+  const myExpenses = await db
+    .select({ id: expenseReports.id, code: expenseReports.code, status: expenseReports.status, totalCents: expenseReports.totalCents })
+    .from(expenseReports)
+    .where(eq(expenseReports.applicantId, user.id))
+    .orderBy(desc(expenseReports.createdAt))
+    .limit(5);
+
   const grantsToHandle = await db
     .select({
       id: approvalInstances.id,
@@ -349,6 +367,22 @@ export async function todoMine(db: DbOrTx, user: SessionUser) {
       code: m.code,
       title: `待确认纪要：${m.title}`,
       projectId: m.projectId,
+    })),
+    ...myFundings.map((f) => ({
+      kind: "funding_mine" as const,
+      id: f.id,
+      code: f.code,
+      title: `我的经费申请 ${f.code}（${f.status}）`,
+      projectId: null,
+      amountCents: f.amountCents,
+    })),
+    ...myExpenses.map((e) => ({
+      kind: "expense_mine" as const,
+      id: e.id,
+      code: e.code,
+      title: `我的报销 ${e.code}（${e.status}）`,
+      projectId: null,
+      amountCents: e.totalCents,
     })),
     ...grantsToHandle.map((g) => ({
       kind: "grant_handle" as const,
@@ -438,6 +472,27 @@ export async function dashboardSummary(db: DbOrTx, user: SessionUser) {
       ),
     );
 
+  // 财务摘要（arch/06 §8：角色过滤，成员不见）
+  let financeSummary: { effectiveBudgetCents: number; actualCents: number; reservedCents: number } | null = null;
+  if (user.globalRoles.includes("partner") || user.globalRoles.includes("finance")) {
+    const finRows = await db
+      .select({ effective: sql<number>`coalesce(sum(${budgets.totalCents}), 0)::bigint` })
+      .from(budgets)
+      .where(and(eq(budgets.status, "active"), sql`${budgets.projectId} IN (SELECT id FROM projects WHERE ${scope})`));
+    const ledRows = await db
+      .select({
+        reserved: sql<number>`coalesce(sum(${budgetLedger.reservedDeltaCents}), 0)::bigint`,
+        actual: sql<number>`coalesce(sum(${budgetLedger.actualDeltaCents}), 0)::bigint`,
+      })
+      .from(budgetLedger)
+      .where(sql`${budgetLedger.projectId} IN (SELECT id FROM projects WHERE ${scope})`);
+    financeSummary = {
+      effectiveBudgetCents: Number(finRows[0].effective),
+      reservedCents: Number(ledRows[0].reserved),
+      actualCents: Number(ledRows[0].actual),
+    };
+  }
+
   return {
     asOf: nowIso(),
     projects: pulse,
@@ -446,6 +501,7 @@ export async function dashboardSummary(db: DbOrTx, user: SessionUser) {
     blockingQuality: blockingQuality.n,
     weeklyMeetings: weeklyMeetings.n,
     travelingCount: traveling.n,
+    financeSummary,
   };
 }
 

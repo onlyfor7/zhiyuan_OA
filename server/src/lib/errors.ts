@@ -30,11 +30,14 @@ export interface FieldErrors {
 export class BusinessError extends TRPCError {
   readonly businessCode: ErrorCode;
   readonly fieldErrors?: FieldErrors;
+  /** 错误数据载体（如 DUPLICATE_RECEIPT 的原报销定位 code/id），随 data.details 输出 */
+  readonly details?: Record<string, unknown>;
 
-  constructor(code: ErrorCode, message: string, fieldErrors?: FieldErrors) {
+  constructor(code: ErrorCode, message: string, fieldErrors?: FieldErrors, details?: Record<string, unknown>) {
     super({ code: TRPC_CODE_BY_BUSINESS[code], message });
     this.businessCode = code;
     this.fieldErrors = fieldErrors;
+    this.details = details;
     // tRPC v11 结果流中 error.cause 在传导中丢失：formatter 同时认 error/cause 两种入口
     Object.defineProperty(this, "cause", { value: this, configurable: true, writable: true });
     Object.setPrototypeOf(this, BusinessError.prototype);
@@ -109,6 +112,7 @@ export function formatTrpcError(opts: {
       businessCode,
       requestId,
       ...(fieldErrors ? { fieldErrors } : {}),
+      ...(cause instanceof BusinessError && cause.details ? { details: cause.details } : {}),
     },
   };
 }

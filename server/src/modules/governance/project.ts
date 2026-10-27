@@ -24,6 +24,8 @@ import { recordAudit } from "../../services/audit";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
 import { nowIso } from "./util";
+import { aggregateProject } from "../../services/ledger/record";
+import { canFinanceSummary } from "../finance/budget";
 
 /**
  * 项目域 service（arch/04 §5 project.*）：
@@ -352,6 +354,12 @@ export async function projectOverview(db: DbOrTx, user: SessionUser, projectId: 
     .where(eq(projects.id, projectId))
     .limit(1);
 
+  // 财务摘要（arch/06 §8）：仅 pm/partner/finance 可见；成员默认不见（E2E-12）
+  let budgetSummary: Awaited<ReturnType<typeof aggregateProject>> | null = null;
+  if (canFinanceSummary(user, projectId)) {
+    budgetSummary = await aggregateProject(db, projectId);
+  }
+
   return {
     project: project ?? null,
     tasks: taskCounts,
@@ -361,6 +369,7 @@ export async function projectOverview(db: DbOrTx, user: SessionUser, projectId: 
     members: members.n,
     pendingApprovals: pendingApprovals.n,
     myRole: user.projectRoles.get(projectId) ?? null,
+    budgetSummary,
   };
 }
 

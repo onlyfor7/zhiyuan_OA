@@ -112,7 +112,8 @@ export async function linkSourceToDirectory(
   input: {
     projectId: string;
     directoryId: string;
-    sourceType: "report" | "meeting" | "travel";
+    /** 二态约束：fv 空时仅 report/meeting/travel 合法；fv 非空时任意来源对合法 */
+    sourceType: "report" | "meeting" | "travel" | "funding" | "expense";
     sourceId: string;
     fileVersionId?: string | null;
     createdBy?: string | null;
@@ -137,7 +138,7 @@ export async function linkSourceByDirKey(
   input: {
     projectId: string;
     dirKey: string;
-    sourceType: "report" | "meeting" | "travel";
+    sourceType: "report" | "meeting" | "travel" | "funding" | "expense";
     sourceId: string;
     fileVersionId?: string | null;
     createdBy?: string | null;
@@ -163,7 +164,8 @@ export async function linkMaterialFiles(
   input: {
     projectId: string;
     dirKey: string;
-    sourceType: "meeting" | "travel";
+    /** fv 非空来源对不受二态约束限制（meeting/travel/funding/expense 均可） */
+    sourceType: "meeting" | "travel" | "funding" | "expense";
     sourceId: string;
     createdBy?: string | null;
   },
