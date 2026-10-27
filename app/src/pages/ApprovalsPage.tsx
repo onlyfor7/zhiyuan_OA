@@ -10,6 +10,7 @@ import {
 } from "../lib/labels";
 import type { RouterOutputs } from "../lib/trpc";
 import { useRail } from "../components/shell-rail";
+import { UserPicker } from "../components/UserPicker";
 
 type MineItem = RouterOutputs["approval"]["listMine"]["items"][number];
 type AppliedItem = RouterOutputs["approval"]["listMineApplied"]["items"][number];
@@ -38,8 +39,9 @@ function ApprovalRail() {
 
 function ActPanel({ item }: { item: MineItem }) {
   const act = useApprovalAct();
-  const [action, setAction] = useState<"approve" | "reject" | null>(null);
+  const [action, setAction] = useState<"approve" | "reject" | "transfer" | null>(null);
   const [comment, setComment] = useState("");
+  const [transferTo, setTransferTo] = useState("");
   const [idemKey] = useState(newIdempotencyKey);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,21 +66,38 @@ function ActPanel({ item }: { item: MineItem }) {
             <X size={15} />
             驳回
           </button>
-          <span className="context-note">转交需要用户目录契约（STATUS 待裁定），暂不开放。</span>
+          <button className="secondary-action" onClick={() => setAction("transfer")}>
+            <ChevronRight size={15} />
+            转交
+          </button>
         </div>
       ) : (
         <div className="act-form">
+          {action === "transfer" ? (
+            <div className="form-field">
+              <span>转交给 *</span>
+              <UserPicker value={transferTo} onChange={setTransferTo} />
+            </div>
+          ) : null}
           <textarea
             rows={2}
             value={comment}
-            placeholder={action === "reject" ? "驳回理由（必填）" : "审批意见（选填）"}
+            placeholder={
+              action === "reject"
+                ? "驳回理由（必填）"
+                : action === "transfer"
+                  ? "转交说明（选填）"
+                  : "审批意见（选填）"
+            }
             onChange={(e) => setComment(e.target.value)}
           />
           <div className="row-ops">
             <button
               className={action === "approve" ? "primary-action" : "secondary-action"}
               disabled={
-                act.isPending || (action === "reject" && !comment.trim())
+                act.isPending ||
+                (action === "reject" && !comment.trim()) ||
+                (action === "transfer" && !transferTo)
               }
               onClick={() => {
                 setError(null);
@@ -89,6 +108,7 @@ function ActPanel({ item }: { item: MineItem }) {
                     stepSeq: item.step.seq,
                     action,
                     comment: comment.trim() || undefined,
+                    transferTo: action === "transfer" ? transferTo : undefined,
                     idempotencyKey: idemKey,
                   },
                   {
@@ -104,7 +124,13 @@ function ActPanel({ item }: { item: MineItem }) {
               }}
             >
               <Send size={15} />
-              {act.isPending ? "提交中…" : action === "approve" ? "确认通过" : "确认驳回"}
+              {act.isPending
+                ? "提交中…"
+                : action === "approve"
+                  ? "确认通过"
+                  : action === "reject"
+                    ? "确认驳回"
+                    : "确认转交"}
             </button>
             <button className="text-action" onClick={() => setAction(null)}>
               取消

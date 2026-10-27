@@ -4,7 +4,7 @@ import { ChevronRight, ShieldCheck } from "lucide-react";
 import { PROJECT_HEALTH_STATUS, PROJECT_LIFECYCLE_STATUS } from "@lexflow/shared";
 
 import { useProjectList } from "../api/project";
-import { useRail } from "../components/shell-rail";
+import { useRail, useShell } from "../components/shell-rail";
 import type { ProjectListFilters } from "../lib/trpc";
 import { formatDateTime } from "../lib/trpc";
 import { CONFIDENTIALITY_LABEL, HEALTH_LABEL, LIFECYCLE_LABEL } from "../lib/labels";
@@ -32,6 +32,8 @@ function ProjectsRail() {
 export default function ProjectsPage() {
   useRail(ProjectsRail);
   const navigate = useNavigate();
+  const { me } = useShell();
+  const canCreateProject = me.globalRoles.includes("partner") || me.globalRoles.includes("sysadmin");
   const [keywordInput, setKeywordInput] = useState("");
   const [filters, setFilters] = useState<ProjectListFilters>({});
   const [limit, setLimit] = useState(20);
@@ -52,9 +54,11 @@ export default function ProjectsPage() {
           <h1>项目全周期</h1>
           <p>你权限范围内的全部项目；筛选与分页由服务端执行。</p>
         </div>
-        <Link to="/projects/new" className="primary-action">
-          新建项目
-        </Link>
+        {canCreateProject ? (
+          <Link to="/projects/new" className="primary-action">
+            新建项目
+          </Link>
+        ) : null}
       </div>
       <div className="quality-toolbar projects-toolbar">
         <div className="inline-search">

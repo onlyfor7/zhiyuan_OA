@@ -66,7 +66,7 @@ export function SimulatePanel({
               <option value="">选择计划项</option>
               {items.map((i) => (
                 <option key={i.id} value={i.id}>
-                  {PLAN_ITEM_TYPE_LABEL[i.itemType]} #{i.seq}（{i.plannedStart} ~ {i.plannedEnd}）
+                  {PLAN_ITEM_TYPE_LABEL[i.itemType]} · {i.name}（{i.plannedStart} ~ {i.plannedEnd}）
                 </option>
               ))}
             </select>
@@ -136,7 +136,7 @@ export function SimulatePanel({
               .filter((i) => i.cascaded || i.simulatedStart !== i.originalStart || i.simulatedEnd !== i.originalEnd)
               .map((i) => (
                 <li key={i.id}>
-                  {PLAN_ITEM_TYPE_LABEL[i.itemType]} #{i.seq}：{i.originalStart}~{i.originalEnd} →{" "}
+                  {PLAN_ITEM_TYPE_LABEL[i.itemType]} · {i.name}：{i.originalStart}~{i.originalEnd} →{" "}
                   {i.simulatedStart}~{i.simulatedEnd}
                   {i.cascaded ? "（级联）" : ""}
                 </li>

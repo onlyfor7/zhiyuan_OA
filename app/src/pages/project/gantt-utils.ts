@@ -1,8 +1,9 @@
 import { PLAN_ITEM_TYPE_LABEL } from "../../lib/labels";
 import type { RouterOutputs } from "../../lib/trpc";
 
-type PlanVersionDetail = RouterOutputs["plan"]["current"];
-type TaskItem = RouterOutputs["task"]["list"]["items"][number];
+type PlanCurrent = RouterOutputs["plan"]["current"];
+type PlanItems = Pick<PlanCurrent, "items">;
+type LiveTracks = Pick<PlanCurrent, "stages" | "milestones" | "tasks">;
 type SimItem = RouterOutputs["plan"]["simulate"]["items"][number];
 
 export interface GanttRow {
@@ -24,38 +25,60 @@ export interface GanttRow {
   simulatedEnd?: string;
 }
 
-/** 将 plan items 与任务 live 数据合成为三轨行；阶段/里程碑暂无名称契约（STATUS 待裁定），以类型+序号呈现 */
+/**
+ * 三轨合成（arch/04 §5 v1.1）：items[].name 为版本时点快照名；
+ * 实际轨取 plan.current 输出的 stages/milestones/tasks live actual_*（不绕 task.list）。
+ */
 export function buildGanttRows(args: {
-  current: Pick<PlanVersionDetail, "items">;
-  baseline: Pick<PlanVersionDetail, "items"> | null;
-  tasks: TaskItem[];
+  current: PlanItems;
+  baseline: PlanItems | null;
+  live?: LiveTracks;
   simulateItems?: SimItem[];
 }): GanttRow[] {
-  const { current, baseline, tasks, simulateItems } = args;
-  const taskById = new Map(tasks.map((t) => [t.id, t]));
+  const { current, baseline, live, simulateItems } = args;
   const baseByRef = new Map((baseline?.items ?? []).map((i) => [`${i.itemType}:${i.refId}`, i]));
   const simByRef = new Map((simulateItems ?? []).map((i) => [`${i.itemType}:${i.refId}`, i]));
+
+  const stageById = new Map((live?.stages ?? []).map((s) => [s.id, s]));
+  const milestoneById = new Map((live?.milestones ?? []).map((m) => [m.id, m]));
+  const taskById = new Map((live?.tasks ?? []).map((t) => [t.id, t]));
+
   return current.items.map((item) => {
     const base = baseByRef.get(`${item.itemType}:${item.refId}`);
     const sim = simByRef.get(`${item.itemType}:${item.refId}`);
-    const task = item.itemType === "task" ? taskById.get(item.refId) : undefined;
-    const name =
-      item.itemType === "task"
-        ? (task?.title ?? `任务 ${item.refId.slice(0, 6)}`)
-        : `${PLAN_ITEM_TYPE_LABEL[item.itemType]} #${item.seq}`;
+    const fallback = `${PLAN_ITEM_TYPE_LABEL[item.itemType]} #${item.seq}`;
+    let actualStart: string | null = null;
+    let actualEnd: string | null = null;
+    let status = "";
+    if (item.itemType === "stage") {
+      const stage = stageById.get(item.refId);
+      actualStart = stage?.actualStart ?? null;
+      actualEnd = stage?.actualEnd ?? null;
+      status = stage?.status ?? "";
+    } else if (item.itemType === "milestone") {
+      const milestone = milestoneById.get(item.refId);
+      actualStart = milestone?.actualDate ?? null;
+      actualEnd = milestone?.actualDate ?? null;
+      status = milestone?.status ?? "";
+    } else {
+      const task = taskById.get(item.refId);
+      actualStart = task?.actualStart?.slice(0, 10) ?? null;
+      actualEnd = task?.actualEnd?.slice(0, 10) ?? null;
+      status = task?.status ?? "";
+    }
     return {
       key: item.id,
       itemType: item.itemType,
       refId: item.refId,
       seq: item.seq,
-      name,
+      name: item.name?.trim() ? item.name : fallback,
       baselineStart: base?.plannedStart ?? null,
       baselineEnd: base?.plannedEnd ?? null,
       currentStart: item.plannedStart,
       currentEnd: item.plannedEnd,
-      actualStart: task?.actualStart?.slice(0, 10) ?? null,
-      actualEnd: task?.actualEnd?.slice(0, 10) ?? null,
-      status: task?.status ?? "",
+      actualStart,
+      actualEnd,
+      status,
       dependsOn: item.dependsOn,
       cascaded: sim?.cascaded,
       simulatedStart: sim?.simulatedStart,

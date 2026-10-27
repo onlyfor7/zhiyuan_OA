@@ -726,3 +726,88 @@
     display: none;
   }
 }
+
+/* —— 工单 03b：选择器与表单补全 —— */
+.user-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.user-picker select {
+  height: 34px;
+  border: 1px solid #cbd2db;
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 4px;
+  padding: 0 8px;
+  font-size: 10px;
+}
+.picker-note {
+  font-size: 9px;
+  color: var(--muted);
+}
+.member-add-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.6fr) minmax(140px, 0.8fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 12px;
+}
+.member-add-row select {
+  height: 34px;
+  border: 1px solid #cbd2db;
+  border-radius: 4px;
+  font-size: 10px;
+  padding: 0 8px;
+  background: var(--surface);
+}
+.grant-apply-form {
+  border: 1px solid #cfd5dd;
+  background: var(--surface);
+  padding: 16px;
+  margin: 12px 0;
+}
+.audit-actor-field {
+  min-width: 220px;
+}
+.audit-actor-field .user-picker {
+  gap: 0;
+}
+
+@media (max-width: 820px) {
+  .member-add-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .create-form .owner-line,
+  .grant-apply-form .owner-line {
+    grid-template-columns: 1fr;
+  }
+  .create-form .form-field input,
+  .create-form .form-field select,
+  .grant-apply-form .form-field input,
+  .grant-apply-form .form-field select {
+    min-width: 0;
+  }
+  .template-grid {
+    grid-template-columns: 1fr;
+  }
+  .audit-actor-field {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+}
+
+@media (max-width: 820px) {
+  .member-panel {
+    overflow-x: auto;
+  }
+  .member-head,
+  .member-row {
+    min-width: 560px;
+  }
+}

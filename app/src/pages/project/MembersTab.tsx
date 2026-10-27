@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { UserMinus } from "lucide-react";
+import { UserMinus, UserPlus } from "lucide-react";
 
 import { useMemberMutations, useProjectMembers } from "../../api/project";
 import { PROJECT_ROLE_LABEL } from "../../lib/labels";
 import { rootErrorMessage } from "../../lib/form";
+import { UserPicker } from "../../components/UserPicker";
 import { useSpaceParams } from "./space-context";
 
 const ROLE_OPTIONS = ["manager", "member", "key_member"];
@@ -14,6 +15,9 @@ export default function MembersTab() {
   const members = useProjectMembers(projectId);
   const mutations = useMemberMutations();
   const [error, setError] = useState<string | null>(null);
+  const [addUserId, setAddUserId] = useState("");
+  const [addRole, setAddRole] = useState("member");
+  const existingIds = new Set((members.data ?? []).map((m) => m.userId));
 
   if (members.isPending) return <p className="list-note">正在加载成员…</p>;
   if (members.isError) throw members.error;
@@ -81,12 +85,45 @@ export default function MembersTab() {
           </p>
         ) : null}
       </section>
-      <section className="member-add pending-contract">
+      <section className="member-add">
         <span className="section-label">ADD MEMBER</span>
         <h2>新增成员</h2>
-        <p className="context-note">
-          成员新增需要用户目录查询契约（user.list），已在 STATUS「偏差与仲裁」登记待架构裁定；补齐前此入口暂停，避免硬编码或猜测用户标识。
-        </p>
+        <div className="member-add-row">
+          <UserPicker
+            value={addUserId}
+            onChange={setAddUserId}
+            placeholder="搜索姓名、邮箱或部门"
+          />
+          <select value={addRole} aria-label="项目角色" onChange={(e) => setAddRole(e.target.value)}>
+            {ROLE_OPTIONS.map((role) => (
+              <option key={role} value={role}>
+                {PROJECT_ROLE_LABEL[role] ?? role}
+              </option>
+            ))}
+          </select>
+          <button
+            className="primary-action"
+            disabled={!addUserId || mutations.add.isPending}
+            onClick={() => {
+              if (existingIds.has(addUserId)) {
+                setError("该用户已是项目成员。");
+                return;
+              }
+              setError(null);
+              mutations.add.mutate(
+                { projectId, userId: addUserId, projectRole: addRole },
+                {
+                  onSuccess: () => setAddUserId(""),
+                  onError: (err) => setError(rootErrorMessage(err)),
+                },
+              );
+            }}
+          >
+            <UserPlus size={15} />
+            添加
+          </button>
+        </div>
+        <p className="context-note">成员调整后，其项目内权限即时生效；服务端 project.manage 强制校验。</p>
       </section>
     </div>
   );

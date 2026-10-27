@@ -143,7 +143,7 @@ export function ChangeCreateForm({
                   <option value="">选择计划项</option>
                   {planItems.map((i) => (
                     <option key={i.id} value={i.id}>
-                      {PLAN_ITEM_TYPE_LABEL[i.itemType]} #{i.seq}（原 {i.plannedStart} ~ {i.plannedEnd}）
+                      {PLAN_ITEM_TYPE_LABEL[i.itemType]} · {i.name}（原 {i.plannedStart} ~ {i.plannedEnd}）
                     </option>
                   ))}
                 </select>

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "../lib/trpc";
 
 export interface AuditFilters {
+  actorId?: string;
   action?: string;
   targetType?: string;
   from?: string;
@@ -15,6 +16,7 @@ export function useAuditList(filters: AuditFilters) {
   return useQuery(
     trpc.audit.list.queryOptions({
       limit: 50,
+      actorId: filters.actorId || undefined,
       action: filters.action || undefined,
       targetType: filters.targetType || undefined,
       from: filters.from || undefined,

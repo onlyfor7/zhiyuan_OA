@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import { Download, Eye, FileText, Folder, FolderOpen, Link2, Upload } from "lucide-react";
+import { Download, Eye, FileText, Folder, FolderOpen, Link2, Plus, Upload } from "lucide-react";
+import { ACCESS_GRANT_SCOPE_TYPE } from "@lexflow/shared";
 
 import {
   fileDownloadUrl,
@@ -13,6 +14,7 @@ import {
 import { newIdempotencyKey, rootErrorMessage } from "../../lib/form";
 import { GRANT_STATUS_LABEL } from "../../lib/labels";
 import type { RouterOutputs } from "../../lib/trpc";
+import { UserPicker } from "../../components/UserPicker";
 import { useSpaceParams } from "./space-context";
 
 type DirRow = RouterOutputs["archive"]["tree"][number];
@@ -132,9 +134,110 @@ function DirectoryView({ dir }: { dir: DirRow }) {
   );
 }
 
+function GrantApplyForm({ onDone }: { onDone: () => void }) {
+  const { projectId } = useSpaceParams();
+  const mutations = useArchiveMutations();
+  const [granteeId, setGranteeId] = useState("");
+  const [scopeType, setScopeType] = useState<(typeof ACCESS_GRANT_SCOPE_TYPE)[number]>("project");
+  const [scopeId, setScopeId] = useState(projectId);
+  const [actions, setActions] = useState<string[]>(["read"]);
+  const [expiresAt, setExpiresAt] = useState("");
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [idemKey] = useState(newIdempotencyKey);
+
+  const toggleAction = (a: string) =>
+    setActions((prev) => (prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]));
+
+  const canSubmit = granteeId && scopeId.trim() && actions.length > 0 && reason.trim();
+
+  return (
+    <div className="grant-apply-form">
+      <div className="owner-line">
+        <label className="form-field">
+          <span>被授权人 *</span>
+          <UserPicker value={granteeId} onChange={setGranteeId} />
+        </label>
+        <label className="form-field">
+          <span>授权范围类型 *</span>
+          <select value={scopeType} onChange={(e) => setScopeType(e.target.value as never)}>
+            {ACCESS_GRANT_SCOPE_TYPE.map((t) => (
+              <option key={t} value={t}>
+                {t === "project" ? "项目" : t === "file" ? "文件" : t === "report" ? "报告" : "目录"}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <label className="form-field">
+        <span>范围对象 ID *{scopeType === "project" ? "（默认当前项目）" : ""}</span>
+        <input value={scopeId} onChange={(e) => setScopeId(e.target.value)} />
+      </label>
+      <div className="form-field">
+        <span>允许动作 *</span>
+        <label className="check-field compact">
+          <input type="checkbox" checked={actions.includes("read")} onChange={() => toggleAction("read")} />
+          在线查看（read）
+        </label>
+        <label className="check-field compact">
+          <input type="checkbox" checked={actions.includes("download")} onChange={() => toggleAction("download")} />
+          下载（download）
+        </label>
+      </div>
+      <div className="owner-line">
+        <label className="form-field">
+          <span>授权到期日（留空为长期）</span>
+          <input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+        </label>
+        <label className="form-field span-2">
+          <span>申请理由 *</span>
+          <textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
+        </label>
+      </div>
+      <div className="drawer-note">授权申请提交后进入档案管理员审批（archivist），通过即生效；到期或撤销即时失效。</div>
+      {error ? (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div className="drawer-actions">
+        <button className="secondary-action" onClick={onDone}>
+          取消
+        </button>
+        <button
+          className="primary-action"
+          disabled={!canSubmit || mutations.grantApply.isPending}
+          onClick={() => {
+            setError(null);
+            mutations.grantApply.mutate(
+              {
+                scopeType,
+                scopeId: scopeId.trim(),
+                granteeId,
+                actions,
+                expiresAt: expiresAt || null,
+                reason: reason.trim(),
+                idempotencyKey: idemKey,
+              },
+              {
+                onSuccess: onDone,
+                onError: (err) => setError(rootErrorMessage(err)),
+              },
+            );
+          }}
+        >
+          {mutations.grantApply.isPending ? "提交中…" : "提交授权申请"}
+          <Plus size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function GrantPanel() {
   const grants = useGrantList();
   const mutations = useArchiveMutations();
+  const [applyOpen, setApplyOpen] = useState(false);
   const [revokeFor, setRevokeFor] = useState<string | null>(null);
   const [revokeReason, setRevokeReason] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -149,12 +252,12 @@ function GrantPanel() {
           <span className="section-label">ACCESS GRANTS</span>
           <h2>档案授权（{grants.data.length}）</h2>
         </div>
+        <button className="secondary-action" onClick={() => setApplyOpen((v) => !v)}>
+          <Plus size={15} />
+          申请授权
+        </button>
       </div>
-      <div className="pending-contract inline-pending">
-        <p className="context-note">
-          新增授权申请需要用户目录契约（user.list）选择被授权人，已在 STATUS 登记待裁定；补齐前申请入口暂停，撤销与查看不受影响。
-        </p>
-      </div>
+      {applyOpen ? <GrantApplyForm onDone={() => setApplyOpen(false)} /> : null}
       {grants.data.length === 0 ? (
         <p className="list-note">暂无授权记录。</p>
       ) : (

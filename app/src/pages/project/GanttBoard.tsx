@@ -189,7 +189,7 @@ export function GanttBoard({
         </div>
         <div>
           <span className="legend-line actual" />
-          实际（任务 live）
+          实际（live）
         </div>
       </div>
     </div>

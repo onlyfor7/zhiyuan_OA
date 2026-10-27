@@ -9,7 +9,6 @@ import {
   usePlanVersions,
   type PlanAdjustment,
 } from "../../api/plan";
-import { useTaskList } from "../../api/task";
 import { GanttBoard } from "./GanttBoard";
 import { buildGanttRows } from "./gantt-utils";
 import { SimulatePanel } from "./SimulatePanel";
@@ -26,7 +25,6 @@ export default function PlanTab() {
   const { projectId } = useSpaceParams();
   const versions = usePlanVersions(projectId);
   const current = usePlanCurrent(projectId);
-  const tasks = useTaskList({ projectId });
   const transitions = usePlanTransitions();
   const [simOpen, setSimOpen] = useState(false);
   const [simAdjustments, setSimAdjustments] = useState<PlanAdjustment[]>([]);
@@ -40,17 +38,16 @@ export default function PlanTab() {
   }, [versions.data]);
   const baselineDetail = usePlanVersion(baselineMeta && baselineMeta.id !== current.data?.id ? baselineMeta.id : null);
 
-  if (versions.isPending || current.isPending || tasks.isPending) {
+  if (versions.isPending || current.isPending) {
     return <p className="list-note">正在加载计划…</p>;
   }
   if (versions.isError) throw versions.error;
   if (current.isError) throw current.error;
-  if (tasks.isError) throw tasks.error;
 
   const rows = buildGanttRows({
     current: current.data,
     baseline: baselineDetail.data ?? null,
-    tasks: tasks.data.items,
+    live: current.data,
     simulateItems: simulate.data?.items,
   });
 

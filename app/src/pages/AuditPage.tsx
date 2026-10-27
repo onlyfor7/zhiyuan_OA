@@ -4,6 +4,7 @@ import { History } from "lucide-react";
 import { useAuditList, type AuditFilters } from "../api/audit";
 import { useRail } from "../components/shell-rail";
 import { isAccessDeniedOrGone } from "../lib/trpc";
+import { UserPicker } from "../components/UserPicker";
 
 const TARGET_TYPES = [
   ["", "全部对象"],
@@ -34,7 +35,7 @@ function AuditRail() {
       </div>
       <div className="assurance">
         <History size={16} />
-        <span>操作者筛选需要用户目录契约（STATUS 待裁定），当前提供对象/动作/时间范围筛选。</span>
+        <span>操作者/对象/动作/时间筛选均由服务端执行；未授权访问与不存在同形。</span>
       </div>
     </aside>
   );
@@ -62,6 +63,13 @@ export default function AuditPage() {
         </div>
       </div>
       <div className="quality-toolbar">
+        <div className="audit-actor-field">
+          <UserPicker
+            value={draft.actorId ?? ""}
+            onChange={(v) => setDraft((p) => ({ ...p, actorId: v }))}
+            placeholder="按操作者筛选"
+          />
+        </div>
         <div className="inline-search">
           <input
             value={draft.action ?? ""}
