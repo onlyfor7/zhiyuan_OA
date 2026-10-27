@@ -13,6 +13,7 @@ import { SYSTEM_CONFIG_DEFAULTS } from "./config-defaults";
 import { seedCollab } from "./collab";
 import { seedFinance } from "./finance";
 import { seedGovernance } from "./governance";
+import { seedTime } from "./time";
 
 type DbOrTx =
   | NodePgDatabase<typeof schema>
@@ -287,6 +288,9 @@ async function seedSchema(databaseUrl: string): Promise<void> {
 
       // 迭代 3 财务域种子（预算/经费/报销/台账，台账分录与预算经费自洽——五公式可重算）
       await seedFinance(tx);
+
+      // 迭代 4 工时域种子（timesheet 策略/默认审批人配置/draft/approved/locked 三周期演示态）
+      await seedTime(tx);
 
       // 编号序列水位对齐到种子最大序号，避免后续 next_code 撞号
       await tx.execute(

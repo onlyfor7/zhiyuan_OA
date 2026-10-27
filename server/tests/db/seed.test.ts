@@ -34,8 +34,8 @@ describe("种子幂等与验收布局", () => {
     expect(first.matters).toBe(2);
     expect(first.projects).toBe(3);
     expect(first.project_members).toBe(8); // 4 + 2 + 2
-    expect(first.system_config).toBe(12); // 需求基线 §18 全量
-    expect(first.code_sequences).toBe(16); // 12 + BUD/FND/EXP/LED
+    expect(first.system_config).toBe(13); // 需求基线 §18 全量 12 项 + timesheet.default_approver（arch/07 §4.2）
+    expect(first.code_sequences).toBe(17); // 16 + TS
   });
 
   it("验收场景布局：pm 负责 A/B、member 仅在 A、C 对二者不可见", async () => {

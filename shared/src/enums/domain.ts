@@ -33,7 +33,7 @@ export type SourceType = (typeof SOURCE_TYPE)[number];
 export const APPROVAL_ACTION = ["submit", "approve", "reject", "withdraw", "transfer", "delegate", "countersign"] as const;
 export type ApprovalAction = (typeof APPROVAL_ACTION)[number];
 
-/** 工时活动类型（需求基线 TIM-002） */
+/** 工时活动类型（需求基线 TIM-002；arch/02 §3.1 v1.1 冻结六值） */
 export const TIME_ACTIVITY_TYPE = [
   "professional_work",
   "meeting",
@@ -43,6 +43,10 @@ export const TIME_ACTIVITY_TYPE = [
   "other",
 ] as const;
 export type TimeActivityType = (typeof TIME_ACTIVITY_TYPE)[number];
+
+/** 工时明细来源（arch/07 §2：预填/复制一律草稿态，不计有效工时） */
+export const TIME_ENTRY_SOURCE = ["manual", "prefill_meeting", "prefill_travel", "copy"] as const;
+export type TimeEntrySource = (typeof TIME_ENTRY_SOURCE)[number];
 
 /** 通知事件类型（需求基线 §12.2，arch/02 §3.1 v1.1 冻结；arch/04 §6 增补 7 值；arch/05 §6 增补 1 值） */
 export const NOTIFICATION_EVENT_TYPE = [

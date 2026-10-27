@@ -363,8 +363,9 @@ export const archiveDirectories = pgTable(
 );
 
 /**
- * 档案归集链接（arch/04 §2.8；arch/05 §2.2 放宽：fv 空时 source_type ∈ report/meeting/travel）。
- * 二态：文件链接（file_version_id 非空 + 非 report 来源对）或结构化对象链接（fv 空 + 来源对为 report/meeting/travel）。
+ * 档案归集链接（arch/04 §2.8；arch/05 §2.2 放宽 meeting/travel；arch/07 §2 再放宽 funding/expense）。
+ * 二态：文件链接（file_version_id 非空 + 非 report 来源对）
+ * 或结构化对象链接（fv 空 + 来源对 source_type ∈ report/meeting/travel/funding/expense）。
  */
 export const archiveLinks = pgTable(
   "archive_links",
@@ -388,7 +389,7 @@ export const archiveLinks = pgTable(
     check(
       "archive_links_duality_check",
       sql`(("file_version_id" is not null and "source_type" is not null and "source_type" <> 'report' and "source_id" is not null)
-        or ("file_version_id" is null and "source_type" in ('report', 'meeting', 'travel') and "source_id" is not null))`,
+        or ("file_version_id" is null and "source_type" in ('report', 'meeting', 'travel', 'funding', 'expense') and "source_id" is not null))`,
     ),
     // 文件链接唯一（部分索引）；报告链接唯一（directory_id, source_type, source_id）
     uniqueIndex("archive_links_file_unique").on(t.directoryId, t.fileVersionId).where(sql`file_version_id is not null`),

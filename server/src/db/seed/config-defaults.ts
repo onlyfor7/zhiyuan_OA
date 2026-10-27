@@ -52,4 +52,11 @@ export const SYSTEM_CONFIG_DEFAULTS: ReadonlyArray<{ key: string; value: Record<
       note: "开发种子值，非业务真理；由管理层和财务确认后可改",
     },
   },
+  {
+    key: CONFIG_KEY.TIMESHEET_DEFAULT_APPROVER,
+    value: {
+      approverEmail: "partner@lexflow.demo",
+      note: "arch/07 §4.2：无项目明细的工时周期提交时 org 指定默认审批人",
+    },
+  },
 ];

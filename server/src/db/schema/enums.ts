@@ -35,6 +35,9 @@ import {
   SEGMENT_TYPE,
   STAGE_STATUS,
   TASK_STATUS,
+  TIME_ACTIVITY_TYPE,
+  TIME_ENTRY_SOURCE,
+  TIMESHEET_PERIOD_STATUS,
   TRAVEL_EVENT_ACTION,
   TRAVEL_STATUS,
   USER_STATUS,
@@ -124,3 +127,11 @@ export const expenseStatusEnum = pgEnum("expense_status", EXPENSE_STATUS);
 export const expenseCategoryEnum = pgEnum("expense_category", EXPENSE_CATEGORY);
 
 export const ledgerEntryTypeEnum = pgEnum("ledger_entry_type", LEDGER_ENTRY_TYPE);
+
+/** 迭代 4 工时域枚举（arch/07 §2；timesheet_status 五值；time_activity_type 六值；time_entry_source 四值） */
+
+export const timesheetStatusEnum = pgEnum("timesheet_status", TIMESHEET_PERIOD_STATUS);
+
+export const timeActivityTypeEnum = pgEnum("time_activity_type", TIME_ACTIVITY_TYPE);
+
+export const timeEntrySourceEnum = pgEnum("time_entry_source", TIME_ENTRY_SOURCE);

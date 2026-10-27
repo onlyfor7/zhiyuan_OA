@@ -50,6 +50,8 @@ export const CONFIG_KEY = {
   PROJECT_CLOSURE_PENDING_CHECK: "project.closure_pending_check",
   /** 审批金额阈值（开发种子值，非业务真理） */
   APPROVAL_AMOUNT_THRESHOLDS: "approval.amount_thresholds",
+  /** 工时默认审批人（arch/07 §4.2：无项目明细周期提交时的 org 指定审批人） */
+  TIMESHEET_DEFAULT_APPROVER: "timesheet.default_approver",
 } as const;
 export type ConfigKey = (typeof CONFIG_KEY)[keyof typeof CONFIG_KEY];
 

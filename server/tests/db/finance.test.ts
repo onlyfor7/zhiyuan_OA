@@ -66,7 +66,7 @@ describe("财务域种子与台账口径", () => {
     expect(counts.budget_ledger).toBe(3); // ACTIVATED×2 + FUNDING_RESERVED×1
     expect(counts.expense_adjustments).toBe(0);
     expect(counts.file_objects).toBe(2); // 两张票据文件
-    expect(counts.code_sequences).toBe(16);
+    expect(counts.code_sequences).toBe(17);
 
     await runSeed(TEST_DATABASE_URL);
     const before = await countRows();
