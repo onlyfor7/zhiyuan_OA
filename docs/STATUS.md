@@ -40,6 +40,7 @@
 | 2026-10-27 | docs/arch/04 §4/§2.10 | v1.1 | 会签 all/any 行为语义冻结；模板阶段缺省 14 天/段顺排、structure_json 支持 days |
 | 2026-10-27 | docs/arch/02 §4.1 | v1.2 | 参照数据端点 user.list/client.list/matter.list；project.create 权限门 project.manage |
 | 2026-10-27 | docs/arch/04 §2.3/§5 | v1.1 | plan_items 增 name 快照列（迁移回填）；plan.current 输出 stages/milestones 含 actual_*、versionGet/simulate 带 name |
+| 2026-10-27 | docs/arch/04 §2.10 | v1.2 | structure_json 键名冻结（camelCase）+ tasks 生成规则：模板任务落入阶段区间并写入 v1 plan_items |
 
 ## 迭代 0 工单状态
 
@@ -61,8 +62,9 @@
 | 02 治理域服务端 | 后端 | **通过** | 后端会话 | 2026-10-27 | 架构会话已验收（独立冒烟含延期闭环/并发审批/复核分离/D2/N1）；4 项留坑裁定关闭（见交接记录置顶条） |
 | 03 治理域前端接入 | 前端 | **通过** | 前端会话 | 2026-10-27 | 架构会话已验收（截图+命令级复核）；G1/G2 转 02b/03b 微工单收口；N2 探针已由架构会话翻转 |
 | 02b 参照数据与计划项名称 | 后端 | **通过** | 后端会话 | 2026-10-27 | 架构会话已验收（端点/权限门/回填/三轨输出独立复核全过） |
-| 03b 选择器接入与甘特补全 | 前端 | **待验收** | 前端会话 | 2026-10-27 | 微工单，已交付（见交接记录置顶） |
-| 04 迭代 1 验收 | 测试 | 未认领 | | | 收口单，待 02b/03b 通过 |
+| 03b 选择器接入与甘特补全 | 前端 | **通过** | 前端会话 | 2026-10-27 | 架构会话已验收（质量门全绿、P6 创建链 DB 复核、甘特快照名截图核验） |
+| 02c 模板任务生成 | 后端 | 未认领 | | | 微工单，已解锁（验收发现的模板缺 tasks 键收口项） |
+| 04 迭代 1 验收 | 测试 | 未认领 | | | 收口单，待 02c 通过 |
 
 ## 偏差与仲裁
 
@@ -83,6 +85,7 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-10-27｜架构｜迭代1-03b｜**工单 03b 验收通过；验收中发现一处契约级缺口，发微工单 02c 收口。** 复核：根质量门全绿（typecheck/build/test 87=64+23/lint）；DB 复核 partner 走查创建的 PRJ-2026-00006（v1 active、2 阶段、1 检查项、11 目录齐备；纠正一处复核误读：检查项实际已生成）；甘特截图确认阶段/里程碑真实快照名（立案与证据收集/庭前准备…）与基线虚影/当前实轨，G2 收口；五处选择器与创建解锁声明采信。**新发现缺口**：两模板 structure_json 均无 `tasks` 键且 create 未消费 → 模板创建不出任务，A1「任务自动生成」不满足（PRJ-004 P0）。裁定：structure_json 键名与 tasks 生成规则冻结（arch/04 §2.10 v1.2），发微工单 **02c（后端）**：create 事务消费 tasks + 种子补内容（架构特批改 seed）+ 测试；04 测试收口待 02c 通过。**解锁工单 02c。**
 - 2026-10-27｜前端｜迭代1-03b｜**工单 03b（选择器接入与甘特补全）完成，转待验收。** 做了什么：① **五处选择器全部接入参照端点**（arch/02 §4.1 v1.2）：新建 `api/reference.ts`（useUserList/useClientList/useMatterList）+ 通用 `components/UserPicker.tsx`（关键词即时过滤 + 姓名/邮箱/部门显示）——成员新增（MembersTab：UserPicker+角色选择+已有成员去重提示）、授权申请 grantee（ArchiveTab GrantApplyForm 全表单：被授权人/范围类型[默认当前项目]/动作勾选 read+download/到期日/理由/幂等键）、审批转交 transferTo（ApprovalsPage ActPanel 三动作：通过/驳回[理由必填]/转交[选人]）、审计操作者筛选（AuditPage UserPicker→actorId）、项目创建 client/matter 级联（关键词搜索 + clientId 过滤）。② **A1 全链解锁**：ProjectCreatePage 接入模板卡片+客户/事项级联+提交（创建成功直进项目空间）；**角色门**：ProjectsPage 新建按钮与创建页按 globalRoles(partner/sysadmin) 隐藏/降级（pm 直连页面显示无立项权限说明，服务端 404 属 v1.2 预期语义）。③ **甘特补全**（G2 解锁）：buildGanttRows 重写——items[].name 快照名直接呈现（阶段「立案与证据收集」等实测）；实际轨改取 plan.current 输出的 stages/milestones/tasks live actual_*（不再绕 task.list，PlanTab 已移除该依赖）；里程碑 actualDate 呈现为实际到达点；行状态点取 live status；图例更新「实际（live）」、simulate 面板与延期表单的目标项选项显示名称。④ 375px 修复：创建/授权表单 owner-line 单列化、成员表 820px 以下横向滚动容器。怎么验证（**全量质量门**）：根 `npm run typecheck`✓ `npm run build`✓ `npm run test`✓（server 64 + app 23）`npm run lint -w @lexflow/app`✓——本棒已全跑无红门。Chrome CDP 走查（D:\tmp\shots-iter1b\）：**partner 全链创建项目成功**（模板→客户「华宸」搜索→事项级联选择→提交→落地新项目空间，DB 新增 PRJ-2026-00006 走查项目，模板事务产物由服务端测试保障）；甘特真实名称+实际轨截图；成员新增马悦成功（成员 4→5，orgUnitName 显示）；授权申请提交后列表出现「审批中」（archivist 队列 +1）；archivist 转交流程 UI（选人面板真实数据）；审计 actorId 筛选服务端复核（全部行 actor=pm）✓；pm 无新建按钮+降级页✓；375px 创建/档案/成员页无整页横向溢出✓。给测试会话：A1 用 partner 走 /projects/new 全链；创建权限门负例（pm 404 同形）由后端用例覆盖，前端表现为入口隐藏+降级页；甘特三轨断言取 plan.current 的 items[].name 与 stages/milestones/tasks actual_*；走查新增冒烟数据：PRJ-2026-00006（partner 走查项目）、项目 A 新增成员马悦、一条 pending_approval 档案授权（grantee=林海）。**留坑**：dev 库走查数据合法可留用（承 02b 先例）；user.list 关键词即时查询每击键一请求（开发期可接受，迭代 5 可加防抖）；甘特基线轨对历史版本仍走 versionGet 懒加载（未变）。提交：`iter1/frontend-gapfix` 分支 `[前端]` 前缀 commit。
 
 - 2026-10-27｜架构｜迭代1-02b｜**工单 02b 验收通过。** 独立复核：根 test 87/87（server 64 + app 23）、typecheck/build exit 0；迁移纪律在位（0002 追加、0000/0001 未动、可空→回填→SET NOT NULL 三步正确）；`plan_items` 52 行 name 零空值；冒烟实测：user.list 关键词命中（含 orgUnitName）、matter.list/client.list 形状正确、pm 完整负载立项被 `ACCESS_DENIED_OR_GONE` 同形拦截（权限门 v1.2 生效）、plan.current 15/15 items 带 name 且 stages/milestones 含 actual_* 三轨并列。**越界认定**：gantt-utils.ts 类型收窄属契约涟漪最小修复（同 errors.ts 先例），接受不追责；03b 由前端继续演进该文件。**解锁工单 03b（前端会话）**——对接要点见后端交接条：选择器数据源就位；project.create 仅 partner/sysadmin，ProjectCreatePage 需按角色降级入口；甘特实际轨直接取 plan.current 的 tasks/stages actual 字段。注意 dev 库已有 partner 冒烟立项的 PRJ-2026-00005，数据合法可留作走查。
