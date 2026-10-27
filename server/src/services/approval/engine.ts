@@ -1,0 +1,443 @@
+import { and, asc, eq, gt, sql } from "drizzle-orm";
+
+import { ERROR_CODE } from "@lexflow/shared";
+
+import { approvalInstances, approvalPolicies, approvalSteps, projects, userRoles, users } from "../../db/schema";
+import { nextCode } from "../../db/code";
+import { BusinessError } from "../../lib/errors";
+import type { DbOrTx } from "../../trpc/context";
+import { notify } from "../../modules/notify";
+
+/**
+ * 统一审批引擎（arch/04 §4 接口逐字；arch/03 §6：唯一审批实现，禁止各模块自建）。
+ * 所有函数在业务事务内调用（tx 由调用方经 db.transaction 传递）。
+ *
+ * 步骤序号编排：策略第 i 步解析出唯一候选人 → seq=i；
+ * countersign=all 且多候选人 → 展开为 seq=i*1000+j（j=1..N），组键=floor(seq/1000)。
+ */
+
+export type BizType = "change_request" | "access_grant";
+
+export interface ApprovalInstanceRow {
+  id: string;
+  code: string;
+  bizType: string;
+  bizId: string;
+  projectId: string | null;
+  applicantId: string;
+  currentStepSeq: number;
+  status: "pending" | "approved" | "rejected" | "withdrawn";
+  idempotencyKey: string;
+}
+
+export interface ApprovalHandlers {
+  onApproved(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void>;
+  onRejected(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void>;
+  onWithdrawn(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void>;
+}
+
+const handlers = new Map<string, ApprovalHandlers>();
+
+/** 注册业务处理器；返回反注册函数（恢复前一个注册项，测试可临时替换） */
+export function registerHandler(bizType: string, h: ApprovalHandlers): () => void {
+  const previous = handlers.get(bizType);
+  handlers.set(bizType, h);
+  return () => {
+    if (handlers.get(bizType) !== h) return;
+    if (previous) {
+      handlers.set(bizType, previous);
+    } else {
+      handlers.delete(bizType);
+    }
+  };
+}
+
+function groupKey(seq: number): number {
+  return seq >= 1000 ? Math.floor(seq / 1000) : seq;
+}
+
+/* ===== 策略解析（arch/04 §2.9） ===== */
+
+interface PolicyRow {
+  id: string;
+  bizType: string;
+  priority: number;
+  matchJson: Record<string, unknown>;
+  stepsJson: Array<Record<string, unknown>>;
+  enabled: boolean;
+  description: string;
+}
+
+function matchPolicy(policy: PolicyRow, snapshot: Record<string, unknown>): boolean {
+  return Object.entries(policy.matchJson).every(([key, expected]) => snapshot[key] === expected);
+}
+
+async function resolvePolicy(
+  db: DbOrTx,
+  bizType: string,
+  formSnapshot: Record<string, unknown>,
+): Promise<PolicyRow> {
+  const policies = await db
+    .select()
+    .from(approvalPolicies)
+    .where(eq(approvalPolicies.bizType, bizType))
+    .orderBy(asc(approvalPolicies.priority));
+  const hit = (policies as PolicyRow[]).find((p) => p.enabled !== false && matchPolicy(p, formSnapshot));
+  if (!hit) {
+    throw new BusinessError(ERROR_CODE.POLICY_NOT_FOUND, `审批策略无命中（biz_type=${bizType}）`);
+  }
+  return hit;
+}
+
+/** 角色落地为具体人：project_manager → 项目 manager_id；全局角色 → 该角色全部用户（arch/04 §2.9） */
+async function resolveRoleCandidates(
+  db: DbOrTx,
+  role: string,
+  projectId: string | null,
+): Promise<string[]> {
+  if (role === "project_manager") {
+    if (!projectId) return [];
+    const rows = await db
+      .select({ managerId: projects.managerId })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+    return rows[0] ? [rows[0].managerId] : [];
+  }
+  const rows = await db
+    .select({ userId: userRoles.userId })
+    .from(userRoles)
+    .innerJoin(users, eq(users.id, userRoles.userId))
+    .where(and(eq(userRoles.roleKey, role), eq(users.status, "active")));
+  return rows.map((r) => r.userId);
+}
+
+interface ResolvedStep {
+  seq: number;
+  countersign: "any" | "all";
+  candidates: string[];
+  approverRole: string | null;
+}
+
+async function resolveSteps(
+  db: DbOrTx,
+  policy: PolicyRow,
+  projectId: string | null,
+  applicantId: string,
+): Promise<ResolvedStep[]> {
+  const steps: ResolvedStep[] = [];
+  for (let i = 0; i < policy.stepsJson.length; i++) {
+    const def = policy.stepsJson[i];
+    const countersign = (def.countersign as "any" | "all" | undefined) ?? "any";
+    const approverRole = typeof def.approver_role === "string" ? def.approver_role : null;
+    let candidates: string[] = [];
+    if (typeof def.approver_id === "string") {
+      candidates = [def.approver_id];
+    } else if (approverRole) {
+      candidates = await resolveRoleCandidates(db, approverRole, projectId);
+    }
+    // 自审跳过（arch/04 §2.9）：步骤解析出申请人本人 → 剔除
+    candidates = candidates.filter((id) => id !== applicantId);
+    if (candidates.length === 0) {
+      throw new BusinessError(
+        ERROR_CODE.SELF_APPROVAL_BLOCKED,
+        `审批步骤 ${i + 1} 无可用审批人（申请人本人不可自审，策略配置错误）`,
+      );
+    }
+    if (countersign === "all" && candidates.length > 1) {
+      candidates.forEach((candidate, j) => {
+        steps.push({ seq: (i + 1) * 1000 + (j + 1), countersign: "all", candidates: [candidate], approverRole });
+      });
+    } else {
+      steps.push({ seq: i + 1, countersign, candidates, approverRole });
+    }
+  }
+  return steps;
+}
+
+/* ===== 接口（arch/04 §4 逐字） ===== */
+
+export interface SubmitInput {
+  bizType: BizType;
+  bizId: string;
+  projectId?: string | null;
+  applicantId: string;
+  formSnapshot: Record<string, unknown>;
+  idempotencyKey: string;
+}
+
+export async function submit(db: DbOrTx, input: SubmitInput): Promise<ApprovalInstanceRow> {
+  // 幂等键冲突 → 返回原实例（arch/04 §4）
+  const dup = await db
+    .select()
+    .from(approvalInstances)
+    .where(eq(approvalInstances.idempotencyKey, input.idempotencyKey))
+    .limit(1);
+  if (dup[0]) return dup[0] as ApprovalInstanceRow;
+
+  const policy = await resolvePolicy(db, input.bizType, input.formSnapshot);
+  const steps = await resolveSteps(db, policy, input.projectId ?? null, input.applicantId);
+  const code = await nextCode("APR", db);
+
+  const [instance] = await db
+    .insert(approvalInstances)
+    .values({
+      code,
+      bizType: input.bizType,
+      bizId: input.bizId,
+      projectId: input.projectId ?? null,
+      applicantId: input.applicantId,
+      formSnapshot: input.formSnapshot,
+      policySnapshot: {
+        policyId: policy.id,
+        bizType: policy.bizType,
+        matchJson: policy.matchJson,
+        stepsJson: policy.stepsJson,
+        description: policy.description,
+      },
+      currentStepSeq: steps[0].seq,
+      status: "pending",
+      idempotencyKey: input.idempotencyKey,
+    })
+    .returning();
+  if (!instance) throw new Error("审批实例插入失败");
+
+  for (const step of steps) {
+    await db.insert(approvalSteps).values({
+      instanceId: instance.id,
+      seq: step.seq,
+      approverId: step.candidates[0],
+      approverRole: step.approverRole,
+      countersign: step.countersign,
+      status: "pending",
+    });
+  }
+
+  // 通知当前步骤审批人（arch/04 §6 approval_pending）
+  const firstGroup = groupKey(steps[0].seq);
+  for (const step of steps.filter((s) => groupKey(s.seq) === firstGroup)) {
+    await notify(db, {
+      eventType: "approval_pending",
+      recipientId: step.candidates[0],
+      sourceType: input.bizType === "change_request" ? "change_request" : "access_grant",
+      sourceId: input.bizId,
+      payload: { approvalInstanceId: instance.id, code: instance.code },
+    });
+  }
+
+  return instance as ApprovalInstanceRow;
+}
+
+export interface ActInput {
+  instanceId: string;
+  stepSeq: number;
+  actorId: string;
+  action: "approve" | "reject" | "transfer";
+  comment?: string | null;
+  transferTo?: string | null;
+}
+
+export interface ActResult {
+  instance: ApprovalInstanceRow;
+  /** 本动作是否为本次生效（并发/重试时 false 表示命中已处理，返回现状） */
+  applied: boolean;
+}
+
+export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
+  const instance = await loadInstance(db, input.instanceId);
+  if (instance.status !== "pending") {
+    throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "审批实例已终态，不可再操作");
+  }
+  if (groupKey(instance.currentStepSeq) !== groupKey(input.stepSeq)) {
+    throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "该步骤不是当前审批步骤");
+  }
+
+  const stepRows = await db
+    .select()
+    .from(approvalSteps)
+    .where(and(eq(approvalSteps.instanceId, instance.id), eq(approvalSteps.seq, input.stepSeq)))
+    .limit(1);
+  const step = stepRows[0];
+  if (!step) throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "审批步骤不存在");
+
+  // 审批人校验：该行审批人或其角色成员（角色在 submit 时已落地为候选人集合）
+  const approverOk =
+    step.approverId === input.actorId ||
+    (step.approverRole !== null &&
+      (await resolveRoleCandidates(db, step.approverRole, instance.projectId)).includes(input.actorId));
+  if (!approverOk) {
+    throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "审批步骤不存在或无权操作");
+  }
+
+  const now = new Date().toISOString();
+
+  if (input.action === "transfer") {
+    if (!input.transferTo) {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "转交必须指定接收人", {
+        transferTo: ["转交必须指定接收人"],
+      });
+    }
+    const updated = await db
+      .update(approvalSteps)
+      .set({
+        approverId: input.transferTo,
+        delegatedFrom: step.approverId,
+        actedBy: input.actorId,
+        actedAt: now,
+      })
+      .where(and(eq(approvalSteps.id, step.id), eq(approvalSteps.status, "pending")))
+      .returning();
+    if (updated.length === 0) return { instance, applied: false }; // 已处理，返回现状
+    return { instance, applied: true };
+  }
+
+  if (input.action === "reject" && (!input.comment || input.comment.trim() === "")) {
+    throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "驳回必须填写理由", {
+      comment: ["驳回必须填写理由"],
+    });
+  }
+
+  // 条件更新（并发/重试安全；影响行数=0 视为已处理，直接返回现状）
+  const acted = await db
+    .update(approvalSteps)
+    .set({
+      status: input.action === "approve" ? "approved" : "rejected",
+      actedBy: input.actorId,
+      comment: input.comment ?? null,
+      actedAt: now,
+    })
+    .where(and(eq(approvalSteps.id, step.id), eq(approvalSteps.status, "pending")))
+    .returning({ id: approvalSteps.id });
+  if (acted.length === 0) {
+    const current = await loadInstance(db, input.instanceId);
+    return { instance: current, applied: false };
+  }
+
+  if (input.action === "reject") {
+    await finalize(db, instance, "rejected");
+    const handler = handlers.get(instance.bizType);
+    if (handler) await handler.onRejected(db, instance);
+    return { instance: await loadInstance(db, instance.id), applied: true };
+  }
+
+  // approve：同组还有未决 → 停留；否则推进或终审
+  const groupPending = await db
+    .select({ id: approvalSteps.id })
+    .from(approvalSteps)
+    .where(
+      and(
+        eq(approvalSteps.instanceId, instance.id),
+        eq(approvalSteps.status, "pending"),
+        sql`(floor(${approvalSteps.seq} / 1000) = ${groupKey(instance.currentStepSeq)} OR ${approvalSteps.seq} = ${instance.currentStepSeq})`,
+      ),
+    );
+  if (groupPending.length > 0) {
+    return { instance, applied: true };
+  }
+
+  const nextPending = await db
+    .select({ seq: approvalSteps.seq })
+    .from(approvalSteps)
+    .where(
+      and(
+        eq(approvalSteps.instanceId, instance.id),
+        eq(approvalSteps.status, "pending"),
+        gt(approvalSteps.seq, instance.currentStepSeq),
+      ),
+    )
+    .orderBy(asc(approvalSteps.seq))
+    .limit(1);
+
+  if (nextPending[0]) {
+    await db
+      .update(approvalInstances)
+      .set({ currentStepSeq: nextPending[0].seq, updatedAt: now })
+      .where(eq(approvalInstances.id, instance.id));
+    // 通知下一组审批人
+    const groupSteps = await db
+      .select()
+      .from(approvalSteps)
+      .where(
+        and(
+          eq(approvalSteps.instanceId, instance.id),
+          eq(approvalSteps.status, "pending"),
+          sql`(floor(${approvalSteps.seq} / 1000) = ${groupKey(nextPending[0].seq)} OR ${approvalSteps.seq} = ${nextPending[0].seq})`,
+        ),
+      );
+    for (const s of groupSteps) {
+      if (s.approverId) {
+        await notify(db, {
+          eventType: "approval_pending",
+          recipientId: s.approverId,
+          sourceType: instance.bizType === "change_request" ? "change_request" : "access_grant",
+          sourceId: instance.bizId,
+          payload: { approvalInstanceId: instance.id, code: instance.code },
+        });
+      }
+    }
+    return { instance: await loadInstance(db, instance.id), applied: true };
+  }
+
+  // 终审通过 → 同事务调用业务处理器（arch/04 §4）
+  await finalize(db, instance, "approved");
+  const handler = handlers.get(instance.bizType);
+  if (handler) await handler.onApproved(db, instance);
+  await notify(db, {
+    eventType: "approval_result",
+    recipientId: instance.applicantId,
+    sourceType: instance.bizType === "change_request" ? "change_request" : "access_grant",
+    sourceId: instance.bizId,
+    payload: { approvalInstanceId: instance.id, result: "approved" },
+  });
+  return { instance: await loadInstance(db, instance.id), applied: true };
+}
+
+export interface WithdrawInput {
+  instanceId: string;
+  actorId: string;
+}
+
+export async function withdraw(db: DbOrTx, input: WithdrawInput): Promise<ApprovalInstanceRow> {
+  const instance = await loadInstance(db, input.instanceId);
+  if (instance.status !== "pending") {
+    throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "仅进行中的审批可撤回");
+  }
+  if (instance.applicantId !== input.actorId) {
+    throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "仅申请人可撤回");
+  }
+  await finalize(db, instance, "withdrawn");
+  // 剩余 pending 步骤置 skipped（终态语义清晰）
+  await db
+    .update(approvalSteps)
+    .set({ status: "skipped" })
+    .where(and(eq(approvalSteps.instanceId, instance.id), eq(approvalSteps.status, "pending")));
+  const handler = handlers.get(instance.bizType);
+  if (handler) await handler.onWithdrawn(db, instance);
+  return loadInstance(db, instance.id);
+}
+
+async function finalize(
+  db: DbOrTx,
+  instance: ApprovalInstanceRow,
+  status: "approved" | "rejected" | "withdrawn",
+): Promise<void> {
+  // 条件更新防并发双终态（arch/03 §6.5、arch/04 §3）
+  const updated = await db
+    .update(approvalInstances)
+    .set({ status, completedAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
+    .where(and(eq(approvalInstances.id, instance.id), eq(approvalInstances.status, "pending")))
+    .returning({ id: approvalInstances.id });
+  if (updated.length === 0) {
+    throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "审批实例已终态（并发操作）");
+  }
+}
+
+async function loadInstance(db: DbOrTx, instanceId: string): Promise<ApprovalInstanceRow> {
+  const rows = await db
+    .select()
+    .from(approvalInstances)
+    .where(eq(approvalInstances.id, instanceId))
+    .limit(1);
+  if (!rows[0]) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "审批实例不存在或无权访问");
+  return rows[0] as ApprovalInstanceRow;
+}

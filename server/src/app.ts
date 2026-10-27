@@ -8,6 +8,7 @@ import { ERROR_CODE } from "@lexflow/shared";
 import { filesRoute } from "./routes/files";
 import { createContext } from "./trpc/context";
 import { appRouter } from "./trpc/routers";
+import { registerApprovalHandlers } from "./modules/approval/handlers";
 
 /**
  * Hono app 装配（arch/00 §2）：/health、/trpc/*（tRPC）、/files/*（原生文件路由）。
@@ -15,6 +16,9 @@ import { appRouter } from "./trpc/routers";
  */
 export function buildApp(): Hono<{ Variables: { requestId: string } }> {
   const app = new Hono<{ Variables: { requestId: string } }>();
+
+  // 审批引擎业务处理器注册（幂等；arch/04 §4 registerHandler）
+  registerApprovalHandlers();
 
   app.use(async (c, next) => {
     const requestId = c.req.header("x-request-id") ?? randomUUID();

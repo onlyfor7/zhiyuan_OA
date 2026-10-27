@@ -40,6 +40,17 @@ export const authRouter = router({
         ip: ctx.ip,
       });
       setSessionCookie(ctx.resHeaders, result.sessionToken);
+      // N1（arch/04 §7）：登录成功 resolver 显式回填身份——变更类中间件的审计行
+      // 在 next() 之后读取 ctx.user/ctx.session，此处赋值使 auth.login 审计行带 actor 与 session
+      ctx.session = { id: result.sessionId, tokenHash: result.tokenHash };
+      ctx.user = {
+        id: result.user.id,
+        email: result.user.email,
+        name: result.user.name,
+        orgUnitId: null,
+        globalRoles: [],
+        projectRoles: new Map(),
+      };
       return { user: result.user };
     }),
 

@@ -32,9 +32,11 @@ export class BusinessError extends TRPCError {
   readonly fieldErrors?: FieldErrors;
 
   constructor(code: ErrorCode, message: string, fieldErrors?: FieldErrors) {
-    super({ code: TRPC_CODE_BY_BUSINESS[code], message, cause: undefined });
+    super({ code: TRPC_CODE_BY_BUSINESS[code], message });
     this.businessCode = code;
     this.fieldErrors = fieldErrors;
+    // tRPC v11 结果流中 error.cause 在传导中丢失：formatter 同时认 error/cause 两种入口
+    Object.defineProperty(this, "cause", { value: this, configurable: true, writable: true });
     Object.setPrototypeOf(this, BusinessError.prototype);
   }
 }
@@ -78,14 +80,14 @@ export function formatTrpcError(opts: {
   let businessCode: ErrorCode | undefined;
   let fieldErrors: FieldErrors | undefined;
 
-  const cause = error.cause;
+  const cause = error instanceof BusinessError ? error : error.cause;
   if (cause instanceof BusinessError) {
     businessCode = cause.businessCode;
     fieldErrors = cause.fieldErrors;
-  } else if (isZodError(cause)) {
+  } else if (isZodError(error.cause)) {
     businessCode = ERROR_CODE.VALIDATION_FAILED;
     fieldErrors = {};
-    for (const issue of cause.issues) {
+    for (const issue of (error.cause as ZodLikeError).issues) {
       const key = issue.path.length > 0 ? issue.path.map(String).join(".") : "_";
       const list = (fieldErrors[key] ??= []);
       list.push(issue.message);

@@ -61,6 +61,7 @@ describe("权限边界验收（工单 00 场景 1/2/3/5）", () => {
   let projectBId: string;
   let projectCId: string;
   let fileVersionId: string;
+  let denialFileVersionId: string;
 
   beforeAll(async () => {
     await setupDatabase();
@@ -89,6 +90,12 @@ describe("权限边界验收（工单 00 场景 1/2/3/5）", () => {
     const uploaded = await uploadPdf(app, pmCookie, projectAId);
     expect(uploaded.status).toBe(200);
     fileVersionId = (uploaded.json as { fileVersionId: string }).fileVersionId;
+
+    // 越权取证文件：挂在项目 B（member 非 B 成员）——迭代 1 起来源项目成员可读（arch/04 §5 留坑落地），
+    // 「他人文件拒绝」须在请求人对来源项目无权限的夹具上取证
+    const denialFixture = await uploadPdf(app, pmCookie, projectBId);
+    expect(denialFixture.status).toBe(200);
+    denialFileVersionId = (denialFixture.json as { fileVersionId: string }).fileVersionId;
   });
 
   afterAll(async () => {
@@ -137,7 +144,7 @@ describe("权限边界验收（工单 00 场景 1/2/3/5）", () => {
   it("场景 3a：无授权下载他人文件 → 与不存在逐字段同形 404；授权下载 sha256 一致", async () => {
     const app = await getApp();
     const ghostId = "00000000-0000-0000-0000-000000000000";
-    const denied = await app.request(`http://test/files/${fileVersionId}/download`, {
+    const denied = await app.request(`http://test/files/${denialFileVersionId}/download`, {
       headers: { cookie: memberCookie },
     });
     const nonexistent = await app.request(`http://test/files/${ghostId}/download`, {

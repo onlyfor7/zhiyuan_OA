@@ -1,6 +1,18 @@
 import { authRouter } from "./auth";
 import { projectRouter } from "./project";
 import { userRouter } from "./user";
+import { planRouter } from "./plan";
+import { taskRouter } from "./task";
+import { changeRouter } from "./change";
+import { qualityRouter } from "./quality";
+import { decisionRouter } from "./decision";
+import { reportRouter } from "./report";
+import { archiveRouter } from "./archive";
+import { approvalRouter } from "./approval";
+import { notificationRouter } from "./notification";
+import { todoRouter } from "./todo";
+import { dashboardRouter } from "./dashboard";
+import { auditRouter } from "./audit";
 import { router } from "../trpc";
 
 /** AppRouter：前端经 `import type { AppRouter } from "@lexflow/server"` 消费推断类型 */
@@ -8,6 +20,18 @@ export const appRouter = router({
   auth: authRouter,
   project: projectRouter,
   user: userRouter,
+  plan: planRouter,
+  task: taskRouter,
+  change: changeRouter,
+  quality: qualityRouter,
+  decision: decisionRouter,
+  report: reportRouter,
+  archive: archiveRouter,
+  approval: approvalRouter,
+  notification: notificationRouter,
+  todo: todoRouter,
+  dashboard: dashboardRouter,
+  audit: auditRouter,
 });
 
 export type AppRouter = typeof appRouter;

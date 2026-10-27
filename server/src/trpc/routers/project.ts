@@ -3,6 +3,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 import {
+  CONFIDENTIALITY_LEVEL,
   ERROR_CODE,
   PERMISSION,
   PROJECT_HEALTH_STATUS,
@@ -12,7 +13,8 @@ import {
 import { clients, matters, projectMembers, projects, users } from "../../db/schema";
 import { BusinessError } from "../../lib/errors";
 import { can, projectScopeFilter } from "../../services/access";
-import { authedProcedure, router } from "../trpc";
+import { authedMutation, authedProcedure, router } from "../trpc";
+import * as service from "../../modules/governance/project";
 
 const manager = alias(users, "manager");
 
@@ -138,6 +140,7 @@ export const projectRouter = router({
         healthStatus: projects.healthStatus,
         confidentialityLevel: projects.confidentialityLevel,
         updatedAt: projects.updatedAt,
+        rowVersion: projects.rowVersion,
       })
       .from(projects)
       .innerJoin(matters, eq(projects.matterId, matters.id))
@@ -162,4 +165,64 @@ export const projectRouter = router({
       myRole: ctx.user.projectRoles.get(input.id) ?? null,
     };
   }),
-});
+
+  // ===== 迭代 1 治理域（arch/04 §5 project.*） =====
+  create: authedMutation
+    .input(
+      z.object({
+        templateId: z.uuid(),
+        matterId: z.uuid(),
+        name: z.string().trim().min(1, "项目名称必填").max(200),
+        type: z.string().max(50).optional(),
+        confidentialityLevel: z.enum(CONFIDENTIALITY_LEVEL).optional(),
+        startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "开始日须为 YYYY-MM-DD"),
+      }),
+    )
+    .mutation(({ ctx, input }) => service.createProject(ctx.db, ctx.user, input, ctx.ip, ctx.session.id)),
+
+  update: authedMutation
+    .input(
+      z.object({
+        id: z.uuid(),
+        rowVersion: z.number().int().min(0),
+        name: z.string().trim().min(1).max(200).optional(),
+        type: z.string().max(50).optional(),
+        healthStatus: z.enum(PROJECT_HEALTH_STATUS).optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) => service.updateProject(ctx.db, ctx.user, input)),
+
+  overview: authedProcedure
+    .input(z.object({ projectId: z.uuid() }))
+    .query(({ ctx, input }) => service.projectOverview(ctx.db, ctx.user, input.projectId)),
+
+  listTemplates: authedProcedure.query(({ ctx }) => service.listTemplates(ctx.db)),
+
+  addMember: authedMutation
+    .input(
+      z.object({
+        projectId: z.uuid(),
+        userId: z.uuid(),
+        projectRole: z.string().min(1).max(50),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      service.addMember(ctx.db, ctx.user, input.projectId, input.userId, input.projectRole),
+    ),
+
+  updateMember: authedMutation
+    .input(
+      z.object({ projectId: z.uuid(), userId: z.uuid(), projectRole: z.string().min(1).max(50) }),
+    )
+    .mutation(({ ctx, input }) =>
+      service.updateMember(ctx.db, ctx.user, input.projectId, input.userId, input.projectRole),
+    ),
+
+  removeMember: authedMutation
+    .input(z.object({ projectId: z.uuid(), userId: z.uuid() }))
+    .mutation(({ ctx, input }) => service.removeMember(ctx.db, ctx.user, input.projectId, input.userId)),
+
+  close: authedMutation
+    .input(z.object({ projectId: z.uuid(), rowVersion: z.number().int().min(0) }))
+    .mutation(({ ctx, input }) => service.closeProject(ctx.db, ctx.user, input.projectId, input.rowVersion)),
+  });

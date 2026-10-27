@@ -1,0 +1,450 @@
+import { and, eq, sql } from "drizzle-orm";
+
+import { ERROR_CODE } from "@lexflow/shared";
+
+import {
+  archiveDirectories,
+  changeRequests,
+  decisions,
+  planItems,
+  planVersions,
+  projectMembers,
+  projectTemplates,
+  projects,
+  qualityCheckItems,
+  qualityIssues,
+  stages,
+  tasks,
+  weeklyReports,
+} from "../../db/schema";
+import { nextCode } from "../../db/code";
+import { BusinessError } from "../../lib/errors";
+import { can } from "../../services/access";
+import { recordAudit } from "../../services/audit";
+import type { DbOrTx } from "../../trpc/context";
+import type { SessionUser } from "../../modules/auth/session";
+import { nowIso } from "./util";
+
+/**
+ * 项目域 service（arch/04 §5 project.*）：
+ * create（模板事务：阶段/检查项/十一目录/基线 v1 及 items）、overview 聚合、
+ * 成员管理、close 结项检查单（阻断/警告）。
+ */
+
+/** 需求基线 §12.1 固定十一目录（arch/04 §2.8：项目创建时生成，不随模板） */
+const ARCHIVE_DIRECTORIES: Array<{ dirKey: string; name: string; seq: number }> = [
+  { dirKey: "01_立项与授权", name: "立项与授权", seq: 1 },
+  { dirKey: "02_计划基线与变更", name: "计划基线与变更", seq: 2 },
+  { dirKey: "03_过程文件", name: "过程文件", seq: 3 },
+  { dirKey: "04_质量检查与问题", name: "质量检查与问题", seq: 4 },
+  { dirKey: "05_风险与决策", name: "风险与决策", seq: 5 },
+  { dirKey: "06_周报与月报", name: "周报与月报", seq: 6 },
+  { dirKey: "07_交付与验收", name: "交付与验收", seq: 7 },
+  { dirKey: "08_结项与复盘", name: "结项与复盘", seq: 8 },
+  { dirKey: "09_会议纪要与协同", name: "会议纪要与协同", seq: 9 },
+  { dirKey: "10_出差与费用", name: "出差与费用", seq: 10 },
+  { dirKey: "11_预算与经费", name: "预算与经费", seq: 11 },
+];
+
+interface TemplateStage {
+  name: string;
+  seq: number;
+}
+interface TemplateCheckItem {
+  name: string;
+  required?: boolean;
+  stageSeq?: number;
+}
+
+export interface CreateProjectInput {
+  templateId: string;
+  matterId: string;
+  name: string;
+  type?: string;
+  confidentialityLevel?: "public" | "internal" | "confidential" | "secret";
+  startDate: string; // YYYY-MM-DD，模板阶段按 2 周/阶段顺排
+}
+
+export async function createProject(
+  db: DbOrTx,
+  user: SessionUser,
+  input: CreateProjectInput,
+  ip: string | null,
+  sessionId: string | null,
+): Promise<{ id: string; code: string }> {
+  const [template] = await db
+    .select()
+    .from(projectTemplates)
+    .where(and(eq(projectTemplates.id, input.templateId), eq(projectTemplates.enabled, true)))
+    .limit(1);
+  if (!template) {
+    throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "项目模板不存在或已停用", {
+      templateId: ["项目模板不存在或已停用"],
+    });
+  }
+  const structure = template.structureJson as {
+    stages?: TemplateStage[];
+    checkItems?: TemplateCheckItem[];
+  };
+
+  const projectCode = await nextCode("PRJ", db);
+  const [project] = await db
+    .insert(projects)
+    .values({
+      code: projectCode,
+      matterId: input.matterId,
+      name: input.name,
+      type: input.type ?? "",
+      managerId: user.id,
+      confidentialityLevel: input.confidentialityLevel ?? "internal",
+      lifecycleStatus: "preparing",
+      healthStatus: "normal",
+      createdBy: user.id,
+      updatedBy: user.id,
+    })
+    .returning({ id: projects.id, code: projects.code });
+  if (!project) throw new Error("项目插入失败");
+
+  // 创建人自动成为项目负责人（成员关系）
+  await db.insert(projectMembers).values({ projectId: project.id, userId: user.id, projectRole: "manager" });
+
+  // 模板阶段（2 周/阶段顺排）+ 基线 v1 及 items
+  const stageDefs = structure.stages ?? [];
+  const [v1] = await db
+    .insert(planVersions)
+    .values({
+      projectId: project.id,
+      versionNo: 1,
+      kind: "baseline",
+      status: "active",
+      notes: `模板「${template.name}」初始基线`,
+      createdBy: user.id,
+      updatedBy: user.id,
+    })
+    .returning({ id: planVersions.id });
+  if (!v1) throw new Error("计划版本插入失败");
+
+  let seq = 0;
+  const start = new Date(`${input.startDate}T00:00:00Z`);
+  for (const s of stageDefs.sort((a, b) => a.seq - b.seq)) {
+    const ps = new Date(start);
+    ps.setUTCDate(ps.getUTCDate() + (s.seq - 1) * 14);
+    const pe = new Date(ps);
+    pe.setUTCDate(pe.getUTCDate() + 13);
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    const code = await nextCode("STG", db);
+    const [stage] = await db
+      .insert(stages)
+      .values({
+        projectId: project.id,
+        code,
+        name: s.name,
+        seq: s.seq,
+        plannedStart: fmt(ps),
+        plannedEnd: fmt(pe),
+        status: "pending",
+        createdBy: user.id,
+        updatedBy: user.id,
+      })
+      .returning({ id: stages.id });
+    await db.insert(planItems).values({
+      planVersionId: v1.id,
+      itemType: "stage",
+      refId: stage.id,
+      plannedStart: fmt(ps),
+      plannedEnd: fmt(pe),
+      seq: ++seq,
+      createdBy: user.id,
+    });
+  }
+
+  // 模板检查项
+  const stageBySeq = new Map(stageDefs.map((s) => [s.seq, s]));
+  for (const item of structure.checkItems ?? []) {
+    const stageDef = item.stageSeq !== undefined ? stageBySeq.get(item.stageSeq) : undefined;
+    let stageRowId: string | null = null;
+    if (stageDef) {
+      const found = await db
+        .select({ id: stages.id })
+        .from(stages)
+        .where(and(eq(stages.projectId, project.id), eq(stages.seq, stageDef.seq)))
+        .limit(1);
+      stageRowId = found[0]?.id ?? null;
+    }
+    await db.insert(qualityCheckItems).values({
+      projectId: project.id,
+      stageId: stageRowId,
+      name: item.name,
+      required: item.required ?? true,
+      createdBy: user.id,
+      updatedBy: user.id,
+    });
+  }
+
+  // 固定十一档案目录
+  for (const dir of ARCHIVE_DIRECTORIES) {
+    await db.insert(archiveDirectories).values({ projectId: project.id, ...dir });
+  }
+
+  await recordAudit(db, {
+    actorId: user.id,
+    sessionId,
+    action: "project.create",
+    targetType: "project",
+    targetId: project.id,
+    result: "success",
+    afterJson: { code: project.code, templateId: input.templateId, matterId: input.matterId },
+    ip,
+  });
+
+  return { id: project.id, code: project.code };
+}
+
+export interface UpdateProjectInput {
+  id: string;
+  rowVersion: number;
+  name?: string;
+  type?: string;
+  healthStatus?: "normal" | "warning" | "at_risk";
+}
+
+export async function updateProject(
+  db: DbOrTx,
+  user: SessionUser,
+  input: UpdateProjectInput,
+): Promise<void> {
+  const allowed = await can(db, user, "project.manage", { type: "project", projectId: input.id });
+  if (!allowed) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "项目不存在或无权访问");
+  const updated = await db
+    .update(projects)
+    .set({
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.type !== undefined ? { type: input.type } : {}),
+      ...(input.healthStatus !== undefined ? { healthStatus: input.healthStatus } : {}),
+      updatedBy: user.id,
+      updatedAt: nowIso(),
+      rowVersion: sql`${projects.rowVersion} + 1`,
+    })
+    .where(and(eq(projects.id, input.id), eq(projects.rowVersion, input.rowVersion)))
+    .returning({ id: projects.id });
+  if (!updated[0]) {
+    throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "数据已被他人修改，请刷新后重试");
+  }
+}
+
+export async function projectOverview(db: DbOrTx, user: SessionUser, projectId: string) {
+  const allowed = await can(db, user, "project.read", { type: "project", projectId });
+  if (!allowed) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "项目不存在或无权访问");
+
+  const [taskCounts] = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      pending: sql<number>`count(*) filter (where ${tasks.status} = 'pending')::int`,
+      inProgress: sql<number>`count(*) filter (where ${tasks.status} = 'in_progress')::int`,
+      done: sql<number>`count(*) filter (where ${tasks.status} = 'done')::int`,
+      overdue: sql<number>`count(*) filter (where ${tasks.status} in ('pending','in_progress') and ${tasks.plannedEnd} < current_date)::int`,
+    })
+    .from(tasks)
+    .where(eq(tasks.projectId, projectId));
+
+  const [quality] = await db
+    .select({
+      open: sql<number>`count(*) filter (where ${qualityIssues.status} <> 'closed')::int`,
+      blocking: sql<number>`count(*) filter (where ${qualityIssues.isBlocking})::int`,
+    })
+    .from(qualityIssues)
+    .where(eq(qualityIssues.projectId, projectId));
+
+  const [decisionsPending] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(decisions)
+    .where(and(eq(decisions.projectId, projectId), eq(decisions.status, "deciding")));
+
+  const [reports] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(weeklyReports)
+    .where(eq(weeklyReports.projectId, projectId));
+
+  const [members] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(projectMembers)
+    .where(eq(projectMembers.projectId, projectId));
+
+  const [pendingApprovals] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(changeRequests)
+    .where(and(eq(changeRequests.projectId, projectId), eq(changeRequests.status, "pending_approval")));
+
+  const [project] = await db
+    .select({
+      lifecycleStatus: projects.lifecycleStatus,
+      healthStatus: projects.healthStatus,
+      rowVersion: projects.rowVersion,
+      archivedAt: projects.archivedAt,
+    })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  return {
+    project: project ?? null,
+    tasks: taskCounts,
+    quality,
+    decisionsPending: decisionsPending.n,
+    reports: reports.n,
+    members: members.n,
+    pendingApprovals: pendingApprovals.n,
+    myRole: user.projectRoles.get(projectId) ?? null,
+  };
+}
+
+/* ===== 成员管理（project.manage） ===== */
+
+async function requireManage(db: DbOrTx, user: SessionUser, projectId: string): Promise<void> {
+  const allowed = await can(db, user, "project.manage", { type: "project", projectId });
+  if (!allowed) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "项目不存在或无权管理");
+}
+
+export async function addMember(
+  db: DbOrTx,
+  user: SessionUser,
+  projectId: string,
+  memberUserId: string,
+  projectRole: string,
+): Promise<void> {
+  await requireManage(db, user, projectId);
+  await db
+    .insert(projectMembers)
+    .values({ projectId, userId: memberUserId, projectRole })
+    .onConflictDoNothing();
+}
+
+export async function updateMember(
+  db: DbOrTx,
+  user: SessionUser,
+  projectId: string,
+  memberUserId: string,
+  projectRole: string,
+): Promise<void> {
+  await requireManage(db, user, projectId);
+  const updated = await db
+    .update(projectMembers)
+    .set({ projectRole })
+    .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, memberUserId)))
+    .returning({ userId: projectMembers.userId });
+  if (!updated[0]) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "成员不存在");
+}
+
+export async function removeMember(
+  db: DbOrTx,
+  user: SessionUser,
+  projectId: string,
+  memberUserId: string,
+): Promise<void> {
+  await requireManage(db, user, projectId);
+  // 项目负责人不可移除自己（manager 交接不在迭代 1 范围）
+  const project = await db
+    .select({ managerId: projects.managerId })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  if (project[0]?.managerId === memberUserId) {
+    throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "项目负责人不可直接移除，请先变更负责人");
+  }
+  await db
+    .delete(projectMembers)
+    .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, memberUserId)));
+}
+
+/* ===== 结项检查（arch/04 §5 project.close） ===== */
+
+export interface CloseCheckResult {
+  closed: boolean;
+  blockers: string[];
+  warnings: string[];
+  checklist: Array<{ key: string; label: string; level: "blocker" | "warning" | "ok"; detail: string }>;
+}
+
+export async function closeProject(
+  db: DbOrTx,
+  user: SessionUser,
+  projectId: string,
+  rowVersion: number,
+): Promise<CloseCheckResult> {
+  const allowed = await can(db, user, "project.manage", { type: "project", projectId });
+  if (!allowed) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "项目不存在或无权管理");
+
+  const checklist: CloseCheckResult["checklist"] = [];
+  const blockers: string[] = [];
+  const warnings: string[] = [];
+
+  const blockingQuality = await db
+    .select({ code: qualityIssues.code, title: qualityIssues.title })
+    .from(qualityIssues)
+    .where(and(eq(qualityIssues.projectId, projectId), eq(qualityIssues.isBlocking, true)));
+  if (blockingQuality.length > 0) {
+    const detail = blockingQuality.map((q) => `${q.code} ${q.title}`).join("；");
+    blockers.push(`未关闭的严重质量问题：${detail}`);
+    checklist.push({ key: "quality_blocking", label: "阻断质量问题", level: "blocker", detail });
+  } else {
+    checklist.push({ key: "quality_blocking", label: "阻断质量问题", level: "ok", detail: "无" });
+  }
+
+  const openTasks = await db
+    .select({ code: tasks.code, title: tasks.title })
+    .from(tasks)
+    .where(and(eq(tasks.projectId, projectId), sql`${tasks.status} in ('pending', 'in_progress')`));
+  if (openTasks.length > 0) {
+    const detail = openTasks.map((t) => `${t.code} ${t.title}`).join("；");
+    warnings.push(`未完成任务 ${openTasks.length} 项：${detail}`);
+    checklist.push({ key: "open_tasks", label: "未完成任务", level: "warning", detail });
+  } else {
+    checklist.push({ key: "open_tasks", label: "未完成任务", level: "ok", detail: "无" });
+  }
+
+  const unarchivedReports = await db
+    .select({ code: weeklyReports.code })
+    .from(weeklyReports)
+    .where(and(eq(weeklyReports.projectId, projectId), eq(weeklyReports.status, "confirmed")));
+  if (unarchivedReports.length > 0) {
+    const detail = unarchivedReports.map((r) => r.code).join("；");
+    warnings.push(`未归档周报 ${unarchivedReports.length} 份：${detail}`);
+    checklist.push({ key: "unarchived_reports", label: "未归档周报", level: "warning", detail });
+  } else {
+    checklist.push({ key: "unarchived_reports", label: "未归档周报", level: "ok", detail: "无" });
+  }
+
+  if (blockers.length > 0) {
+    return { closed: false, blockers, warnings, checklist };
+  }
+
+  const updated = await db
+    .update(projects)
+    .set({
+      lifecycleStatus: "closed",
+      archivedAt: nowIso(),
+      updatedBy: user.id,
+      updatedAt: nowIso(),
+      rowVersion: sql`${projects.rowVersion} + 1`,
+    })
+    .where(and(eq(projects.id, projectId), eq(projects.rowVersion, rowVersion)))
+    .returning({ id: projects.id });
+  if (!updated[0]) {
+    throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "数据已被他人修改，请刷新后重试");
+  }
+
+  return { closed: true, blockers, warnings, checklist };
+}
+
+export async function listTemplates(db: DbOrTx) {
+  return db
+    .select({
+      id: projectTemplates.id,
+      name: projectTemplates.name,
+      description: projectTemplates.description,
+      structureJson: projectTemplates.structureJson,
+    })
+    .from(projectTemplates)
+    .where(eq(projectTemplates.enabled, true))
+    .orderBy(projectTemplates.name);
+}

@@ -24,6 +24,7 @@ const uploadInputSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "业务日期须为 YYYY-MM-DD")
     .optional(),
+  idempotencyKey: z.string().max(100).optional(),
 });
 
 type FilesEnv = { Variables: { requestId: string } };
@@ -92,6 +93,8 @@ filesRoute.post("/upload", async (c) => {
     sourceType: body.sourceType,
     sourceId: body.sourceId,
     businessDate: body.businessDate === "" || body.businessDate === undefined ? undefined : body.businessDate,
+    idempotencyKey:
+      body.idempotencyKey === "" || body.idempotencyKey === undefined ? undefined : body.idempotencyKey,
   });
   if (!parsed.success) {
     const fieldErrors: Record<string, string[]> = {};
@@ -130,6 +133,7 @@ filesRoute.post("/upload", async (c) => {
         uploadedBy: resolved.user.id,
         ip: c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
         sessionId: resolved.sessionId,
+        idempotencyKey: parsed.data.idempotencyKey ?? null,
       }),
     );
     return c.json(saved);

@@ -39,13 +39,14 @@ export interface SaveUploadInput {
   data: Uint8Array;
   filename: string;
   declaredMime: string | null;
-  /** SOURCE_TYPE ∪ {project}（偏差待裁定，见 routes/files.ts 头注释） */
-  sourceType: SourceType | "project";
+  sourceType: SourceType;
   sourceId: string;
   businessDate: string | null;
   uploadedBy: string;
   ip: string | null;
   sessionId: string | null;
+  /** D2（arch/04 §7）：可选幂等键；命中唯一约束返回首次结果 */
+  idempotencyKey?: string | null;
 }
 
 export interface SavedFile {
@@ -57,6 +58,7 @@ export interface SavedFile {
 
 /**
  * 保存上传：白名单 + 20MB 校验 → 落盘 → 建行（file_objects v1 + file_versions）。
+ * D2 幂等（arch/04 §7）：带 idempotencyKey 时先查后插，命中唯一约束（并发兜底）返回首次结果。
  * 在事务中调用（业务建行 + 审计同事务，arch/02 §7）。
  */
 export async function saveUpload(db: DbOrTx, input: SaveUploadInput): Promise<SavedFile> {
@@ -75,6 +77,28 @@ export async function saveUpload(db: DbOrTx, input: SaveUploadInput): Promise<Sa
       `文件超过 ${env.FILE_MAX_MB}MB 上限`,
       { file: [`单文件不超过 ${env.FILE_MAX_MB}MB`] },
     );
+  }
+
+  // D2 幂等：命中即返回首次结果（不重写盘、不重复建行）
+  if (input.idempotencyKey) {
+    const dup = await db
+      .select({
+        id: fileVersions.id,
+        fileObjectId: fileVersions.fileObjectId,
+        sha256: fileVersions.sha256,
+        sizeBytes: fileVersions.sizeBytes,
+      })
+      .from(fileVersions)
+      .where(eq(fileVersions.idempotencyKey, input.idempotencyKey))
+      .limit(1);
+    if (dup[0]) {
+      return {
+        fileVersionId: dup[0].id,
+        fileObjectId: dup[0].fileObjectId,
+        sha256: dup[0].sha256,
+        sizeBytes: dup[0].sizeBytes,
+      };
+    }
   }
 
   // 存储键 = uuid + 白名单扩展名（服务端生成，禁止路径穿越；arch/00 §5）
@@ -96,22 +120,52 @@ export async function saveUpload(db: DbOrTx, input: SaveUploadInput): Promise<Sa
     .values({
       confidentialityLevel: "internal",
       createdBy: input.uploadedBy,
+      // 新上传必填来源（arch/04 §2.1），老行允许为 null 由种子回填
+      sourceType: input.sourceType,
+      sourceId: input.sourceId,
     })
     .returning({ id: fileObjects.id });
 
-  const [version] = await db
-    .insert(fileVersions)
-    .values({
-      fileObjectId: object.id,
-      versionNo: 1,
-      storageKey,
-      sizeBytes: input.data.byteLength,
-      mimeType: input.declaredMime && input.declaredMime === mimeType ? input.declaredMime : mimeType,
-      sha256,
-      businessDate: input.businessDate,
-      uploadedBy: input.uploadedBy,
-    })
-    .returning({ id: fileVersions.id });
+  let version: { id: string } | undefined;
+  try {
+    [version] = await db
+      .insert(fileVersions)
+      .values({
+        fileObjectId: object.id,
+        versionNo: 1,
+        storageKey,
+        sizeBytes: input.data.byteLength,
+        mimeType: input.declaredMime && input.declaredMime === mimeType ? input.declaredMime : mimeType,
+        sha256,
+        businessDate: input.businessDate,
+        uploadedBy: input.uploadedBy,
+        idempotencyKey: input.idempotencyKey ?? null,
+      })
+      .returning({ id: fileVersions.id });
+  } catch (error) {
+    // 并发同键兜底：唯一约束命中 → 返回首次结果（本方落盘文件成孤儿，已知留坑迭代清理）
+    if (input.idempotencyKey && (error as { code?: string }).code === "23505") {
+      const dup = await db
+        .select({
+          id: fileVersions.id,
+          fileObjectId: fileVersions.fileObjectId,
+          sha256: fileVersions.sha256,
+          sizeBytes: fileVersions.sizeBytes,
+        })
+        .from(fileVersions)
+        .where(eq(fileVersions.idempotencyKey, input.idempotencyKey))
+        .limit(1);
+      if (dup[0]) {
+        return {
+          fileVersionId: dup[0].id,
+          fileObjectId: dup[0].fileObjectId,
+          sha256: dup[0].sha256,
+          sizeBytes: dup[0].sizeBytes,
+        };
+      }
+    }
+    throw error;
+  }
 
   await db
     .update(fileObjects)

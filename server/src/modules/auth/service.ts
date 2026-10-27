@@ -21,6 +21,8 @@ export interface LoginInput {
 export interface LoginResult {
   /** 明文 token 仅经 Set-Cookie 下发一次，服务端只存散列 */
   sessionToken: string;
+  sessionId: string;
+  tokenHash: string;
   user: { id: string; email: string; name: string };
 }
 
@@ -48,14 +50,24 @@ export async function login(db: DbOrTx, input: LoginInput): Promise<LoginResult>
   }
 
   const sessionToken = randomBytes(32).toString("base64url");
-  await db.insert(sessions).values({
-    tokenHash: hashSessionToken(sessionToken),
-    userId: user.id,
-    expiresAt: sessionExpiresAt(),
-    ip: input.ip,
-  });
+  const tokenHash = hashSessionToken(sessionToken);
+  const [session] = await db
+    .insert(sessions)
+    .values({
+      tokenHash,
+      userId: user.id,
+      expiresAt: sessionExpiresAt(),
+      ip: input.ip,
+    })
+    .returning({ id: sessions.id });
+  if (!session) throw new Error("会话插入失败");
 
-  return { sessionToken, user: { id: user.id, email: user.email, name: user.name } };
+  return {
+    sessionToken,
+    sessionId: session.id,
+    tokenHash,
+    user: { id: user.id, email: user.email, name: user.name },
+  };
 }
 
 /**

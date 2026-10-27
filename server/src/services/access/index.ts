@@ -1,18 +1,20 @@
-import { PERMISSION, type AccessGrantScopeType } from "@lexflow/shared";
+import { PERMISSION, ERROR_CODE, type AccessGrantScopeType } from "@lexflow/shared";
 import { and, eq, gt, isNull, or, sql, type SQL } from "drizzle-orm";
 
 import { accessGrants, fileObjects, fileVersions, projects } from "../../db/schema";
+import { BusinessError } from "../../lib/errors";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
 
 /**
  * 权限服务（arch/03 §2/§3/§5）。
- * 迭代 0 只实现 project.read、archive.read（文件）、admin.config 三条判定路径；
+ * 迭代 0 实现 project.read、archive.read（文件）、admin.config；
+ * 迭代 1 增补：audit.read（sysadmin/archivist/partner）、project.manage（项目内 manager 角色）。
  * 其余已注册动作一律默认拒绝（false），随业务迭代扩充。
  * 列表用 SQL 级过滤（projectScopeFilter），禁止查出后内存过滤。
  */
 
-/** 有效授权：status=active 且未撤销、未到期（arch/03 §2.5；到期即时失效） */
+/** 有效授权：status=active 且未撤销、未到期（arch/03 §2.5；到期即时失效，查询时判定） */
 const GRANT_NOT_EXPIRED = or(
   isNull(accessGrants.expiresAt),
   gt(accessGrants.expiresAt, new Date().toISOString()),
@@ -59,6 +61,10 @@ export async function can(
       if (user.projectRoles.has(resource.projectId)) return true;
       return hasActiveGrant(db, user.id, "project", resource.projectId, action);
     }
+    case PERMISSION.PROJECT_MANAGE: {
+      if (resource.type !== "project") return false;
+      return user.projectRoles.get(resource.projectId) === "manager";
+    }
     case PERMISSION.ARCHIVE_READ: {
       if (resource.type !== "file") return false;
       return canReadFile(db, user, resource.fileObjectId);
@@ -66,16 +72,29 @@ export async function can(
     case PERMISSION.ADMIN_CONFIG: {
       return user.globalRoles.includes("sysadmin");
     }
+    case PERMISSION.AUDIT_READ: {
+      // arch/03 §3：sysadmin / archivist / partner 可查阅审计
+      return (
+        user.globalRoles.includes("sysadmin") ||
+        user.globalRoles.includes("archivist") ||
+        user.globalRoles.includes("partner")
+      );
+    }
     default:
       // 已注册动作未实现判定路径 → 默认拒绝（arch/03 §3）
       return false;
   }
 }
 
+export async function requireProjectRead(db: DbOrTx, user: SessionUser, projectId: string): Promise<void> {
+  const allowed = await can(db, user, PERMISSION.PROJECT_READ, { type: "project", projectId });
+  if (!allowed) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "项目不存在或无权访问");
+}
+
 /**
- * 文件读取（archive.read）：上传人本人，或持有效 file 范围授权。
- * 注意：file_objects 的业务来源（source_type/source_id）待迭代 1 文件域建链，
- * 届时此处补「来源项目成员放行」分支（STATUS.md 留坑）。
+ * 文件读取（archive.read）：
+ * 上传人本人 ∨ 来源项目成员（经 file_objects.source_*，arch/04 §2.1 落地）∨ 有效 AccessGrant（file 范围
+ * 精确到文件 / project 范围覆盖来源项目；到期与撤销即时失效，arch/03 §7）。
  */
 export async function canReadFile(
   db: DbOrTx,
@@ -83,13 +102,24 @@ export async function canReadFile(
   fileObjectId: string,
 ): Promise<boolean> {
   const rows = await db
-    .select({ createdBy: fileObjects.createdBy })
+    .select({
+      createdBy: fileObjects.createdBy,
+      sourceType: fileObjects.sourceType,
+      sourceId: fileObjects.sourceId,
+    })
     .from(fileObjects)
     .where(eq(fileObjects.id, fileObjectId))
     .limit(1);
   const fileObject = rows[0];
   if (!fileObject) return false;
   if (fileObject.createdBy === user.id) return true;
+
+  if (fileObject.sourceType === "project" && fileObject.sourceId) {
+    if (user.projectRoles.has(fileObject.sourceId)) return true;
+    if (await hasActiveGrant(db, user.id, "project", fileObject.sourceId, PERMISSION.ARCHIVE_READ)) {
+      return true;
+    }
+  }
   return hasActiveGrant(db, user.id, "file", fileObjectId, PERMISSION.ARCHIVE_READ);
 }
 

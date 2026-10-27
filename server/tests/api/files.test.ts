@@ -35,6 +35,7 @@ describe("文件（/files 上传/下载/预览/令牌）", () => {
   let pmCookie: string;
   let memberCookie: string;
   let projectAId: string;
+  let projectBId: string;
   let fileVersionId: string;
 
   beforeAll(async () => {
@@ -47,8 +48,10 @@ describe("文件（/files 上传/下载/预览/令牌）", () => {
       .result.data.items;
     const year = new Date().getFullYear();
     const projectA = items.find((p) => p.code === `PRJ-${year}-00001`);
-    if (!projectA) throw new Error("种子项目 A 缺失");
+    const projectB = items.find((p) => p.code === `PRJ-${year}-00002`);
+    if (!projectA || !projectB) throw new Error("种子项目 A/B 缺失");
     projectAId = projectA.id;
+    projectBId = projectB.id;
   });
 
   afterAll(async () => {
@@ -137,7 +140,11 @@ describe("文件（/files 上传/下载/预览/令牌）", () => {
 
   it("无授权下载他人文件 → 与不存在同形 404（验收场景 3 前半）", async () => {
     const app = await getApp();
-    const denied = await app.request(`http://test/files/${fileVersionId}/download`, {
+    // 迭代 1 起来源项目成员可读（arch/04 §5 留坑落地），越权夹具挂在项目 B（member 非 B 成员）
+    const fixture = await uploadPdf(app, pmCookie, projectBId, "越权取证.pdf");
+    expect(fixture.status).toBe(200);
+    const denialId = (fixture.json as { fileVersionId: string }).fileVersionId;
+    const denied = await app.request(`http://test/files/${denialId}/download`, {
       headers: { cookie: memberCookie },
     });
     const nonexistent = await app.request(
