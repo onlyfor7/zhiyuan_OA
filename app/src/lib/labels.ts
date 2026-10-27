@@ -147,6 +147,7 @@ export const GRANT_STATUS_LABEL: Record<AccessGrantStatus, string> = {
   active: "有效",
   expired: "已到期",
   revoked: "已撤销",
+  rejected: "已驳回", // arch/01 §3 v1.1：grant 驳回改落 rejected（迭代 2 枚举落地，数据会话补标签）
 };
 
 export const APPROVAL_STEP_STATUS_LABEL: Record<ApprovalStepStatus, string> = {

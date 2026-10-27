@@ -48,6 +48,7 @@ export const SYSTEM_CONFIG_DEFAULTS: ReadonlyArray<{ key: string; value: Record<
     key: CONFIG_KEY.APPROVAL_AMOUNT_THRESHOLDS,
     value: {
       fundingManagementReviewCents: 5000000,
+      travelManagementReviewCents: 5000000,
       note: "开发种子值，非业务真理；由管理层和财务确认后可改",
     },
   },

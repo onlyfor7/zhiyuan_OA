@@ -10,6 +10,7 @@ import { loadEnvFile, requireDatabaseUrl } from "../env";
 import * as schema from "../schema";
 import { clients, matters, orgUnits, projectMembers, projects, roles, systemConfig, userRoles, users } from "../schema";
 import { SYSTEM_CONFIG_DEFAULTS } from "./config-defaults";
+import { seedCollab } from "./collab";
 import { seedGovernance } from "./governance";
 
 type DbOrTx =
@@ -279,6 +280,9 @@ async function seedSchema(databaseUrl: string): Promise<void> {
 
       // 迭代 1 治理域种子（模板/审批策略/计划基线/阶段/任务/质量/决策/周报/档案目录，全幂等）
       await seedGovernance(tx);
+
+      // 迭代 2 会议与出差域种子（审批策略/会议/纪要/行动项/出差/行程/事件，全幂等）
+      await seedCollab(tx);
 
       // 编号序列水位对齐到种子最大序号，避免后续 next_code 撞号
       await tx.execute(

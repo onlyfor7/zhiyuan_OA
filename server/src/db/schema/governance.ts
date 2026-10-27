@@ -363,8 +363,8 @@ export const archiveDirectories = pgTable(
 );
 
 /**
- * 档案归集链接（arch/04 §2.8）。
- * 二态：文件链接（file_version_id 非空 + 来源对）或报告链接（file_version_id 空 + source_type='report'）。
+ * 档案归集链接（arch/04 §2.8；arch/05 §2.2 放宽：fv 空时 source_type ∈ report/meeting/travel）。
+ * 二态：文件链接（file_version_id 非空 + 非 report 来源对）或结构化对象链接（fv 空 + 来源对为 report/meeting/travel）。
  */
 export const archiveLinks = pgTable(
   "archive_links",
@@ -388,7 +388,7 @@ export const archiveLinks = pgTable(
     check(
       "archive_links_duality_check",
       sql`(("file_version_id" is not null and "source_type" is not null and "source_type" <> 'report' and "source_id" is not null)
-        or ("file_version_id" is null and "source_type" = 'report' and "source_id" is not null))`,
+        or ("file_version_id" is null and "source_type" in ('report', 'meeting', 'travel') and "source_id" is not null))`,
     ),
     // 文件链接唯一（部分索引）；报告链接唯一（directory_id, source_type, source_id）
     uniqueIndex("archive_links_file_unique").on(t.directoryId, t.fileVersionId).where(sql`file_version_id is not null`),
@@ -438,6 +438,8 @@ export const approvalSteps = pgTable(
     actedBy: uuid("acted_by").references(() => users.id, { onDelete: "restrict" }),
     comment: text("comment"),
     actedAt: timestamp("acted_at", { withTimezone: true, mode: "string" }),
+    /** N4（arch/04 §4 v1.2）：act 幂等键消费列，同键重放 200+applied=false、异键 409 */
+    actedIdempotencyKey: text("acted_idempotency_key"),
     delegatedFrom: uuid("delegated_from").references(() => users.id, { onDelete: "restrict" }),
   },
   (t) => [unique("approval_steps_instance_seq_unique").on(t.instanceId, t.seq)],

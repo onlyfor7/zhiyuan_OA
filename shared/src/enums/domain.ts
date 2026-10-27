@@ -44,7 +44,7 @@ export const TIME_ACTIVITY_TYPE = [
 ] as const;
 export type TimeActivityType = (typeof TIME_ACTIVITY_TYPE)[number];
 
-/** 通知事件类型（需求基线 §12.2，arch/02 §3.1 v1.1 冻结；arch/04 §6 增补 7 值） */
+/** 通知事件类型（需求基线 §12.2，arch/02 §3.1 v1.1 冻结；arch/04 §6 增补 7 值；arch/05 §6 增补 1 值） */
 export const NOTIFICATION_EVENT_TYPE = [
   "meeting_starting",
   "minutes_overdue",
@@ -61,9 +61,14 @@ export const NOTIFICATION_EVENT_TYPE = [
   "quality_returned",
   "decision_required",
   "report_draft_ready",
+  "minutes_pending_confirm",
 ] as const;
 export type NotificationEventType = (typeof NOTIFICATION_EVENT_TYPE)[number];
 
 /** 项目成员角色（项目内 ABAC 输入；取值待业务迭代细化） */
 export const PROJECT_ROLE = ["manager", "key_member", "member"] as const;
 export type ProjectRole = (typeof PROJECT_ROLE)[number];
+
+/** 会议类型（arch/02 §3.1 v1.1 冻结 5 值；管理端可扩充，键名不得改） */
+export const MEETING_TYPE = ["project", "client", "quality_review", "weekly", "decision"] as const;
+export type MeetingType = (typeof MEETING_TYPE)[number];

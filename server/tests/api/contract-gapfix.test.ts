@@ -226,7 +226,8 @@ describe("工单 02b：参照数据端点 / 立项权限门 / plan_items.name / 
     expect(data.items.every((i) => i.name.length > 0)).toBe(true);
     expect(data.stages.length).toBe(4);
     expect(data.milestones.length).toBe(3);
-    expect(data.tasks.length).toBe(8);
+    // 8 = 迭代 1 种子任务；+1 = 迭代 2 会议行动项转换任务（TSK-00012，无阶段/计划项，arch/05 §4.2）
+    expect(data.tasks.length).toBe(9);
     // 实际轨：STG-00001 active 有 actualStart；MLS-00001 reached 有 actualDate；TSK-00001 done 有 actualEnd
     expect(data.stages.find((s) => s.code === `STG-${YEAR}-00001`)?.actualStart).toBeTruthy();
     expect(data.milestones.find((m) => m.code === `MLS-${YEAR}-00001`)?.actualDate).toBeTruthy();

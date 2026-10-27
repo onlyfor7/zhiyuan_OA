@@ -13,8 +13,8 @@ export type ProjectLifecycleStatus = (typeof PROJECT_LIFECYCLE_STATUS)[number];
 export const PROJECT_HEALTH_STATUS = ["normal", "warning", "at_risk"] as const;
 export type ProjectHealthStatus = (typeof PROJECT_HEALTH_STATUS)[number];
 
-/** 档案授权状态机：pending_approval → active → expired/revoked（arch/01 §3） */
-export const ACCESS_GRANT_STATUS = ["pending_approval", "active", "expired", "revoked"] as const;
+/** 档案授权状态机：pending_approval → active → expired/revoked；rejected 为审批驳回终态（arch/01 §3 v1.1） */
+export const ACCESS_GRANT_STATUS = ["pending_approval", "active", "expired", "revoked", "rejected"] as const;
 export type AccessGrantStatus = (typeof ACCESS_GRANT_STATUS)[number];
 
 /** 授权范围类型（arch/01 §1 access_grants） */

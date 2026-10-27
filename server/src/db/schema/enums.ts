@@ -3,8 +3,10 @@ import { pgEnum } from "drizzle-orm/pg-core";
 import {
   ACCESS_GRANT_SCOPE_TYPE,
   ACCESS_GRANT_STATUS,
+  ACTION_ITEM_STATUS,
   APPROVAL_INSTANCE_STATUS,
   APPROVAL_STEP_STATUS,
+  ATTENDANCE_STATUS,
   CHANGE_LEVEL,
   CHANGE_REQUEST_STATUS,
   CHECK_ITEM_STATUS,
@@ -12,7 +14,11 @@ import {
   COUNTERSIGN_RULE,
   DECISION_STATUS,
   DELIVERABLE_STATUS,
+  MEETING_STATUS,
+  MEETING_TYPE,
   MILESTONE_STATUS,
+  MEETING_MINUTES_STATUS,
+  PARTICIPANT_ROLE,
   PLAN_ITEM_TYPE,
   PLAN_VERSION_KIND,
   PLAN_VERSION_STATUS,
@@ -21,8 +27,11 @@ import {
   QUALITY_EVENT_ACTION,
   QUALITY_ISSUE_STATUS,
   QUALITY_SEVERITY,
+  SEGMENT_TYPE,
   STAGE_STATUS,
   TASK_STATUS,
+  TRAVEL_EVENT_ACTION,
+  TRAVEL_STATUS,
   USER_STATUS,
   WEEKLY_REPORT_STATUS,
 } from "@lexflow/shared";
@@ -78,3 +87,23 @@ export const approvalInstanceStatusEnum = pgEnum("approval_instance_status", APP
 export const approvalStepStatusEnum = pgEnum("approval_step_status", APPROVAL_STEP_STATUS);
 
 export const countersignRuleEnum = pgEnum("countersign_rule", COUNTERSIGN_RULE);
+
+/** 迭代 2 会议与出差域枚举（arch/05 §2.1；access_grant_status 随 shared v1.1 增 rejected） */
+
+export const meetingTypeEnum = pgEnum("meeting_type", MEETING_TYPE);
+
+export const meetingStatusEnum = pgEnum("meeting_status", MEETING_STATUS);
+
+export const minutesStatusEnum = pgEnum("minutes_status", MEETING_MINUTES_STATUS);
+
+export const participantRoleEnum = pgEnum("participant_role", PARTICIPANT_ROLE);
+
+export const attendanceStatusEnum = pgEnum("attendance_status", ATTENDANCE_STATUS);
+
+export const actionItemStatusEnum = pgEnum("action_item_status", ACTION_ITEM_STATUS);
+
+export const travelStatusEnum = pgEnum("travel_status", TRAVEL_STATUS);
+
+export const segmentTypeEnum = pgEnum("segment_type", SEGMENT_TYPE);
+
+export const travelEventActionEnum = pgEnum("travel_event_action", TRAVEL_EVENT_ACTION);

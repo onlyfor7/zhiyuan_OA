@@ -50,10 +50,10 @@ describe("治理域种子与约束", () => {
     await runSeed(TEST_DATABASE_URL);
     const counts = await countRows();
     expect(counts.project_templates).toBe(2);
-    expect(counts.approval_policies).toBe(3);
+    expect(counts.approval_policies).toBe(7); // 迭代 1 三条 + 迭代 2 出差四条（arch/05 §7）
     expect(counts.stages).toBe(6); // A×4 + B×2
     expect(counts.milestones).toBe(3);
-    expect(counts.tasks).toBe(11); // A×8 + B×3
+    expect(counts.tasks).toBe(12); // A×8 + B×3 + 会议行动项转换任务×1
     expect(counts.plan_versions).toBe(2);
     expect(counts.plan_items).toBe(20); // A: 4+3+8；B: 2+3
     expect(counts.deliverables).toBe(3);
@@ -146,9 +146,9 @@ describe("治理域种子与约束", () => {
       // 两空：既无文件也无来源 → 必败
       await expectPgViolation(db.insert(archiveLinks).values({ projectId, directoryId }), "23514");
 
-      // 报告链接形态但 source_type 非 report → 必败
+      // 结构化来源但 source_type 不在放宽集（report/meeting/travel）内 → 必败
       await expectPgViolation(
-        db.insert(archiveLinks).values({ projectId, directoryId, sourceType: "meeting", sourceId }),
+        db.insert(archiveLinks).values({ projectId, directoryId, sourceType: "task", sourceId }),
         "23514",
       );
 

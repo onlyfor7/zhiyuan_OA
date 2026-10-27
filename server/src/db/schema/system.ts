@@ -1,4 +1,5 @@
-import { index, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 import { users } from "./org";
 
@@ -38,5 +39,9 @@ export const notifications = pgTable(
     aggregateKey: text("aggregate_key"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   },
-  (t) => [index("notifications_recipient_read_at_idx").on(t.recipientId, t.readAt)],
+  (t) => [
+    index("notifications_recipient_read_at_idx").on(t.recipientId, t.readAt),
+    // 聚合键同日不重复建行（迭代 1 裁定；写入方改 ON CONFLICT DO NOTHING）
+    uniqueIndex("notifications_aggregate_unique").on(t.recipientId, t.aggregateKey).where(sql`aggregate_key is not null`),
+  ],
 );

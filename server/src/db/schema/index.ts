@@ -6,3 +6,4 @@ export * from "./files";
 export * from "./audit";
 export * from "./system";
 export * from "./governance";
+export * from "./collab";
