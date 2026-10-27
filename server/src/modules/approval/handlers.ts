@@ -486,8 +486,6 @@ export function registerFinanceHandlers(): void {
         list.push(item);
         byFunding.set(item.fundingRequestId, list);
       }
-      let releaseSeq = 1;
-      let recognizeSeq = 0;
       for (const [fundingId, fundingItems] of byFunding) {
         const [funding] = await tx.select().from(fundingRequests).where(eq(fundingRequests.id, fundingId)).limit(1);
         if (!funding || funding.approvalStatus !== "approved") {
@@ -497,33 +495,39 @@ export function registerFinanceHandlers(): void {
           .select({ net: sql<number>`coalesce(sum(${budgetLedger.reservedDeltaCents}), 0)::bigint` })
           .from(budgetLedger)
           .where(and(eq(budgetLedger.sourceType, "funding"), eq(budgetLedger.sourceId, fundingId)));
-        let remaining = Number(reserved.net); // 净占用余额（幂等重算，禁止双扣的余额来源）
+        const remainingBefore = Math.max(0, Number(reserved.net)); // 净占用余额（台账单一事实源，禁止双扣）
+        const itemsTotal = fundingItems.reduce((sum, i) => sum + i.amountCents, 0);
+        const release = Math.min(itemsTotal, remainingBefore); // 本报销对该经费的核销额 ≤ 剩余占用；超额部分仍进实际
+
+        // R4：释放分录以业务事件为幂等单元——键 FUNDING_RELEASED:<fundingId>:<expenseReportId>
+        //（同一经费被多张报销核销时各键天然唯一；同键重放被幂等层吞掉，绝不重复释放）
+        if (release > 0) {
+          await recordLedger(tx, {
+            projectId: funding.projectId,
+            sourceType: "funding",
+            sourceId: fundingId,
+            entryType: "FUNDING_RELEASED",
+            reservedDeltaCents: -release,
+            seq: report.id,
+          });
+        }
+        // 批准额逐明细进实际（键 EXPENSE_RECOGNIZED:<expenseReportId>:<itemId>；超额部分随明细进实际）
         for (const item of fundingItems) {
-          const release = Math.min(item.amountCents, Math.max(0, remaining)); // 核销额 ≤ 剩余占用
-          remaining -= release;
-          void release;
-          if (release > 0) {
-            await recordLedger(tx, {
-              projectId: item.projectId,
-              sourceType: "funding",
-              sourceId: fundingId,
-              entryType: "FUNDING_RELEASED",
-              reservedDeltaCents: -release,
-              seq: releaseSeq++,
-            });
-          }
-          // 批准额全部进实际（超出原占用部分仍记实际支出；禁止双扣 = released 与 recognized 不重复扣同一金额）
           await recordLedger(tx, {
             projectId: item.projectId,
             sourceType: "expense",
             sourceId: report.id,
             entryType: "EXPENSE_RECOGNIZED",
             actualDeltaCents: item.amountCents,
-            seq: recognizeSeq++,
+            seq: item.id,
           });
         }
-        // R2：核销后按台账重算累计核销额迁移使用态（同事务；>0 未用尽→partially_used；净占用归零→written_off）
-        const remainingAfter = Math.max(0, remaining);
+        // R2/R4：使用态重算统一读台账（净占用余额=amount−RELEASED 合计），同事务迁移
+        const [after] = await tx
+          .select({ net: sql<number>`coalesce(sum(${budgetLedger.reservedDeltaCents}), 0)::bigint` })
+          .from(budgetLedger)
+          .where(and(eq(budgetLedger.sourceType, "funding"), eq(budgetLedger.sourceId, fundingId)));
+        const remainingAfter = Math.max(0, Number(after.net));
         const writtenOff = funding.amountCents - remainingAfter;
         const nextUsage =
           writtenOff > 0 && remainingAfter > 0
@@ -547,7 +551,7 @@ export function registerFinanceHandlers(): void {
           sourceId: report.id,
           entryType: "EXPENSE_RECOGNIZED",
           actualDeltaCents: item.amountCents,
-          seq: recognizeSeq++,
+          seq: item.id,
         });
       }
 

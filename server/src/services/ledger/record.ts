@@ -26,8 +26,9 @@ export interface LedgerEntryInput {
   entryType: LedgerEntryType;
   reservedDeltaCents?: number;
   actualDeltaCents?: number;
-  /** 同一来源多笔分录的序号（默认 0）；幂等键 = entryType:sourceId:seq */
-  seq?: number;
+  /** 幂等键序号（默认 0）：数字序号或业务事件标识（如 expenseReportId / releaseUnused / close）；
+   * 键 = entryType:sourceId:seq——核销类分录以业务事件为幂等单元（arch R4 修复规格） */
+  seq?: number | string;
 }
 
 export interface LedgerEntry {

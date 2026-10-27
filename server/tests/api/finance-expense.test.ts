@@ -442,6 +442,97 @@ describe("迭代 3 费用域（C4–C11 红线全覆盖）", () => {
     expect(editPaid.status).toBe(409);
   });
 
+  it("R4 同一经费被两张报销核销：两条 RELEASED 均入账（键 funding:report 不冲突）、净占用与台账一致、审批重放不重复", async () => {
+    // 经费 4M 获批
+    const f = await trpc(app, "funding.create", {
+      cookie: memberCookie,
+      input: { projectId: projectAId, purpose: "R4 双报销核销", amountCents: 4_000_000 },
+    });
+    const fId = (f.json as { result: { data: { id: string } } }).result.data.id;
+    const fDetail = await trpc(app, "funding.getById", { cookie: memberCookie, input: { id: fId }, method: "GET" });
+    const fSubmitted = await trpc(app, "funding.submit", {
+      cookie: memberCookie,
+      input: { id: fId, rowVersion: (fDetail.json as { result: { data: { rowVersion: number } } }).result.data.rowVersion, idempotencyKey: crypto.randomUUID() },
+    });
+    await approveInstance(app, memberCookie, (fSubmitted.json as { result: { data: { instance: { id: string } } } }).result.data.instance.id);
+
+    // 报销 A 1.5M 关联该经费 → 审批通过（核销释放）
+    const expA = await trpc(app, "expense.create", {
+      cookie: memberCookie,
+      input: {
+        reason: "R4 报销A",
+        items: [{ projectId: projectAId, fundingRequestId: fId, date: "2027-09-20", category: "transport", amountCents: 1_500_000, description: "A 明细" }],
+      },
+    });
+    const expAId = (expA.json as { result: { data: { id: string } } }).result.data.id;
+    const expADetail = await trpc(app, "expense.getById", { cookie: memberCookie, input: { id: expAId }, method: "GET" });
+    const subA = await trpc(app, "expense.submit", {
+      cookie: memberCookie,
+      input: { id: expAId, rowVersion: (expADetail.json as { result: { data: { rowVersion: number } } }).result.data.rowVersion, idempotencyKey: crypto.randomUUID() },
+    });
+    const instA = (subA.json as { result: { data: { instance: { id: string } } } }).result.data.instance.id;
+    await trpc(app, "approval.act", { cookie: pmCookie, input: { instanceId: instA, stepSeq: 1, action: "approve", idempotencyKey: crypto.randomUUID() } });
+    const actKeyA = crypto.randomUUID();
+    const finA = await trpc(app, "approval.act", { cookie: financeCookie, input: { instanceId: instA, stepSeq: 2, action: "approve", idempotencyKey: actKeyA } });
+    expect(finA.status).toBe(200);
+    // 终审同键重放：applied=false 且台账不重复入账
+    const replayA = await trpc(app, "approval.act", { cookie: financeCookie, input: { instanceId: instA, stepSeq: 2, action: "approve", idempotencyKey: actKeyA } });
+    expect(replayA.status).toBe(200);
+    expect((replayA.json as { result: { data: { applied: boolean } } }).result.data.applied).toBe(false);
+
+    // 报销 B 1M 关联同一经费 → 审批通过（R4 原冲突路径：旧实现第二条 RELEASED 键 :1 撞键被吞）
+    const expB = await trpc(app, "expense.create", {
+      cookie: memberCookie,
+      input: {
+        reason: "R4 报销B",
+        items: [{ projectId: projectAId, fundingRequestId: fId, date: "2027-09-21", category: "accommodation", amountCents: 1_000_000, description: "B 明细" }],
+      },
+    });
+    const expBId = (expB.json as { result: { data: { id: string } } }).result.data.id;
+    const expBDetail = await trpc(app, "expense.getById", { cookie: memberCookie, input: { id: expBId }, method: "GET" });
+    const subB = await trpc(app, "expense.submit", {
+      cookie: memberCookie,
+      input: { id: expBId, rowVersion: (expBDetail.json as { result: { data: { rowVersion: number } } }).result.data.rowVersion, idempotencyKey: crypto.randomUUID() },
+    });
+    const instB = (subB.json as { result: { data: { instance: { id: string } } } }).result.data.instance.id;
+    await trpc(app, "approval.act", { cookie: pmCookie, input: { instanceId: instB, stepSeq: 1, action: "approve", idempotencyKey: crypto.randomUUID() } });
+    const finB = await trpc(app, "approval.act", { cookie: financeCookie, input: { instanceId: instB, stepSeq: 2, action: "approve", idempotencyKey: crypto.randomUUID() } });
+    expect(finB.status).toBe(200);
+
+    // 断言：两条 RELEASED 均入账（键 = funding:report 各自唯一）
+    const released = await query<{ idempotency_key: string; reserved_delta_cents: number }>(
+      `SELECT idempotency_key, reserved_delta_cents FROM budget_ledger
+       WHERE entry_type = 'FUNDING_RELEASED' AND source_type = 'funding' AND source_id = $1
+       ORDER BY created_at`,
+      [fId],
+    );
+    expect(released).toHaveLength(2);
+    expect(released.map((r) => r.idempotency_key)).toEqual([
+      `FUNDING_RELEASED:${fId}:${expAId}`,
+      `FUNDING_RELEASED:${fId}:${expBId}`,
+    ]);
+    expect(released.reduce((sum, r) => sum + Number(r.reserved_delta_cents), 0)).toBe(-2_500_000);
+    // 净占用与台账重算一致（4M − 2.5M = 1.5M）；实际支出 A+B 全额
+    const net = await query<{ net: number }>(
+      `SELECT coalesce(sum(reserved_delta_cents),0)::float8 AS net FROM budget_ledger WHERE source_type='funding' AND source_id=$1`,
+      [fId],
+    );
+    expect(Number(net[0].net)).toBe(1_500_000);
+    const recognized = await query<{ total: number }>(
+      `SELECT coalesce(sum(actual_delta_cents),0)::float8 AS total FROM budget_ledger WHERE entry_type='EXPENSE_RECOGNIZED' AND source_id IN ($1,$2)`,
+      [expAId, expBId],
+    );
+    expect(Number(recognized[0].total)).toBe(2_500_000);
+    // 重放后无第三条 RELEASED（审批重放不重复入账）
+    expect(released.length).toBe(2);
+    // 使用态迁移正确
+    const fAfter = await trpc(app, "funding.getById", { cookie: memberCookie, input: { id: fId }, method: "GET" });
+    expect((fAfter.json as { result: { data: { usageStatus: string; figures: { remainingCents: number } } } }).result.data).toMatchObject({
+      usageStatus: "partially_used",
+    });
+    expect((fAfter.json as { result: { data: { figures: { remainingCents: number } } } }).result.data.figures.remainingCents).toBe(1_500_000);
+  });
+
   it("C7b 超预算双分支：escalate 审批链追加管理层并放行；block 核销实检拒绝并整体回滚", async () => {
     // escalate 分支（默认策略）：大额 79M（可用 78M）→ 提交追加 partner 步骤
     const big = await trpc(app, "expense.create", {

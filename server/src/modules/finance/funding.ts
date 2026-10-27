@@ -178,13 +178,14 @@ export async function closeFunding(db: DbOrTx, user: SessionUser, input: { id: s
 
   const remaining = await fundingRemaining(db, funding.id);
   if (remaining > 0) {
+    // R4：键 FUNDING_RELEASED:<fundingId>:close（业务事件维度；重放被幂等层吞掉）
     await recordLedger(db, {
       projectId: funding.projectId,
       sourceType: "funding",
       sourceId: funding.id,
       entryType: "FUNDING_RELEASED",
       reservedDeltaCents: -remaining,
-      seq: Math.floor(Date.now() / 1000), // 释放序号：与核销释放 seq 区分（时间戳序，幂等键唯一）
+      seq: "close",
     });
   }
   const [updated] = await db
@@ -213,13 +214,14 @@ export async function releaseUnusedFunding(db: DbOrTx, user: SessionUser, input:
   }
   const remaining = await fundingRemaining(db, funding.id);
   if (remaining <= 0) throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "无未使用额度");
+  // R4：键 FUNDING_RELEASED:<fundingId>:releaseUnused（业务事件维度；前置校验已拦重复调用，重放双保险）
   await recordLedger(db, {
     projectId: funding.projectId,
     sourceType: "funding",
     sourceId: funding.id,
     entryType: "FUNDING_RELEASED",
     reservedDeltaCents: -remaining,
-    seq: Math.floor(Date.now() / 1000),
+    seq: "releaseUnused",
   });
   const [updated] = await db
     .update(fundingRequests)
