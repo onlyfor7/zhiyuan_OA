@@ -12,7 +12,7 @@ loadEnvFile();
 export const TEST_DATABASE_URL =
   process.env.DATABASE_URL_TEST ?? "postgres://lexflow:lexflow_dev@localhost:15432/lexflow_test";
 
-/** 迭代 0 全部业务表（arch/01 §1） */
+/** 迭代 0 + 迭代 1 全部业务表（arch/01 §1、arch/04 §2） */
 export const ALL_TABLES = [
   "org_units",
   "users",
@@ -30,6 +30,24 @@ export const ALL_TABLES = [
   "system_config",
   "code_sequences",
   "notifications",
+  "stages",
+  "milestones",
+  "tasks",
+  "deliverables",
+  "plan_versions",
+  "plan_items",
+  "change_requests",
+  "quality_issues",
+  "quality_issue_events",
+  "quality_check_items",
+  "decisions",
+  "weekly_reports",
+  "archive_directories",
+  "archive_links",
+  "approval_instances",
+  "approval_steps",
+  "approval_policies",
+  "project_templates",
 ] as const;
 
 export async function migrateToLatest(url: string = TEST_DATABASE_URL): Promise<void> {

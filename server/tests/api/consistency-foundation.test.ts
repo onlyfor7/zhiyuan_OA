@@ -189,12 +189,15 @@ describe("一致性地基验收（审计 / 登录同形 / 会话一致性 / 幂�
     expect(objectId).toBeTruthy();
   });
 
-  it("[偏差取证] 迭代 0 十六表无 idempotency_key 列（与 arch/01：幂等键随迭代 1 表落地一致）", async () => {
+  it("[D2 已落地] idempotency_key 列随迭代 1 表落地（file_versions / approval_instances）", async () => {
+    // D2 偏差裁定关闭（STATUS 2026-10-27）：幂等键列由数据会话随迭代 1 迁移落地；
+    // 本条由数据会话按裁定原地翻转取证对象，正式「重复上传拦截断言」归测试会话工单 04。
     const rows = await query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.columns
-       WHERE table_schema = 'public' AND column_name = 'idempotency_key'`,
+       WHERE table_schema = 'public' AND column_name = 'idempotency_key'
+       ORDER BY table_name`,
     );
-    expect(rows).toEqual([]);
+    expect(rows).toEqual([{ table_name: "approval_instances" }, { table_name: "file_versions" }]);
   });
 
   it("会话 cookie 属性：HttpOnly + SameSite=Lax（防 XSS 窃取与会话固定面）", async () => {

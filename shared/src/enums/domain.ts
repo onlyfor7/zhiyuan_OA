@@ -44,7 +44,7 @@ export const TIME_ACTIVITY_TYPE = [
 ] as const;
 export type TimeActivityType = (typeof TIME_ACTIVITY_TYPE)[number];
 
-/** 通知事件类型（需求基线 §12.2，arch/02 §3.1 v1.1 冻结） */
+/** 通知事件类型（需求基线 §12.2，arch/02 §3.1 v1.1 冻结；arch/04 §6 增补 7 值） */
 export const NOTIFICATION_EVENT_TYPE = [
   "meeting_starting",
   "minutes_overdue",
@@ -54,6 +54,13 @@ export const NOTIFICATION_EVENT_TYPE = [
   "budget_exceeded",
   "timesheet_gap",
   "grant_expiring",
+  "approval_pending",
+  "approval_result",
+  "task_due_soon",
+  "task_overdue",
+  "quality_returned",
+  "decision_required",
+  "report_draft_ready",
 ] as const;
 export type NotificationEventType = (typeof NOTIFICATION_EVENT_TYPE)[number];
 

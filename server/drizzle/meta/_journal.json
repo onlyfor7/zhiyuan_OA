@@ -8,6 +8,13 @@
       "when": 1793024032116,
       "tag": "0000_iter0-foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793062085412,
+      "tag": "0001_iter1-governance",
+      "breakpoints": true
     }
   ]
 }

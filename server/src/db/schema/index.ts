@@ -5,3 +5,4 @@ export * from "./access";
 export * from "./files";
 export * from "./audit";
 export * from "./system";
+export * from "./governance";

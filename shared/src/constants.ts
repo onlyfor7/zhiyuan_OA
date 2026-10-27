@@ -16,6 +16,11 @@ export const CODE_PREFIX = {
   // CLT 客户 / MTR 事项：2026-10-26 由架构会话正式增补进注册表（arch/00 §3.5 v1.1）。
   CLT: "CLT", // 客户
   MTR: "MTR", // 事项
+  // CHG/STG/MLS/DLV：2026-10-27 由架构会话正式增补进注册表（arch/00 §3.5 v1.2，arch/04 §2）。
+  CHG: "CHG", // 延期申请
+  STG: "STG", // 阶段
+  MLS: "MLS", // 里程碑
+  DLV: "DLV", // 交付物
 } as const;
 export type CodePrefix = (typeof CODE_PREFIX)[keyof typeof CODE_PREFIX];
 

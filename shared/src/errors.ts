@@ -20,6 +20,10 @@ export const ERROR_CODE = {
   PERIOD_LOCKED: "PERIOD_LOCKED",
   /** 已归档只读 */
   ARCHIVED_READONLY: "ARCHIVED_READONLY",
+  /** severe/critical 处理人与复核人为同一人（arch/04 §2.5） */
+  SELF_REVIEW_BLOCKED: "SELF_REVIEW_BLOCKED",
+  /** 审批策略无命中（arch/04 §2.9/§4） */
+  POLICY_NOT_FOUND: "POLICY_NOT_FOUND",
   /** 兜底，无堆栈，带 requestId */
   INTERNAL: "INTERNAL",
 } as const;
