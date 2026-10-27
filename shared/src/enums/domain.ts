@@ -72,3 +72,16 @@ export type ProjectRole = (typeof PROJECT_ROLE)[number];
 /** 会议类型（arch/02 §3.1 v1.1 冻结 5 值；管理端可扩充，键名不得改） */
 export const MEETING_TYPE = ["project", "client", "quality_review", "weekly", "decision"] as const;
 export type MeetingType = (typeof MEETING_TYPE)[number];
+
+/** 费用类别（arch/02 §3.1 v1.1 冻结 8 值；管理端可扩充，键名不得改） */
+export const EXPENSE_CATEGORY = [
+  "transport",
+  "accommodation",
+  "meals",
+  "meeting",
+  "materials",
+  "translation",
+  "notarization",
+  "travel_other",
+] as const;
+export type ExpenseCategory = (typeof EXPENSE_CATEGORY)[number];

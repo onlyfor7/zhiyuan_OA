@@ -50,7 +50,7 @@ describe("治理域种子与约束", () => {
     await runSeed(TEST_DATABASE_URL);
     const counts = await countRows();
     expect(counts.project_templates).toBe(2);
-    expect(counts.approval_policies).toBe(7); // 迭代 1 三条 + 迭代 2 出差四条（arch/05 §7）
+    expect(counts.approval_policies).toBe(12); // 迭代 1 三条 + 迭代 2 四条 + 迭代 3 五条（arch/06 §6）
     expect(counts.stages).toBe(6); // A×4 + B×2
     expect(counts.milestones).toBe(3);
     expect(counts.tasks).toBe(12); // A×8 + B×3 + 会议行动项转换任务×1

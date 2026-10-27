@@ -11,6 +11,7 @@ import * as schema from "../schema";
 import { clients, matters, orgUnits, projectMembers, projects, roles, systemConfig, userRoles, users } from "../schema";
 import { SYSTEM_CONFIG_DEFAULTS } from "./config-defaults";
 import { seedCollab } from "./collab";
+import { seedFinance } from "./finance";
 import { seedGovernance } from "./governance";
 
 type DbOrTx =
@@ -283,6 +284,9 @@ async function seedSchema(databaseUrl: string): Promise<void> {
 
       // 迭代 2 会议与出差域种子（审批策略/会议/纪要/行动项/出差/行程/事件，全幂等）
       await seedCollab(tx);
+
+      // 迭代 3 财务域种子（预算/经费/报销/台账，台账分录与预算经费自洽——五公式可重算）
+      await seedFinance(tx);
 
       // 编号序列水位对齐到种子最大序号，避免后续 next_code 撞号
       await tx.execute(

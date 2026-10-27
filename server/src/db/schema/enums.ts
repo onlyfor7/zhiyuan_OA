@@ -7,6 +7,7 @@ import {
   APPROVAL_INSTANCE_STATUS,
   APPROVAL_STEP_STATUS,
   ATTENDANCE_STATUS,
+  BUDGET_STATUS,
   CHANGE_LEVEL,
   CHANGE_REQUEST_STATUS,
   CHECK_ITEM_STATUS,
@@ -14,6 +15,10 @@ import {
   COUNTERSIGN_RULE,
   DECISION_STATUS,
   DELIVERABLE_STATUS,
+  EXPENSE_CATEGORY,
+  EXPENSE_STATUS,
+  FUNDING_USAGE_STATUS,
+  LEDGER_ENTRY_TYPE,
   MEETING_STATUS,
   MEETING_TYPE,
   MILESTONE_STATUS,
@@ -107,3 +112,15 @@ export const travelStatusEnum = pgEnum("travel_status", TRAVEL_STATUS);
 export const segmentTypeEnum = pgEnum("segment_type", SEGMENT_TYPE);
 
 export const travelEventActionEnum = pgEnum("travel_event_action", TRAVEL_EVENT_ACTION);
+
+/** 迭代 3 财务域枚举（arch/06 §2；expense_category 按 arch/02 §3.1 八值） */
+
+export const budgetStatusEnum = pgEnum("budget_status", BUDGET_STATUS);
+
+export const fundingUsageStatusEnum = pgEnum("funding_usage_status", FUNDING_USAGE_STATUS);
+
+export const expenseStatusEnum = pgEnum("expense_status", EXPENSE_STATUS);
+
+export const expenseCategoryEnum = pgEnum("expense_category", EXPENSE_CATEGORY);
+
+export const ledgerEntryTypeEnum = pgEnum("ledger_entry_type", LEDGER_ENTRY_TYPE);

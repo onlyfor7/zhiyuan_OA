@@ -18,7 +18,8 @@ export const TRAVEL_STATUS = [
 ] as const;
 export type TravelStatus = (typeof TRAVEL_STATUS)[number];
 
-export const BUDGET_STATUS = ["draft", "pending_approval", "active", "closed"] as const;
+/** 预算：draft → pending_approval → active → closed；调整产新 active 版本、旧版 superseded（arch/06 §2/§3） */
+export const BUDGET_STATUS = ["draft", "pending_approval", "active", "superseded", "closed"] as const;
 export type BudgetStatus = (typeof BUDGET_STATUS)[number];
 
 /** 经费申请两态分离：审批态与使用态 */
