@@ -4,7 +4,6 @@ import { CONFIG_KEY } from "@lexflow/shared";
 
 import {
   meetingActionItems,
-  meetingMinutes,
   meetingParticipants,
   meetings,
   projects,

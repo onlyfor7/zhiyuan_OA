@@ -319,7 +319,7 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
       })
       .where(and(eq(approvalSteps.id, step.id), eq(approvalSteps.status, "pending")))
       .returning();
-    if (updated.length === 0) return replayOrConflict(db, step, input, instance); // N4：同键 200，异键 409
+    if (updated.length === 0) return replayOrConflict(db, step, input); // N4：同键 200，异键 409
     return { instance, applied: true };
   }
 
@@ -342,7 +342,7 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
     .where(and(eq(approvalSteps.id, step.id), eq(approvalSteps.status, "pending")))
     .returning({ id: approvalSteps.id });
   if (acted.length === 0) {
-    return replayOrConflict(db, step, input, instance);
+    return replayOrConflict(db, step, input);
   }
 
   if (input.action === "reject") {
@@ -452,7 +452,6 @@ async function replayOrConflict(
   db: DbOrTx,
   step: { id: string; actedIdempotencyKey: string | null },
   input: ActInput,
-  instance: ApprovalInstanceRow,
 ): Promise<ActResult> {
   // N4：同键重放 → 200 返回现状（applied=false）；异键重放已处理步骤 → 409
   const current = await loadInstance(db, input.instanceId);
