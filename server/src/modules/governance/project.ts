@@ -49,11 +49,23 @@ const ARCHIVE_DIRECTORIES: Array<{ dirKey: string; name: string; seq: number }> 
 interface TemplateStage {
   name: string;
   seq: number;
+  /** 阶段时长（天），默认 14（arch/04 §2.10 v1.2 冻结键名） */
+  days?: number;
 }
 interface TemplateCheckItem {
   name: string;
   required?: boolean;
   stageSeq?: number;
+}
+interface TemplateTask {
+  name: string;
+  stageSeq: number;
+  /** 相对阶段开始日的偏移（默认 0） */
+  offsetDays?: number;
+  /** 任务时长（天，默认 7）；planned_end = planned_start + durationDays */
+  durationDays?: number;
+  /** 项目内角色：解析为该项目首个该角色成员，否则未分配 */
+  assigneeRole?: string;
 }
 
 export interface CreateProjectInput {
@@ -90,6 +102,7 @@ export async function createProject(
   const structure = template.structureJson as {
     stages?: TemplateStage[];
     checkItems?: TemplateCheckItem[];
+    tasks?: TemplateTask[];
   };
 
   const projectCode = await nextCode("PRJ", db);
@@ -113,8 +126,7 @@ export async function createProject(
   // 创建人自动成为项目负责人（成员关系）
   await db.insert(projectMembers).values({ projectId: project.id, userId: user.id, projectRole: "manager" });
 
-  // 模板阶段（2 周/阶段顺排）+ 基线 v1 及 items
-  const stageDefs = structure.stages ?? [];
+  // 模板阶段（days 累计排期，默认 14 天/阶段）+ 基线 v1 及 items
   const [v1] = await db
     .insert(planVersions)
     .values({
@@ -130,13 +142,19 @@ export async function createProject(
   if (!v1) throw new Error("计划版本插入失败");
 
   let seq = 0;
-  const start = new Date(`${input.startDate}T00:00:00Z`);
-  for (const s of stageDefs.sort((a, b) => a.seq - b.seq)) {
-    const ps = new Date(start);
-    ps.setUTCDate(ps.getUTCDate() + (s.seq - 1) * 14);
-    const pe = new Date(ps);
-    pe.setUTCDate(pe.getUTCDate() + 13);
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const addDays = (base: Date, days: number) => {
+    const d = new Date(base);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d;
+  };
+  const createdStages: Array<{ id: string; seq: number; start: Date; end: Date }> = [];
+  const cursor = new Date(`${input.startDate}T00:00:00Z`);
+  for (const s of (structure.stages ?? []).slice().sort((a, b) => a.seq - b.seq)) {
+    const days = s.days ?? 14;
+    const ps = new Date(cursor);
+    const pe = addDays(ps, days - 1);
+    cursor.setUTCDate(cursor.getUTCDate() + days);
     const code = await nextCode("STG", db);
     const [stage] = await db
       .insert(stages)
@@ -152,6 +170,7 @@ export async function createProject(
         updatedBy: user.id,
       })
       .returning({ id: stages.id });
+    createdStages.push({ id: stage.id, seq: s.seq, start: ps, end: pe });
     await db.insert(planItems).values({
       planVersionId: v1.id,
       itemType: "stage",
@@ -164,22 +183,63 @@ export async function createProject(
     });
   }
 
-  // 模板检查项
-  const stageBySeq = new Map(stageDefs.map((s) => [s.seq, s]));
-  for (const item of structure.checkItems ?? []) {
-    const stageDef = item.stageSeq !== undefined ? stageBySeq.get(item.stageSeq) : undefined;
-    let stageRowId: string | null = null;
-    if (stageDef) {
-      const found = await db
-        .select({ id: stages.id })
-        .from(stages)
-        .where(and(eq(stages.projectId, project.id), eq(stages.seq, stageDef.seq)))
-        .limit(1);
-      stageRowId = found[0]?.id ?? null;
+  // 模板任务（arch/04 §2.10 v1.2 冻结规则）：落入对应阶段区间生成真实任务，并写入 v1 plan_items
+  const stageBySeq = new Map(createdStages.map((s) => [s.seq, s]));
+  for (const taskDef of structure.tasks ?? []) {
+    const stage = stageBySeq.get(taskDef.stageSeq);
+    if (!stage) {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "模板任务引用了不存在的阶段", {
+        tasks: [`stageSeq=${taskDef.stageSeq} 不存在`],
+      });
     }
+    const offsetDays = taskDef.offsetDays ?? 0;
+    const durationDays = taskDef.durationDays ?? 7;
+    const ps = addDays(stage.start, offsetDays);
+    const pe = addDays(ps, durationDays);
+    let assigneeId: string | null = null;
+    if (taskDef.assigneeRole) {
+      const candidate = await db
+        .select({ userId: projectMembers.userId })
+        .from(projectMembers)
+        .where(and(eq(projectMembers.projectId, project.id), eq(projectMembers.projectRole, taskDef.assigneeRole)))
+        .orderBy(projectMembers.joinedAt)
+        .limit(1);
+      assigneeId = candidate[0]?.userId ?? null;
+    }
+    const taskCode = await nextCode("TSK", db);
+    const [taskRow] = await db
+      .insert(tasks)
+      .values({
+        projectId: project.id,
+        stageId: stage.id,
+        code: taskCode,
+        title: taskDef.name,
+        assigneeId,
+        plannedStart: fmt(ps),
+        plannedEnd: fmt(pe),
+        status: "pending",
+        createdBy: user.id,
+        updatedBy: user.id,
+      })
+      .returning({ id: tasks.id });
+    await db.insert(planItems).values({
+      planVersionId: v1.id,
+      itemType: "task",
+      refId: taskRow.id,
+      name: taskDef.name,
+      plannedStart: fmt(ps),
+      plannedEnd: fmt(pe),
+      seq: ++seq,
+      createdBy: user.id,
+    });
+  }
+
+  // 模板检查项
+  for (const item of structure.checkItems ?? []) {
+    const stageRow = item.stageSeq !== undefined ? stageBySeq.get(item.stageSeq) : undefined;
     await db.insert(qualityCheckItems).values({
       projectId: project.id,
-      stageId: stageRowId,
+      stageId: stageRow?.id ?? null,
       name: item.name,
       required: item.required ?? true,
       createdBy: user.id,

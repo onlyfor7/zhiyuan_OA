@@ -73,6 +73,14 @@ const PROJECT_TEMPLATES = [
         { name: "诉讼文书质检", required: true, stageSeq: 2 },
         { name: "时效核查", required: true, stageSeq: 2 },
       ],
+      // 模板任务（arch/04 §2.10 v1.2；覆盖 1/2/3 阶段，日期均落在阶段区间内）
+      tasks: [
+        { name: "证据清单整理", stageSeq: 1, offsetDays: 3, durationDays: 7, assigneeRole: "manager" },
+        { name: "起诉状起草", stageSeq: 1, offsetDays: 6, durationDays: 7 },
+        { name: "证据交换材料核对", stageSeq: 2, offsetDays: 2, durationDays: 10 },
+        { name: "庭前会议提纲", stageSeq: 2, offsetDays: 8, durationDays: 5 },
+        { name: "代理意见初稿", stageSeq: 3, offsetDays: 2, durationDays: 8 },
+      ],
     },
   },
   {
@@ -84,6 +92,7 @@ const PROJECT_TEMPLATES = [
         { name: "日常服务执行", seq: 2 },
       ],
       checkItems: [{ name: "服务台账完整性", required: true, stageSeq: 2 }],
+      tasks: [{ name: "服务台账建立", stageSeq: 1, offsetDays: 1, durationDays: 5 }],
     },
   },
 ];
@@ -135,7 +144,7 @@ export async function seedGovernance(tx: SeedTx): Promise<void> {
   const projectAId = await projectIdByCode(tx, `PRJ-${YEAR}-00001`);
   const projectBId = await projectIdByCode(tx, `PRJ-${YEAR}-00002`);
 
-  // 项目模板（按 name 幂等）
+  // 项目模板（按 name upsert：冲突时更新 structure_json——02c 架构特批；重跑种子使模板新结构生效）
   for (const tpl of PROJECT_TEMPLATES) {
     const existing = await tx
       .select({ id: projectTemplates.id })
@@ -149,6 +158,11 @@ export async function seedGovernance(tx: SeedTx): Promise<void> {
         createdBy: pmId,
         updatedBy: pmId,
       });
+    } else {
+      await tx
+        .update(projectTemplates)
+        .set({ structureJson: tpl.structureJson, description: tpl.description, updatedBy: pmId, updatedAt: new Date().toISOString() })
+        .where(eq(projectTemplates.id, existing[0].id));
     }
   }
 

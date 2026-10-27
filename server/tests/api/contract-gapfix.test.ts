@@ -182,8 +182,8 @@ describe("工单 02b：参照数据端点 / 立项权限门 / plan_items.name / 
     const currentData = (current.json as { result: { data: { versionNo: number; items: { name: string }[] } } })
       .result.data;
     expect(currentData.versionNo).toBe(1);
-    expect(currentData.items.length).toBe(4); // 模板四阶段
-    expect(currentData.items.every((i) => i.name.length > 0)).toBe(true);
+    expect(currentData.items.length).toBe(9); // 模板四阶段 + 模板任务五（arch/04 §2.10 v1.2，02c 起 tasks 键生效）
+    expect(currentData.items.filter((i) => i.name.length > 0)).toHaveLength(9);
   });
 
   it("plan_items.name：全量非空且与来源行现名一致（迁移回填 + 写入侧快照）", async () => {
