@@ -67,6 +67,8 @@ user.listProjectMembers { projectId } → { userId, name, projectRole }[]  -- �
 -- 文件（Hono 原生路由，非 tRPC）
 POST   /files/upload            multipart: file, sourceType, sourceId, businessDate?
                                 → { fileVersionId, fileObjectId, sha256, sizeBytes }
+                                （v1.1 预告：迭代 1 增补可选 idempotencyKey 字段 +
+                                file_versions.idempotency_key 唯一列，重复上传须幂等）
 GET    /files/:fileVersionId/download?token=   → 二进制流（鉴权：session 或 ≤15min 短期 token）
 GET    /files/:fileVersionId/preview           → 同上，Content-Disposition: inline
 ```
