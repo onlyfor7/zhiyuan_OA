@@ -26,8 +26,8 @@ export interface GanttRow {
 
 /** 将 plan items 与任务 live 数据合成为三轨行；阶段/里程碑暂无名称契约（STATUS 待裁定），以类型+序号呈现 */
 export function buildGanttRows(args: {
-  current: PlanVersionDetail;
-  baseline: PlanVersionDetail | null;
+  current: Pick<PlanVersionDetail, "items">;
+  baseline: Pick<PlanVersionDetail, "items"> | null;
   tasks: TaskItem[];
   simulateItems?: SimItem[];
 }): GanttRow[] {

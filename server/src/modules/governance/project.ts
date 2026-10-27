@@ -72,6 +72,11 @@ export async function createProject(
   ip: string | null,
   sessionId: string | null,
 ): Promise<{ id: string; code: string }> {
+  // 立项权限门（arch/02 §4.1 v1.2 冻结）：project.manage 动作授权 = partner/sysadmin，
+  // 其余角色统一 403/404 同形（无泄露语义）；立项权归属为律所确认项（§18），当前为开发期默认
+  if (!user.globalRoles.includes("partner") && !user.globalRoles.includes("sysadmin")) {
+    throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "无立项权限");
+  }
   const [template] = await db
     .select()
     .from(projectTemplates)
@@ -151,6 +156,7 @@ export async function createProject(
       planVersionId: v1.id,
       itemType: "stage",
       refId: stage.id,
+      name: s.name,
       plannedStart: fmt(ps),
       plannedEnd: fmt(pe),
       seq: ++seq,

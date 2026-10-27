@@ -1,6 +1,8 @@
 import { authRouter } from "./auth";
 import { projectRouter } from "./project";
 import { userRouter } from "./user";
+import { clientRouter } from "./client";
+import { matterRouter } from "./matter";
 import { planRouter } from "./plan";
 import { taskRouter } from "./task";
 import { changeRouter } from "./change";
@@ -20,6 +22,8 @@ export const appRouter = router({
   auth: authRouter,
   project: projectRouter,
   user: userRouter,
+  client: clientRouter,
+  matter: matterRouter,
   plan: planRouter,
   task: taskRouter,
   change: changeRouter,

@@ -114,6 +114,7 @@ export function registerChangeRequestHandler(): void {
           planVersionId: newVersion.id,
           itemType: item.itemType,
           refId: item.refId,
+          name: item.name, // 版本时点快照名（arch/04 §2.3 v1.1：复制旧版快照，不重新取名）
           plannedStart: target ? target.new_start : item.plannedStart,
           plannedEnd: target ? target.new_end : item.plannedEnd,
           seq: item.seq,

@@ -180,6 +180,8 @@ export const planItems = pgTable(
       .references(() => planVersions.id, { onDelete: "restrict" }),
     itemType: planItemTypeEnum("item_type").notNull(),
     refId: uuid("ref_id").notNull(),
+    /** 版本时点快照名（arch/04 §2.3 v1.1：改名不改历史版本显示；存量行由 0002 迁移回填） */
+    name: text("name").notNull(),
     plannedStart: date("planned_start").notNull(),
     plannedEnd: date("planned_end").notNull(),
     seq: integer("seq").notNull(),

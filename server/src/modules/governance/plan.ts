@@ -57,7 +57,25 @@ export async function currentVersion(db: DbOrTx, user: SessionUser, projectId: s
     .from(planItems)
     .where(eq(planItems.planVersionId, version.id))
     .orderBy(asc(planItems.seq));
-  return { ...version, items };
+
+  // live 三轨并列（arch/04 §5 plan.current v1.1）：甘特实际轨取 live actual_*，不取快照
+  const liveStages = await db
+    .select()
+    .from(stages)
+    .where(eq(stages.projectId, projectId))
+    .orderBy(asc(stages.seq));
+  const liveMilestones = await db
+    .select()
+    .from(milestones)
+    .where(eq(milestones.projectId, projectId))
+    .orderBy(asc(milestones.seq));
+  const liveTasks = await db
+    .select()
+    .from(tasks)
+    .where(eq(tasks.projectId, projectId))
+    .orderBy(asc(tasks.code));
+
+  return { ...version, items, stages: liveStages, milestones: liveMilestones, tasks: liveTasks };
 }
 
 /* ===== simulate（只算不写） ===== */
@@ -154,6 +172,7 @@ export async function simulate(
     id: item.id,
     refId: item.refId,
     itemType: item.itemType,
+    name: item.name,
     originalStart: item.plannedStart,
     originalEnd: item.plannedEnd,
     simulatedStart: result.get(item.id)!.start,

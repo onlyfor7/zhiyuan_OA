@@ -266,6 +266,8 @@ export async function seedGovernance(tx: SeedTx): Promise<void> {
         plannedStart: fmt(addDays(TODAY, t.ps)),
         plannedEnd: fmt(addDays(TODAY, t.pe)),
         status: t.status as "pending" | "in_progress" | "done" | "cancelled",
+        actualStart: t.completedOffset === null ? null : fmt(addDays(TODAY, t.ps)),
+        actualEnd: t.completedOffset === null ? null : addDays(TODAY, t.completedOffset).toISOString(),
         completedAt: t.completedOffset === null ? null : addDays(TODAY, t.completedOffset).toISOString(),
         createdBy: pmId,
         updatedBy: pmId,
@@ -307,6 +309,7 @@ export async function seedGovernance(tx: SeedTx): Promise<void> {
       key: string,
       itemType: "stage" | "milestone" | "task",
       refId: string,
+      name: string,
       ps: number,
       pe: number,
       dependsOn: string[] = [],
@@ -317,6 +320,7 @@ export async function seedGovernance(tx: SeedTx): Promise<void> {
           planVersionId: v1Id,
           itemType,
           refId,
+          name,
           plannedStart: fmt(addDays(TODAY, ps)),
           plannedEnd: fmt(addDays(TODAY, pe)),
           seq: seq++,
@@ -331,17 +335,17 @@ export async function seedGovernance(tx: SeedTx): Promise<void> {
       const deps = s.code === `STG-${YEAR}-00003` && itemIds.get(`STG-${YEAR}-00002`)
         ? [itemIds.get(`STG-${YEAR}-00002`)!]
         : [];
-      await addItem(s.code, "stage", stageIds.get(s.code)!, s.ps, s.pe, deps);
+      await addItem(s.code, "stage", stageIds.get(s.code)!, s.name, s.ps, s.pe, deps);
     }
     for (const m of aMilestones) {
-      await addItem(m.code, "milestone", milestoneIds.get(m.code)!, m.pd, m.pd);
+      await addItem(m.code, "milestone", milestoneIds.get(m.code)!, m.name, m.pd, m.pd);
     }
     // 任务项：证据交换材料核对（00003）依赖证据清单整理（00001）
     for (const t of aTasks) {
       const deps = t.code === `TSK-${YEAR}-00003` && itemIds.get(`TSK-${YEAR}-00001`)
         ? [itemIds.get(`TSK-${YEAR}-00001`)!]
         : [];
-      await addItem(t.code, "task", taskIds.get(t.code)!, t.ps, t.pe, deps);
+      await addItem(t.code, "task", taskIds.get(t.code)!, t.title, t.ps, t.pe, deps);
     }
   }
 
@@ -556,6 +560,8 @@ export async function seedGovernance(tx: SeedTx): Promise<void> {
         plannedStart: fmt(addDays(TODAY, t.ps)),
         plannedEnd: fmt(addDays(TODAY, t.pe)),
         status: t.status as "pending" | "in_progress" | "done" | "cancelled",
+        actualStart: t.completedOffset === null ? null : fmt(addDays(TODAY, t.ps)),
+        actualEnd: t.completedOffset === null ? null : addDays(TODAY, t.completedOffset).toISOString(),
         completedAt: t.completedOffset === null ? null : addDays(TODAY, t.completedOffset).toISOString(),
         createdBy: pmId,
         updatedBy: pmId,
@@ -596,6 +602,7 @@ export async function seedGovernance(tx: SeedTx): Promise<void> {
         planVersionId: bV1Id,
         itemType: "stage",
         refId: bStageIds.get(s.code)!,
+        name: s.name,
         plannedStart: fmt(addDays(TODAY, s.ps)),
         plannedEnd: fmt(addDays(TODAY, s.pe)),
         seq: seq++,
@@ -607,6 +614,7 @@ export async function seedGovernance(tx: SeedTx): Promise<void> {
         planVersionId: bV1Id,
         itemType: "task",
         refId: bTaskIds.get(t.code)!,
+        name: t.title,
         plannedStart: fmt(addDays(TODAY, t.ps)),
         plannedEnd: fmt(addDays(TODAY, t.pe)),
         seq: seq++,
