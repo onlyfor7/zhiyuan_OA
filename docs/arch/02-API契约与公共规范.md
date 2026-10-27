@@ -95,7 +95,11 @@ GET    /files/:fileVersionId/preview           → 同上，Content-Disposition:
 | `DUPLICATE_RECEIPT` | CONFLICT | 重复票据命中（带原报销定位信息） |
 | `PERIOD_LOCKED` | FORBIDDEN | 工时周期已锁定 |
 | `ARCHIVED_READONLY` | FORBIDDEN | 已归档只读 |
+| `SELF_REVIEW_BLOCKED` | FORBIDDEN | 质量复核分离：severe+ 处理人不得复核本人（v1.1，arch/04 §2.5） |
+| `POLICY_NOT_FOUND` | PRECONDITION_FAILED | 审批策略无命中，显式失败不静默通过（v1.1，arch/04 §4） |
 | `INTERNAL` | INTERNAL_SERVER_ERROR | 兜底，无堆栈，带 requestId |
+
+> v1.1（2026-10-27）：新增冻结错误码时，允许在同次交付中补本表映射行（契约管道性质），并在冻结记录登记。
 
 ## 7. 审计中间件规范（迭代 0 落地）
 
