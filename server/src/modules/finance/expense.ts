@@ -258,13 +258,17 @@ export interface SubmitCheck {
   detail: string;
 }
 
-/** 重复票据三因子：receipt_no + 金额 + sha256（sha 以 null 参与比较；不依赖文件名） */
+/**
+ * 重复票据命中规则（arch 修复规格 R1，EXP-005）：
+ * （receipt_no 相同 && 金额相同）——主因子，票据号+金额即拦（一方无文件同样命中）；
+ * 或（sha256 非空 && sha 相同 && 金额相同）——辅因子，同文件内容即拦（号码可不同）。
+ * 不依赖文件名。
+ */
 async function findDuplicateReceipt(
   db: DbOrTx,
   reportId: string,
   item: { receiptNo: string | null; amountCents: number; receiptFileVersionId: string | null },
 ): Promise<{ code: string; id: string } | null> {
-  if (!item.receiptNo) return null;
   const sha = await itemReceiptSha(db, item.receiptFileVersionId);
   const candidates = await db
     .select({
@@ -280,16 +284,20 @@ async function findDuplicateReceipt(
     .where(
       and(
         ne(expenseItems.expenseReportId, reportId),
-        isNotNull(expenseItems.receiptNo),
         ne(expenseReports.status, "rejected"),
         ne(expenseReports.status, "draft"),
+        // 候选须可能命中：票据号相同，或（本项有 sha 且候选有票据文件可供 sha 比对）
+        item.receiptNo
+          ? sql`(${expenseItems.receiptNo} = ${item.receiptNo} OR ${expenseItems.receiptFileVersionId} is not null)`
+          : isNotNull(expenseItems.receiptFileVersionId),
       ),
     );
   for (const candidate of candidates) {
-    if (candidate.receiptNo !== item.receiptNo) continue;
     if (candidate.amountCents !== item.amountCents) continue;
     const candidateSha = await itemReceiptSha(db, candidate.receiptFileVersionId);
-    if (candidateSha === sha) {
+    const noAmountHit = item.receiptNo !== null && candidate.receiptNo === item.receiptNo;
+    const shaHit = sha !== null && candidateSha !== null && candidateSha === sha;
+    if (noAmountHit || shaHit) {
       return { code: candidate.reportCode, id: candidate.reportId };
     }
   }

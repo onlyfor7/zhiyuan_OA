@@ -501,6 +501,7 @@ export function registerFinanceHandlers(): void {
         for (const item of fundingItems) {
           const release = Math.min(item.amountCents, Math.max(0, remaining)); // 核销额 ≤ 剩余占用
           remaining -= release;
+          void release;
           if (release > 0) {
             await recordLedger(tx, {
               projectId: item.projectId,
@@ -520,6 +521,21 @@ export function registerFinanceHandlers(): void {
             actualDeltaCents: item.amountCents,
             seq: recognizeSeq++,
           });
+        }
+        // R2：核销后按台账重算累计核销额迁移使用态（同事务；>0 未用尽→partially_used；净占用归零→written_off）
+        const remainingAfter = Math.max(0, remaining);
+        const writtenOff = funding.amountCents - remainingAfter;
+        const nextUsage =
+          writtenOff > 0 && remainingAfter > 0
+            ? "partially_used"
+            : writtenOff > 0 && remainingAfter === 0
+              ? "written_off"
+              : funding.usageStatus;
+        if (nextUsage !== funding.usageStatus) {
+          await tx
+            .update(fundingRequests)
+            .set({ usageStatus: nextUsage as typeof funding.usageStatus, updatedAt: new Date().toISOString() })
+            .where(eq(fundingRequests.id, funding.id));
         }
       }
       const linkedIds = new Set([...byFunding.values()].flat().map((i) => i.id));

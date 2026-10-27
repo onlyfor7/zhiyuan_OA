@@ -220,11 +220,23 @@ describe("迭代 3 费用域（C4–C11 红线全覆盖）", () => {
     expect(hit2.status).toBe(409);
     expect(trpcError(hit2).businessCode).toBe("DUPLICATE_RECEIPT");
 
-    // ④ 同号+同额+不同 sha → 不命中（放行提交）
-    const missSha = await trySubmit({ projectId: projectAId, date: "2027-08-14", category: "materials", amountCents: 100_000, description: "miss-sha", receiptNo: "INV-C5-1", receiptFileVersionId: receiptOther });
-    expect(missSha.status).toBe(200);
-    // ⑤ 同号+不同额 → 不命中
-    const missAmount = await trySubmit({ projectId: projectAId, date: "2027-08-15", category: "materials", amountCents: 100_001, description: "miss-amount", receiptNo: "INV-C5-1", receiptFileVersionId: receiptV1 });
+    // ④ 同号+同额+不同 sha（双方有文件）→ 主因子命中（arch R1：票据号+金额即拦）
+    const hit4 = await trySubmit({ projectId: projectAId, date: "2027-08-14", category: "materials", amountCents: 100_000, description: "命中4-异sha", receiptNo: "INV-C5-1", receiptFileVersionId: receiptOther });
+    expect(hit4.status).toBe(409);
+    expect(trpcError(hit4).businessCode).toBe("DUPLICATE_RECEIPT");
+
+    // ⑤ R1 补：原票有文件、新票无文件，同号同额 → 必拦（旧严格相等规则会漏）
+    const hit5 = await trySubmit({ projectId: projectAId, date: "2027-08-15", category: "materials", amountCents: 100_000, description: "命中5-混合文件", receiptNo: "INV-C5-1" });
+    expect(hit5.status).toBe(409);
+    expect(trpcError(hit5).businessCode).toBe("DUPLICATE_RECEIPT");
+
+    // ⑦ 辅因子：票据号不同 + 同 sha 同额 → 命中（同文件内容即拦）
+    const hit7 = await trySubmit({ projectId: projectAId, date: "2027-08-16", category: "materials", amountCents: 100_000, description: "命中7-辅因子", receiptNo: "INV-C5-OTHER", receiptFileVersionId: receiptV2SameContent });
+    expect(hit7.status).toBe(409);
+    expect(trpcError(hit7).businessCode).toBe("DUPLICATE_RECEIPT");
+
+    // ⑧ 同号+不同额 → 不命中（放行）
+    const missAmount = await trySubmit({ projectId: projectAId, date: "2027-08-17", category: "materials", amountCents: 100_001, description: "miss-amount", receiptNo: "INV-C5-1", receiptFileVersionId: receiptV1 });
     expect(missAmount.status).toBe(200);
   });
 
@@ -375,6 +387,34 @@ describe("迭代 3 费用域（C4–C11 红线全覆盖）", () => {
     expect(Number(recognizedForReport[0].total)).toBe(2_800_000);
     expect(Number(recognizedForReport[0].n)).toBe(3);
 
+    // R2：全额核销 → 使用态 written_off（arch/06 §3 迁移）
+    const fundingAfter = await trpc(app, "funding.getById", { cookie: memberCookie, input: { id: fundingId }, method: "GET" });
+    expect((fundingAfter.json as { result: { data: { usageStatus: string } } }).result.data.usageStatus).toBe("written_off");
+
+    // R2 部分核销 → partially_used
+    const f2 = await trpc(app, "funding.create", {
+      cookie: memberCookie,
+      input: { projectId: projectAId, purpose: "R2 部分核销", amountCents: 3_000_000 },
+    });
+    const f2Id = (f2.json as { result: { data: { id: string } } }).result.data.id;
+    const f2Detail = await trpc(app, "funding.getById", { cookie: memberCookie, input: { id: f2Id }, method: "GET" });
+    const f2Submitted = await trpc(app, "funding.submit", {
+      cookie: memberCookie,
+      input: { id: f2Id, rowVersion: (f2Detail.json as { result: { data: { rowVersion: number } } }).result.data.rowVersion, idempotencyKey: crypto.randomUUID() },
+    });
+    await approveInstance(app, memberCookie, (f2Submitted.json as { result: { data: { instance: { id: string } } } }).result.data.instance.id);
+    const expPartial = await trpc(app, "expense.create", {
+      cookie: memberCookie,
+      input: {
+        reason: "R2 部分核销报销",
+        items: [{ projectId: projectAId, fundingRequestId: f2Id, date: "2027-09-05", category: "materials", amountCents: 1_000_000, description: "部分核销明细" }],
+      },
+    });
+    await submitAndApproveExpense(app, memberCookie, (expPartial.json as { result: { data: { id: string } } }).result.data.id);
+    const f2After = await trpc(app, "funding.getById", { cookie: memberCookie, input: { id: f2Id }, method: "GET" });
+    expect((f2After.json as { result: { data: { usageStatus: string } } }).result.data.usageStatus).toBe("partially_used");
+    expect((f2After.json as { result: { data: { figures: { remainingCents: number } } } }).result.data.figures.remainingCents).toBe(2_000_000);
+
     // C8 前半：支付登记（finance）+ 幂等 + paid 后不可编辑
     const paid = await trpc(app, "expense.markPaid", {
       cookie: financeCookie,
@@ -497,15 +537,19 @@ describe("迭代 3 费用域（C4–C11 红线全覆盖）", () => {
       `SELECT coalesce(sum(actual_delta_cents),0)::float8 AS actual FROM budget_ledger WHERE project_id=$1`,
       [projectAId],
     );
-    // 发起人不限角色；本例由 pm 发起（财务角色单种子用户会触发自审拦截——与出差域同因）
+    // R3 修复后：finance 发起调整全链通过（策略单步 partner 终审，发起不限角色）
     const adjusted = await trpc(app, "expense.adjustCreate", {
-      cookie: pmCookie,
+      cookie: financeCookie,
       input: { expenseId: targetId, deltaCents: -100_000, reason: "冲销重复报销部分", idempotencyKey: crypto.randomUUID() },
     });
     expect(adjusted.status).toBe(200);
     const adjustmentId = (adjusted.json as { result: { data: { adjustment: { id: string } } } }).result.data.adjustment.id;
     const instanceId = (adjusted.json as { result: { data: { instance: { id: string } } } }).result.data.instance.id;
-    await approveInstance(app, pmCookie, instanceId); // finance → partner 两步
+    // 断言审批链为单步 partner（R3 种子修复在位）
+    const approvalDetail = await trpc(app, "approval.getById", { cookie: financeCookie, input: { id: instanceId }, method: "GET" });
+    const chainSteps = (approvalDetail.json as { result: { data: { steps: { approverRole: string | null }[] } } }).result.data.steps;
+    expect(chainSteps.map((s) => s.approverRole)).toEqual(["partner"]);
+    await approveInstance(app, financeCookie, instanceId); // partner 单步终审
 
     const after = await query<{ actual: number }>(
       `SELECT coalesce(sum(actual_delta_cents),0)::float8 AS actual FROM budget_ledger WHERE project_id=$1`,

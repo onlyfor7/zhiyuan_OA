@@ -67,11 +67,13 @@ const FINANCE_POLICY_SEED = [
     description: "费用报销 → 项目负责人 → 财务审批",
   },
   {
+    // R3（架构 2026-10-27 打回修复，特批改 seed）：单步 partner 终审——finance 发起时
+    // 第一步自审全跳过会死锁（E2E-13）；发起不限角色，职责分离由 partner 终审保证
     bizType: "expense_adjustment",
     priority: 100,
     matchJson: {},
-    stepsJson: [{ approver_role: "finance" }, { approver_role: "partner" }],
-    description: "费用调整/冲销（已支付更正唯一通道）→ 财务 → 管理层",
+    stepsJson: [{ approver_role: "partner" }],
+    description: "费用调整/冲销（已支付更正唯一通道）→ 管理层终审（发起不限角色）",
   },
 ];
 
