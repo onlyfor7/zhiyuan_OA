@@ -6,6 +6,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import "./index.css";
 import "./App.css";
 import "./shell.css";
+import "./governance.css";
 import App from "./App.tsx";
 import { queryClient, TRPCProvider, trpcClient } from "./lib/trpc.ts";
 

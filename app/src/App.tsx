@@ -4,19 +4,28 @@ import AppShell from "./components/AppShell";
 import ArchivePage from "./pages/ArchivePage";
 import AuditPage from "./pages/AuditPage";
 import CockpitPage from "./pages/CockpitPage";
+import DecisionNewPage from "./pages/DecisionNewPage";
 import DecisionsPage from "./pages/DecisionsPage";
-import GanttPage from "./pages/GanttPage";
 import LoginPage from "./pages/LoginPage";
 import NotFoundPage from "./pages/NotFoundPage";
-import ProjectDetailPage from "./pages/ProjectDetailPage";
+import ApprovalsPage from "./pages/ApprovalsPage";
+import ProjectCreatePage from "./pages/ProjectCreatePage";
 import ProjectsPage from "./pages/ProjectsPage";
 import QualityPage from "./pages/QualityPage";
 import WorkbenchPage from "./pages/WorkbenchPage";
+import ProjectSpacePage, { FutureTab } from "./pages/project/ProjectSpacePage";
+import OverviewTab from "./pages/project/OverviewTab";
+import PlanTab from "./pages/project/PlanTab";
+import TasksTab from "./pages/project/TasksTab";
+import QualityTab from "./pages/project/QualityTab";
+import DecisionsTab from "./pages/project/DecisionsTab";
+import ReportsTab from "./pages/project/ReportsTab";
+import ArchiveTab from "./pages/project/ArchiveTab";
+import MembersTab from "./pages/project/MembersTab";
 
 /**
- * 路由表（工单 04；react-router 7）。
- * 认证壳 AppShell 守卫全部业务路由：未认证 → /login（保留回跳地址）；
- * 无权限详情 → 403/404 同形页（错误边界内渲染）。
+ * 路由表（迭代 1 工单 03）。
+ * 项目空间为页签式嵌套路由：8 个真实数据页签 + 5 个后续迭代占位页签。
  */
 export default function App() {
   return (
@@ -26,11 +35,29 @@ export default function App() {
         <Route index element={<Navigate to="/cockpit" replace />} />
         <Route path="/cockpit" element={<CockpitPage />} />
         <Route path="/workbench" element={<WorkbenchPage />} />
+        <Route path="/approvals" element={<ApprovalsPage />} />
         <Route path="/projects" element={<ProjectsPage />} />
-        <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
-        <Route path="/projects/:projectId/plan" element={<GanttPage />} />
+        <Route path="/projects/new" element={<ProjectCreatePage />} />
+        <Route path="/projects/:projectId" element={<ProjectSpacePage />}>
+          <Route index element={<Navigate to="overview" replace />} />
+          <Route path="overview" element={<OverviewTab />} />
+          <Route path="plan" element={<PlanTab />} />
+          <Route path="tasks" element={<TasksTab />} />
+          <Route path="quality" element={<QualityTab />} />
+          <Route path="decisions" element={<DecisionsTab />} />
+          <Route path="reports" element={<ReportsTab />} />
+          <Route path="archive" element={<ArchiveTab />} />
+          <Route path="members" element={<MembersTab />} />
+          <Route path="meetings" element={<FutureTab label="会议" />} />
+          <Route path="travel" element={<FutureTab label="出差" />} />
+          <Route path="budget" element={<FutureTab label="预算经费" />} />
+          <Route path="expenses" element={<FutureTab label="费用" />} />
+          <Route path="timesheet" element={<FutureTab label="工时" />} />
+          <Route path="*" element={<Navigate to="overview" replace />} />
+        </Route>
         <Route path="/quality" element={<QualityPage />} />
         <Route path="/decisions" element={<DecisionsPage />} />
+        <Route path="/decisions/new" element={<DecisionNewPage />} />
         <Route path="/archive" element={<ArchivePage />} />
         <Route path="/audit" element={<AuditPage />} />
       </Route>

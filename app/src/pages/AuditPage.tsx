@@ -1,37 +1,56 @@
-import { KeyRound, LockKeyhole, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { History } from "lucide-react";
 
+import { useAuditList, type AuditFilters } from "../api/audit";
 import { useRail } from "../components/shell-rail";
-import { NotConnected } from "../components/NotConnected";
+import { isAccessDeniedOrGone } from "../lib/trpc";
+
+const TARGET_TYPES = [
+  ["", "全部对象"],
+  ["project", "项目"],
+  ["task", "任务"],
+  ["change_request", "延期申请"],
+  ["quality_issue", "质量问题"],
+  ["decision", "决策"],
+  ["weekly_report", "周报"],
+  ["file", "文件"],
+  ["access_grant", "档案授权"],
+  ["user", "用户"],
+] as const;
 
 function AuditRail() {
   return (
     <aside className="context-rail">
       <div className="context-heading">
         <span className="section-label">SECURITY POSTURE</span>
-        <h2>保密边界</h2>
-      </div>
-      <div className="security-score">
-        <ShieldCheck size={30} />
-        <strong>最小权限</strong>
-        <span>默认无权 · 按项目授权</span>
+        <h2>审计查阅</h2>
       </div>
       <div className="context-section">
-        <div className="section-label">ACCESS RULE</div>
-        <h2>撤权即时生效</h2>
+        <div className="section-label">APPEND ONLY</div>
+        <h2>只追加</h2>
         <p className="context-note">
-          项目、搜索、报表、预览、下载和分享接口执行同一权限校验，不能通过复制地址绕过。
+          审计事件只增不删；列表、导出与查看同样受 audit.read 授权约束（sysadmin/archivist/partner）。
         </p>
       </div>
       <div className="assurance">
-        <LockKeyhole size={16} />
-        <span>系统管理员不默认拥有业务文件内容权限。</span>
+        <History size={16} />
+        <span>操作者筛选需要用户目录契约（STATUS 待裁定），当前提供对象/动作/时间范围筛选。</span>
       </div>
     </aside>
   );
 }
 
+/** 权限审计页：audit.list 真实数据（未授权由边界渲染同形 404） */
 export default function AuditPage() {
   useRail(AuditRail);
+  const [filters, setFilters] = useState<AuditFilters>({});
+  const [draft, setDraft] = useState<AuditFilters>({});
+  const audit = useAuditList(filters);
+
+  // 无 audit.read 授权 → 同形 404（arch/03 §5）
+  if (audit.isError && isAccessDeniedOrGone(audit.error)) throw audit.error;
+
+  const apply = () => setFilters({ ...draft });
 
   return (
     <div className="screen audit-screen">
@@ -39,16 +58,81 @@ export default function AuditPage() {
         <div>
           <span className="eyebrow">ACCESS & AUDIT</span>
           <h1>看得见权限，也查得到足迹。</h1>
-          <p>项目授权、临时查阅和每一次敏感操作，都在同一套保密边界内。</p>
+          <p>关键写入与敏感读取全部留痕；筛选由服务端执行。</p>
         </div>
       </div>
-      <div className="audit-list-region">
-        <NotConnected hint="授权管理与审计日志查询随迭代 1 接入；授权、撤权与敏感读取均写入审计" />
+      <div className="quality-toolbar">
+        <div className="inline-search">
+          <input
+            value={draft.action ?? ""}
+            placeholder="按动作筛选，如 task.transition"
+            aria-label="动作"
+            onChange={(e) => setDraft((p) => ({ ...p, action: e.target.value }))}
+            onKeyDown={(e) => e.key === "Enter" && apply()}
+          />
+        </div>
+        <select
+          value={draft.targetType ?? ""}
+          aria-label="对象类型"
+          onChange={(e) => setDraft((p) => ({ ...p, targetType: e.target.value }))}
+        >
+          {TARGET_TYPES.map(([v, label]) => (
+            <option key={v} value={v}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <input
+          type="date"
+          value={draft.from ?? ""}
+          aria-label="开始日期"
+          onChange={(e) => setDraft((p) => ({ ...p, from: e.target.value }))}
+        />
+        <input
+          type="date"
+          value={draft.to ?? ""}
+          aria-label="结束日期"
+          onChange={(e) => setDraft((p) => ({ ...p, to: e.target.value }))}
+        />
+        <button className="secondary-action" onClick={apply}>
+          查询
+        </button>
+        <span>{audit.isPending ? "加载中…" : `已加载 ${audit.data?.items.length ?? 0} 条`}</span>
       </div>
-      <div className="assurance inline-assurance">
-        <KeyRound size={16} />
-        <span>当前页面不含演示数据。</span>
-      </div>
+      {audit.isError ? (
+        <div className="error-state inline" role="alert">
+          <p>审计日志加载失败或无权限查看。</p>
+        </div>
+      ) : (
+        <div className="log-table">
+          <div className="log-head">
+            <span>时间</span>
+            <span>操作者</span>
+            <span>动作</span>
+            <span>对象</span>
+            <span>结果</span>
+          </div>
+          {audit.data?.items.length === 0 ? (
+            <div className="empty-state">
+              <strong>没有匹配的审计记录</strong>
+              <p>调整筛选条件后再试。</p>
+            </div>
+          ) : (
+            audit.data?.items.map((row) => (
+              <div className="log-row" key={row.id}>
+                <time>{row.createdAt.slice(0, 19).replace("T", " ")}</time>
+                <span>{row.actorId ? row.actorId.slice(0, 8) : "系统"}</span>
+                <span>{row.action}</span>
+                <span>
+                  {row.targetType ?? "—"}
+                  {row.targetId ? ` · ${row.targetId.slice(0, 8)}` : ""}
+                </span>
+                <span className={row.result === "success" ? "log-success" : "log-denied"}>{row.result}</span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }

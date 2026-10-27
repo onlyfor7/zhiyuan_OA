@@ -8,9 +8,10 @@ import {
   useLocation,
   useNavigate,
 } from "react-router";
-import { ArrowRight, LogOut, Menu, Network } from "lucide-react";
+import { ArrowRight, Bell, LogOut, Menu, Network } from "lucide-react";
 
 import { useLogout, useMe } from "../api/auth";
+import { useUnreadCount } from "../api/notification";
 import type { ShellContextValue } from "./shell-rail";
 import { isAccessDeniedOrGone, isAuthRequired, queryClient } from "../lib/trpc";
 import NotFoundPage from "../pages/NotFoundPage";
@@ -90,6 +91,7 @@ export default function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const logout = useLogout();
+  const unread = useUnreadCount();
   const [mobileRail, setMobileRail] = useState(false);
   const [rail, setRail] = useState<ReactNode>(null);
 
@@ -147,6 +149,12 @@ export default function AppShell() {
           ))}
         </nav>
         <div className="top-actions">
+          <Link to="/workbench" className="icon-button dark bell-link" aria-label="通知与待办">
+            <Bell size={18} />
+            {unread.data && unread.data.count > 0 ? (
+              <i className="bell-badge">{unread.data.count > 99 ? "99+" : unread.data.count}</i>
+            ) : null}
+          </Link>
           <div className="avatar" title={`${data.user.name} · ${data.user.email}`}>
             {data.user.name.slice(0, 1)}
           </div>

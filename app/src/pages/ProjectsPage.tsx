@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { ChevronRight, ShieldCheck } from "lucide-react";
 import { PROJECT_HEALTH_STATUS, PROJECT_LIFECYCLE_STATUS } from "@lexflow/shared";
 
@@ -34,9 +34,10 @@ export default function ProjectsPage() {
   const navigate = useNavigate();
   const [keywordInput, setKeywordInput] = useState("");
   const [filters, setFilters] = useState<ProjectListFilters>({});
-  const list = useProjectList(filters);
+  const [limit, setLimit] = useState(20);
+  const list = useProjectList(filters, limit);
 
-  const items = list.data?.pages.flatMap((page) => page.items) ?? [];
+  const items = list.data?.items ?? [];
 
   const applyKeyword = () => {
     const keyword = keywordInput.trim();
@@ -51,6 +52,9 @@ export default function ProjectsPage() {
           <h1>项目全周期</h1>
           <p>你权限范围内的全部项目；筛选与分页由服务端执行。</p>
         </div>
+        <Link to="/projects/new" className="primary-action">
+          新建项目
+        </Link>
       </div>
       <div className="quality-toolbar projects-toolbar">
         <div className="inline-search">
@@ -157,14 +161,10 @@ export default function ProjectsPage() {
           ))
         )}
       </div>
-      {list.data?.pages.some((page) => page.nextCursor) ? (
+      {list.data?.nextCursor ? (
         <div className="load-more">
-          <button
-            className="secondary-action"
-            disabled={list.isFetchingNextPage}
-            onClick={() => void list.fetchNextPage()}
-          >
-            {list.isFetchingNextPage ? "加载中…" : "加载更多"}
+          <button className="secondary-action" disabled={list.isFetching} onClick={() => setLimit((v) => v + 20)}>
+            {list.isFetching ? "加载中…" : "加载更多"}
           </button>
         </div>
       ) : null}

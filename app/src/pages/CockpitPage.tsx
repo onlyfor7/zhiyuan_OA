@@ -1,42 +1,60 @@
 import { Link, useNavigate } from "react-router";
 import { ArrowRight, ChevronRight, ShieldCheck } from "lucide-react";
 
+import { useDashboardSummary } from "../api/dashboard";
 import { useProjectPreview } from "../api/project";
 import { useRail, useShell } from "../components/shell-rail";
-import { NotConnected } from "../components/NotConnected";
-import { formatDateTime } from "../lib/trpc";
 import { HEALTH_LABEL, LIFECYCLE_LABEL } from "../lib/labels";
+import { formatDateTime } from "../lib/trpc";
 
 function CockpitRail() {
+  const dashboard = useDashboardSummary();
+  const summary = dashboard.data;
   return (
     <aside className="context-rail">
       <div className="context-heading">
         <span className="section-label">DECISION QUEUE</span>
-        <h2>待你决策</h2>
+        <h2>需要我处理</h2>
       </div>
-      <NotConnected hint="决策队列将在迭代 1 接入" />
+      <div className="wall-row">
+        <span>待我审批</span>
+        <strong>{summary?.pendingApprovals ?? 0}</strong>
+      </div>
+      <div className="wall-row">
+        <span>待决策</span>
+        <strong>{summary?.pendingDecisions ?? 0}</strong>
+      </div>
+      <div className="wall-row">
+        <span>阻断中质量问题</span>
+        <strong>{summary?.blockingQuality ?? 0}</strong>
+      </div>
+      <Link to="/workbench" className="context-link">
+        前往工作台处理
+        <ChevronRight size={15} />
+      </Link>
       <div className="assurance">
         <ShieldCheck size={17} />
-        <span>仅显示你权限范围内的项目与决策。</span>
+        <span>仅显示你权限范围内的项目与事项。</span>
       </div>
     </aside>
   );
 }
 
+/** 驾驶舱：dashboard.summary 真实聚合 + 项目脉搏（工单 03-10） */
 export default function CockpitPage() {
   const { me } = useShell();
+  const dashboard = useDashboardSummary();
   const projects = useProjectPreview();
   const navigate = useNavigate();
   useRail(CockpitRail);
 
   const dateLine = new Date()
-    .toLocaleDateString("en-GB", {
-      weekday: "long",
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    })
+    .toLocaleDateString("en-GB", { weekday: "long", day: "2-digit", month: "short", year: "numeric" })
     .toUpperCase();
+
+  if (dashboard.isPending) return <p className="list-note">正在加载驾驶舱…</p>;
+  if (dashboard.isError) throw dashboard.error;
+  const s = dashboard.data;
 
   return (
     <div className="screen cockpit-screen">
@@ -44,15 +62,45 @@ export default function CockpitPage() {
         <div>
           <span className="eyebrow">{dateLine}</span>
           <h1>早上好，{me.user.name}。</h1>
-          <p>这里是你的项目组合驾驶舱，项目列表来自实时数据。</p>
+          <p>项目组合与待处理事项来自实时聚合（截至 {s.asOf.slice(0, 16).replace("T", " ")}）。</p>
         </div>
         <Link to="/projects" className="primary-action">
           进入项目空间
           <ArrowRight size={16} />
         </Link>
       </div>
-      <div className="stat-region">
-        <NotConnected hint="组合健康度与经营统计将在统一统计口径接入后展示（arch/02 §2）" />
+      <div className="metric-strip overview-strip">
+        <div>
+          <span>项目总数</span>
+          <strong>{s.projects.total}</strong>
+          <small>
+            进行中 {s.projects.inProgress} · 筹备 {s.projects.preparing} · 已结项 {s.projects.closed}
+          </small>
+        </div>
+        <div>
+          <span>健康度预警</span>
+          <strong className="risk-number">{s.projects.warning}</strong>
+          <small>风险 {s.projects.atRisk} 项</small>
+        </div>
+        <div>
+          <span>待我审批</span>
+          <strong>{s.pendingApprovals}</strong>
+          <small>
+            <Link to="/approvals">去处理</Link>
+          </small>
+        </div>
+        <div>
+          <span>待决策</span>
+          <strong>{s.pendingDecisions}</strong>
+          <small>
+            <Link to="/decisions">去决策</Link>
+          </small>
+        </div>
+        <div>
+          <span>阻断中质量问题</span>
+          <strong className={s.blockingQuality > 0 ? "risk-number" : ""}>{s.blockingQuality}</strong>
+          <small>严重/致命未关闭</small>
+        </div>
       </div>
       <div className="cockpit-lower">
         <section className="project-focus">
