@@ -5,14 +5,14 @@
 
 ## 当前迭代
 
-**迭代 1 · 项目治理真实闭环**（进行中）
+**迭代 1 · 项目治理真实闭环**（**已通过** 2026-10-27 架构收口）→ 下一：迭代 2（会议与出差）契约冻结
 
 ## 迭代总览
 
 | 迭代 | 内容 | 状态 | 验收通过日期 |
 |---|---|---|---|
 | 0 | 全栈地基与原型重构 | **通过** | 2026-10-27 |
-| 1 | 项目治理真实闭环 | 进行中 | — |
+| 1 | 项目治理真实闭环 | **通过** | 2026-10-27 |
 | 2 | 会议与出差垂直闭环 | 未开始 | — |
 | 3 | 预算、经费与费用垂直闭环 | 未开始 | — |
 | 4 | 工时与统一经营视图 | 未开始 | — |
@@ -41,6 +41,7 @@
 | 2026-10-27 | docs/arch/02 §4.1 | v1.2 | 参照数据端点 user.list/client.list/matter.list；project.create 权限门 project.manage |
 | 2026-10-27 | docs/arch/04 §2.3/§5 | v1.1 | plan_items 增 name 快照列（迁移回填）；plan.current 输出 stages/milestones 含 actual_*、versionGet/simulate 带 name |
 | 2026-10-27 | docs/arch/04 §2.10 | v1.2 | structure_json 键名冻结（camelCase）+ tasks 生成规则：模板任务落入阶段区间并写入 v1 plan_items |
+| 2026-10-27 | docs/arch/04 §4 | v1.2 | act 幂等键语义：同键重放 200+applied=false，异键重放 409；approval_steps 加 acted_idempotency_key（迭代 2 落地） |
 
 ## 迭代 0 工单状态
 
@@ -64,7 +65,7 @@
 | 02b 参照数据与计划项名称 | 后端 | **通过** | 后端会话 | 2026-10-27 | 架构会话已验收（端点/权限门/回填/三轨输出独立复核全过） |
 | 03b 选择器接入与甘特补全 | 前端 | **通过** | 前端会话 | 2026-10-27 | 架构会话已验收（质量门全绿、P6 创建链 DB 复核、甘特快照名截图核验） |
 | 02c 模板任务生成 | 后端 | **通过** | 后端会话 | 2026-10-27 | 架构会话已验收（90/90、模板 5/1 任务、P7 日期区间 DB 复核） |
-| 04 迭代 1 验收 | 测试 | **待验收** | 测试会话 | 2026-10-27 | 收口判定：A1–A12 全过、质量门 4/4 绿、100/100 零回归，详见 docs/测试报告/迭代1-验收报告.md |
+| 04 迭代 1 验收 | 测试 | **通过** | 测试会话 | 2026-10-27 | 架构会话已收口；N4 裁定转入迭代 2（见交接记录置顶条） |
 
 ## 偏差与仲裁
 
@@ -85,6 +86,7 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-10-27｜架构｜迭代1-04｜**工单 04 通过，迭代 1 正式收口（通过）。** 独立复核：质量门 4/4 实测 exit 0（typecheck/build/test 100=server77+app23/db:migrate）；验收报告 A1–A12 逐条带【自动化】/【走查】证据，亮点证据采信——V1 快照 canonical 逐字节一致（PLN-I1 硬证据）、D2 探针翻转为幂等拦截断言、授权撤销即时失效同形 404、审批并发单终态、结项阻断清单与解除后闭环；E2E-15 治理六条映射全过；§17.2 七条满足。D2/N1/N2 遗留硬指标全部关闭。**N4 裁定（不裁剪、迭代 2 消费）**：approval.act 的 idempotencyKey 语义冻结（arch/04 §4 v1.2）——approval_steps 加 acted_idempotency_key 列，同键重放返回 200+applied=false（幂等成功语义），异键重放终态维持 409；落地位：迭代 2 数据棒加列、后端棒消费+用例。迭代 1 累计：6 工单（01/02/03/02b/03b/02c/04 序）全通过，测试资产 100 用例。**下一步：架构会话冻结迭代 2（会议与出差垂直闭环）契约后发布工单包。**
 - 2026-10-27｜测试｜迭代1-04｜**工单 04 完成，转待验收（收口判定：迭代 1 验收通过）。** 交付物：① `server/tests/api/iter1-acceptance-core.test.ts`（A1 模板创建：必填 fieldErrors/产物 DB 断言 4 阶段 5 任务 4 检查项 11 目录 v1=9items/日期区间/编号唯一；A2：V1 快照 canonical 前后逐字节一致、key 级书面延期 partner 审批→V2 生效 live 同步恢复任务三轨区分；A3：自审 403 SELF_REVIEW_BLOCKED+退回事件历史+阻断结项；A4：提前 verify 409/双意见 400/检查点任务/verify 回写+审计；A11：阻断解除后 closed=true 警告仍在）；② `server/tests/api/iter1-acceptance-flows.test.ts`（A5 周报真实来源交叉核验/确认幂等/v3 新本/目录 06/ARCHIVED_READONLY；A6 授权同形 404+审批生效 sha256+撤销即时失效+三动作审计；A7 act 首次生效/重放 409 单终态/无双写版本；A8 待办出现消失；A9 单源单条聚合/直达对象/未读同步；A10 audit.list 未授权同形+动作/操作者过滤）；③ consistency-foundation 原地翻转：D2 probe→幂等拦截断言（同键返回首次结果仅一行、异键照常）、N1→登录审计 actor/session 非空；④ `docs/测试报告/迭代1-验收报告.md`（A1–A12+E2E-15 映射+§17.2 七条+质量门+未覆盖声明）+ `docs/测试报告/迭代1-走查清单.md`。怎么验证（全实测）：质量门 4/4 全绿——typecheck✓ build✓ test✓ **100/100**（server 77：db 13+api 64；app 23；既有 90 零回归）db:migrate✓。走查：Chrome CDP 双视口 31 场景（脚本 D:\tmp\lexflow-walkthrough-iter1.mjs/-iter1b.mjs 可重放，截图+report/patch-report 在 D:\tmp\shots-iter1-final\）：八视图+项目空间 13 页签、**partner UI 全链创建真实落地 PRJ-2026-00008**（模板→客户/事项级联→提交→空间总览聚合）、pm 审批中心 UI「通过→确认通过」队列清空（DB APR-2026-00004 approved）、质量详情抽屉（分离展示+事件时间线）、授权申请表单、三轨甘特真实快照名+V3 横幅、member 直链 C 同形、pm audit 同形 404、375 六场景 0 溢出、console 仅 3 条预期边界日志。**D2/N1/N2 三项遗留硬指标全部收口。** **新跟踪项 N4（不阻塞，建议架构确认）：** approval.act 的 idempotencyKey 字段暂未被消费——顺序重放由终态 409 兜底、并发由条件更新 applied=false 保证，单终态语义达标，字段闲置与 arch/04 §5 清单存在形式差距（建议裁剪或迭代 2 消费）。运维注意：开工时后端 3001 不在（vite 3000 在），已自行拉起；本会话结束后 dev/headless Chrome 仍会被回收。给迭代 2：验收套件按 A 场景组织可直接扩展；走查脚本改 BASE/PROJECT 常量即复用。提交：`[测试]` 前缀 commit（两套件+翻转+两份报告+STATUS）。
 - 2026-10-27｜架构｜迭代1-02c｜**工单 02c 验收通过。** 独立复核：根 test 90/90（server 67 + app 23）、typecheck/build exit 0、db:seed 幂等；DB 直查——诉讼/常年模板 tasks 5/1 条、PRJ-2026-00007 任务 5 条且 plan_items 9 项（4 阶段+5 任务）、任务日期 0 条越出阶段区间。确认其交接备注：durationDays 端点含语义与冻结一致（未自行改动，正确）；00005/00006 不回填属正确快照语义；seed upsert 改更新语义是必要修复（否则旧库模板永远拿不到新键）。**A1 验收场景现已完整可走查（阶段/任务/检查项/目录全自动生成）。解锁工单 04（测试会话），迭代 1 进入收口。**
 - 2026-10-27｜后端｜迭代1-02c｜**工单 02c（模板任务生成）完成，转待验收。**做了什么：① **create 事务消费模板 tasks**（`modules/governance/project.ts`，阶段之后、检查项/目录之前，arch/04 §2.10 v1.2 冻结规则）：planned_start = 阶段开始 + offsetDays（默认 0）、planned_end = planned_start + durationDays（默认 7）、status=pending；assigneeRole 存在则解析为该项目首个该角色成员（按 joinedAt 升序）、否则未分配；stageSeq 引用缺失 → VALIDATION_FAILED（整事务回滚，不留半成品项目）；每条任务 code 经 next_code('TSK') 并同步写入 v1 plan_items（item_type='task'、name 快照、seq 续排于阶段项之后）。② **阶段排期支持 days 键**：v1.2 冻结 stages:[{seq,name,days?}]，改为按 days（默认 14）累计顺排（原硬编码 2 周/段），检查项挂阶段改复用已建阶段行。③ **种子补内容（架构特批）**：诉讼模板补 5 条 tasks（覆盖第 1/2/3 阶段，日期经两轮修正均落在阶段区间内——offset/duration 语义 end=start+duration，跨度含端点需注意）、常年模板补 1 条；**seed upsert 语义由「按 name 存在即跳过」改为「冲突时更新 structure_json/description」**（幂等，重跑使模板新结构生效，已按要求连跑两次 db:seed 验证：诉讼 5/常年 1 条 tasks 生效且二次不叠加）。④ 测试：新增 `tests/api/template-tasks.test.ts` 3 用例（诉讼模板创建全链：9 items=4 阶段+5 任务、seq 1..9 连续、5 live 任务日期全部落在所属阶段区间、assigneeRole=manager 解析为创建人、未指定角色留空、检查项 4/目录 11 不受影响、plan_items task 项 refId 指向真实任务行；常年模板 1 任务且区间内；种子模板 structure 含 tasks 键断言）；02b 用例「items=4」预期变更为 9（契约增量，非回归）。怎么验证（逐条照工单验收命令）：`npm run test -w @lexflow/server` **67/67 绿**（既有 64 零回归 + 新 3）✓；根 `npm run test` 90/90（server 67 + app 23）✓；根 `npm run typecheck`、`npm run build` exit 0✓；`npm run db:seed` 连跑两次幂等且模板新结构生效✓（psql 复核 tasks 5/1、stages 4/2、checks 4/1）；dev 冒烟：partner 以诉讼模板立项 PRJ-2026-00007 → 9 items/5 tasks，任务日期 04-04~04-11 等落位正确、assigneeRole 解析为创建人✓。**seed upsert 行为确认结果（工单点名要求）**：改前为存在即跳过（旧库模板永远不会获得 tasks 键）；改后为按 name 冲突 UPDATE structure_json，dev 库一次重跑即生效、二次重跑零变化（幂等）。**留坑/待办**：⑴ milestones 模板键本期不冻结、未支持（arch/04 §2.10 说明）；⑵ durationDays 的 end=start+duration 语义使任务跨度为 duration+1 个日历日，模板编排时需注意（冻结语义，未自行"修正"）；⑶ dev 库既有 00005/00006 两项目创建于无 tasks 模板期，任务为 0 属历史快照语义，不回填。提交：`iter1/server-template-tasks` 分支 `[后端]` 前缀 commit（随本条同入）。
