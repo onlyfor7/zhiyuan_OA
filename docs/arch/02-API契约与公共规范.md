@@ -78,6 +78,18 @@ GET    /files/:fileVersionId/preview           → 同上，Content-Disposition:
 
 ## 5. 通知与审批的通用关联
 
+### 4.1 迭代 1 增补契约（v1.2，2026-10-27 裁定）
+
+**参照数据只读端点**（内部目录性质：任意登录用户可调用，最小字段、不写审计、无行级 ABAC）：
+
+```text
+user.list    { keyword?, limit?≤100 }        → { items: { id, name, email, orgUnitName }[] }   -- status=active
+client.list  { keyword?, limit? }            → { items: { id, code, name }[] }
+matter.list  { keyword?, clientId?, limit? } → { items: { id, code, name, clientId, clientName }[] }
+```
+
+**`project.create` 权限冻结**：要求 `project.manage` 动作授权（partner/sysadmin；其余角色统一 403/404 同形）。立项权归属属律所确认项（§18），当前为开发期默认。
+
 - 任务、行动项、审批、通知、审计一律 `source_type`（枚举：`meeting/travel/funding/expense/time_entry/change_request/quality_issue/decision/plan/budget/access_grant/report/project`——`project` 为 v1.1 增补，2026-10-26 裁定：文件等对象可直接挂载项目）+ `source_id`。
 - 待办中心（迭代 1）查询这些公共表的并集视图，不各模块自建待办。
 

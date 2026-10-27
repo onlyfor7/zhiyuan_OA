@@ -30,12 +30,11 @@ describe("展示标签与 shared 枚举键完整对齐（arch/02 §3）", () => 
     expect(CONFIDENTIALITY_LABEL[key]).toBeTruthy();
   });
 
-  it("项目角色标签覆盖迭代 0 实际使用的角色；key_member 缺口已登记 STATUS", () => {
-    // 迭代 0 种子仅使用 manager/member（seed 无 key_member 用户，详情页有 ?? 原值兜底，无界面错误）
-    // key_member 中文标签缺失已登记 STATUS.md「偏差与仲裁」（2026-10-27 测试会话），建议迭代 1 前由前端一行补齐
+  it("项目角色标签覆盖 shared 枚举全部取值（N2 已于 2026-10-27 关闭）", () => {
+    // N2 留坑已由前端会话在迭代 1 工单 03 补齐（labels.ts 增 key_member=关键成员），原「缺口已登记」探针翻转为全覆盖断言
     expect(PROJECT_ROLE_LABEL.manager).toBeTruthy();
     expect(PROJECT_ROLE_LABEL.member).toBeTruthy();
-    expect(PROJECT_ROLE_LABEL.key_member).toBeUndefined();
+    expect(PROJECT_ROLE_LABEL.key_member).toBe("关键成员");
   });
 
   it.each(ROLE_KEY)("全局角色 %s 有中文标签", (key) => {
