@@ -5,7 +5,7 @@
 
 ## 当前迭代
 
-**迭代 3 · 预算、经费与费用垂直闭环**（进行中）
+**迭代 3 · 预算、经费与费用垂直闭环**（**已通过** 2026-10-27 架构收口）→ 下一：迭代 4（工时与统一经营视图）契约冻结
 
 ## 迭代总览
 
@@ -14,7 +14,7 @@
 | 0 | 全栈地基与原型重构 | **通过** | 2026-10-27 |
 | 1 | 项目治理真实闭环 | **通过** | 2026-10-27 |
 | 2 | 会议与出差垂直闭环 | **通过** | 2026-10-27 |
-| 3 | 预算、经费与费用垂直闭环 | 进行中 | — |
+| 3 | 预算、经费与费用垂直闭环 | **通过** | 2026-10-27 |
 | 2 | 会议与出差垂直闭环 | 未开始 | — |
 | 3 | 预算、经费与费用垂直闭环 | 未开始 | — |
 | 4 | 工时与统一经营视图 | 未开始 | — |
@@ -55,7 +55,7 @@
 | 01 财务域数据建模与种子 | 数据 | **通过** | 数据会话 | 2026-10-27 | 架构会话已验收（48 表/台账自洽五公式重算/约束逐项 DB 核验） |
 | 02 财务域服务端 | 后端 | **通过** | 后端会话 | 2026-10-27 | 四轮打回复审后架构会话验收（R4 复测：同经费双报销核销两条 RELEASED 入账、键业务事件化、净占用与使用态正确、重放不重复）；四道门 162/162 |
 | 03 财务域前端接入 | 前端 | **通过** | 前端会话 | 2026-10-27 | 架构会话已验收（四道门全绿、预算横条与经费四数截图数值勾稽复核） |
-| 04 迭代 3 验收 | 测试 | **待验收** | 测试会话 | 2026-10-27 | 收口判定：C1–C12 全过、九项重资产专项取证通过、E2E 七条映射全过、四道门 4/4 绿、176/176 零回归，详见 docs/测试报告/迭代3-验收报告.md |
+| 04 迭代 3 验收 | 测试 | **通过** | 测试会话 | 2026-10-27 | 架构会话已收口（报告与四道门独立复核全过）；迭代 3 正式关闭 |
 
 ## 迭代 2 工单状态
 
@@ -110,6 +110,7 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-10-27｜架构｜迭代3-04｜**工单 04 通过，迭代 3 正式收口（通过）。** 独立复核：四道门实测全绿（typecheck/build/test 176=server153+app23/migrate）；C1–C12 逐条带证据，九项重资产专项全部实测——五公式 SQL 独立重算与聚合接口两次逐值一致、核销故障注入零部分写入+恢复双分录同现、幂等双路径不双记、双扣检测、重复票据主辅因子五格矩阵、超预算 block/escalate 双分支、R4 回归（同经费双报销两条 RELEASED 业务事件键均入账）；E2E-03/04/05/06/07/12/13 走查映射全过，走查脚本适配留痕如实声明。**迭代 3 关闭。财务域（预算版本/经费占用/追加式台账/核销/重复票据/支付/调整/统计导出）达到验收质量。下一步：架构会话冻结迭代 4（工时与统一经营视图）契约后发布工单包。**
 - 2026-10-27｜测试｜迭代3-04｜**工单 04 完成，转待验收（收口判定：迭代 3 验收通过）。** 交付物：① `server/tests/api/iter3-acceptance-ledger.test.ts` 5 用例——**五公式 SQL 全量重算 vs budget.getById 聚合两次比对一致**（种子 80M/2M/0 + 新建混合 2.8M/2.2M/75M，执行率/hasBudget 全字段）、**故障注入回滚零部分写入**（注入后 0 行/恢复后双行，RELEASED 与 RECOGNIZED 要么都在要么都不在）、幂等双路径重放不双记、双扣检测（未释放 0.5M 无实际分录）、C2 占用闭环（只一次/未决阻断 409/releaseUnused 台账依据）、C1 生命周期（ADJUSTED marker/关闭 hasBudget=false）；② `iter3-acceptance-expense.test.ts` 6 用例——C4 服务端合计+逐行鉴权、**C5 五格矩阵（R1 主辅因子：同号同额无文件必拦/主因子不看 sha/辅因子异号同 sha/两不命中）+原单定位**、C6 五检查项+快照、C8 finance 专属+重放+paid 后编辑 409、C9 **[partner] 单步终审**+EXPENSE_ADJUSTED −120,000 净额可追溯、**R4 回归**（两 RELEASED 键 funding:reportA/B 均入账/净占用 1.5M/重放无第三条）；③ `iter3-acceptance-policy.test.ts` 3 用例——C7b escalate 追加 partner+放行+可用为负+budget_exceeded 通知 / block 409 零台账回滚、C10 member/finance 边界、C11 stats==台账重算+CSV 内容/权限/审计；④ `docs/测试报告/迭代3-验收报告.md` + `迭代3-走查清单.md`。怎么验证（全实测）：四道门 typecheck✓ build✓ migrate✓ test✓ **176/176**（server 153：db 24+api 129；app 23；既有 **162 零回归** + 新 14）。走查：Chrome CDP 17 场景+E2E 七条链（脚本 D:\tmp\lexflow-walkthrough-iter3.mjs/-iter3b.mjs 可重放，截图+report+export-finance.csv 在 D:\tmp\shots-iter3-final\）——E2E-03 经费审批占用/E2E-04 **发起报销→?travelId&projectId 预填**+双审 UI+四数核销联动/E2E-05 escalate/E2E-06 重复提交 STATE_CONFLICT/E2E-07 **重复票据 UI 拦截并定位 EXP-2026-00001**/E2E-12 双视角（finance 有数·member 双门脱敏）/E2E-13 finance 发起调整→partner 终审→EXPENSE_ADJUSTED −500,000；横条勾稽 800,000=68,500+91,000+640,500；CSV 21 行含票据号+member 404；375 两场景 0 溢出；console 0 异常。留痕声明：E2E-04 首跑按「报销入口」文本未命中（实际文案「发起报销」）已修正实测通过，属脚本适配非应用缺陷（报告六节）。运维注意：开工时 3000/3001 均被回收（本轮第二次），已自行拉起；本会话结束后仍会被回收。给迭代 4：验收套件按 C 场景组织可扩展；工时域为下一红线重点（预填建议已就位只算不存）。提交：`[测试]` 前缀 commit（三套件+两份报告+STATUS）。
 - 2026-10-27｜架构｜迭代3-03｜**工单 03（财务域前端接入）验收通过。** 独立复核：四道门逐条实测 exit 0（typecheck/build/test 162=139+23/migrate）+ app lint 0 error。截图数值勾稽复核：预算页执行横条 800,000 − 占用 91,000 − 实际 68,500 = 可用 640,500 算术自洽且含执行率与口径文字（不只依赖颜色，符合基线 §13.4）；经费详情四数卡 已获批 20,000 − 已释放 14,000 = 净占用 6,000 与台账一致，「四数全部由台账与明细重算，前端不做任何口径计算」的约束在右栏明示并落实。成员脱敏、重复票据负例拦截展示、支付登记、调整单、出差预填接通、检查项展示等走查声明采信。**解锁工单 04（测试会话），迭代 3 进入收口。**
 - 2026-10-27｜前端｜迭代3-03｜**工单 03（财务域前端接入）完成，转待验收。** 做了什么：① api 层 `api/finance-budget.ts`（budget.{list,getById,ledger}+五 mutations；funding 全八过程）与 `api/finance-expense.ts`（expense 全十一过程 + stats 三查询 + exportCsv[query 形态，enabled:false 手动 fetchQuery]）；`formatYuan/parseYuanToCents`（分↔元展示换算，**输入一律转整数分**）；`lib/permissions.ts canViewFinance`（manager/partner/finance）；`components/finance.tsx`：BudgetBar（**三段横条 实际/占用/可用 + 数值文字并列 + 执行率文字，不只依赖颜色；hasBudget=false 显示「未设预算」**）与 LedgerTable（只追加台账，支持高亮下钻）。② 经营中心：`/operations/budget`（版本列表+执行横条+类别额度+新建[类别行可选]+提交/撤回/调整[原因必填产新版本]/关闭+台账下钻）、`/operations/expenses`（byProject 横条 + byCategory/byPerson + 项目/我的双视角 + 状态筛选 + **CSV 导出 Blob 下载** + 新建报销）、`/operations/funding/:id`（**四数卡：已获批/已关联/已释放/净占用余额**（全服务端重算）+审批进度+释放未用额度[确认文案含台账依据]+关闭 modal[未决报销阻断提示+自动释放说明]+本单台账高亮下钻）、`/operations/funding/new`（金额元→分、用途必填、关联会议/出差下拉）。③ 表单：`/expenses/new` 明细编辑器（项目/日期/类别/金额/支付对象/票据号/关联经费/说明/票据文件暂存；跨项目行自动标记 isCrossProject；**合计只读：创建前标「预估，最终以服务端计算为准」，创建后展示服务端 totalCents**；流程 create→按复合键匹配明细行→逐行上传票据[sourceType=expense]→attachReceipt→跳详情可提交）；`/expenses/:id`（明细+票据合规标识+预览下载、**提交即显示五项检查项**[budget/funding/receipt/link/duplicate]、审批快照检查项[formSnapshot.checks 冻结]、撤回、**支付登记 modal[参考号必填，finance]**、**调整/冲销 modal[delta 可负+原因，paid 唯一更正通道]**、调整记录列表、**DUPLICATE_RECEIPT 阻止并显示原报销单号定位**）。④ 审批中心：biz 标签扩 budget/funding/expense/expense_adjustment（+travel/travel_change），待审卡片可展开「审批快照/检查项」（金额/级别+checks 列表）。⑤ 项目空间：预算经费/费用页签接真实数据——财务可见者看聚合与台账，**成员见脱敏占位（无任何数字）**；费用页签成员视角降级为「我的报销/我的经费」；总览新增预算执行摘要卡（budgetSummary 仅财务角色返回，成员 null 不渲染，可下钻）。⑥ 出差详情「报销入口」**真实接通** `/expenses/new?travelId=&projectId=` 预填事由；工作台 todo 新增 funding_mine/expense_mine 卡片（金额显示+直达详情）；驾驶舱 financeSummary 卡（partner/finance）。⑦ 权限呈现：/operations/* 对无角色账号显示权限说明（不渲染任何查询/数字）；成员访问 budget.getById/stats 由服务端同形 404（边界兜底）。怎么验证（**根级四道门逐条真实执行**）：`npm run typecheck`✓ `npm run build`✓ `npm run db:migrate`✓ `npm run test`✓（server 139 + app 23 = 162）+ app lint✓。Chrome CDP 走查（D:\tmp\shots-iter3\，pm/member/finance/partner 四账号）：预算横条三段+数值文字+执行率 8.6%+台账下钻 2 行；经费四数+台账高亮 3 行；费用中心横条/按类别/按申请人/导出按钮/口径标注；**成员项目预算页签脱敏（无数字）+成员费用中心权限说明门**；报销提交五项检查项全展示；**重复票据负例：同号同额新单提交被拦并定位 EXP-2026-00001**；finance 支付登记→已支付+参考号展示；partner 调整单入口提交；出差完成页发起报销预填；375px 预算/费用详情无溢出（费用中心 sw+7px 为移动仿真滚动条假阳性，经无越界元素复核非应用缺陷——同迭代 0 测试会话结论）。**修复留痕**：useBudgetLedger 空串 uuid 条件键；项目页签 me 改 useMe（嵌套 Outlet 上下文无 me）；费用中心角色门上移至加载判断前。**给测试会话的走查要点**：C1 预算生命周期走 /operations/budget（调整产新版本见版本列表多行）；C2 占用闭环看经费详情台账（RESERVED/RELEASED 高亮）；C4 合计服务端：新建报销传错合计被忽略（前端根本不传）；C5 重复票据负例脚本可复演（同号 TR202613-001+8000 元）；C6 检查项在报销详情与审批中心快照双入口；C8 支付登记 finance 专属（member/pm 无按钮+服务端拒）；C9 paid 单「发起调整」→ partner 终审链在 /approvals；C10 成员视角双门（页签占位+经营中心说明）；C11 导出 CSV 按钮真实下载（服务端生成+审计）。**路由变化**：新增 /operations/budget、/operations/expenses、/operations/funding/new、/operations/funding/:fundingId、/expenses/new、/expenses/:expenseId；项目空间 budget/expenses 页签占位改真实组件。dev 进程（3000/3001）仍在后台供验收。提交：`iter3/frontend-finance` 分支 `[前端]` 前缀 commit。
