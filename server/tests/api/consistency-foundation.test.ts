@@ -10,14 +10,13 @@ import { getApp, loginAs, sessionCookieOf, setupDatabase, trpc, trpcError } from
 import { TEST_DATABASE_URL } from "../db/helpers";
 
 /**
- * 一致性地基验收套件（工单 05 范围 3）：
+ * 一致性地基验收套件（迭代 0 工单 05 范围 3；迭代 1 工单 04 翻转 D2/N1）：
  * 审计行断言（登录/上传的 action/actor/target/result）、登录错误同形、
- * 会话生命周期一致性（场景 4 服务端部分）、幂等键重复提交取证。
+ * 会话生命周期一致性（场景 4 服务端部分）、上传幂等（D2，arch/02 §4 v1.1）。
  *
- * 「幂等键重复提交不产生重复行」在迭代 0 为偏差项：冻结上传契约（arch/02 §4）
- * multipart 无 idempotencyKey 字段，服务端上传路径亦无幂等实现，且迭代 0 十六表
- * 无 idempotency_key 列（该列随迭代 1 approval/budget 表落地）。本套件以 probe 用例
- * 固定当前真实行为作为偏差证据，结论见验收报告与 STATUS「偏差与仲裁」。
+ * D2 已落地（STATUS 2026-10-27 裁定关闭）：upload 接受可选 idempotencyKey，
+ * file_versions.idempotency_key 唯一；原「[偏差取证]」probe 翻转为幂等拦截断言。
+ * N1 已落地（arch/04 §7）：登录审计行 actor/session 由 resolver 显式补记。
  */
 
 const YEAR = new Date().getFullYear();
@@ -39,10 +38,12 @@ async function uploadOnce(
   sourceId: string,
   filename: string,
   bytes: Uint8Array = new Uint8Array([0x25, 0x50, 0x44, 0x46]),
+  idempotencyKey?: string,
 ): Promise<Record<string, unknown>> {
   const form = new FormData();
   form.append("sourceType", "project");
   form.append("sourceId", sourceId);
+  if (idempotencyKey) form.append("idempotencyKey", idempotencyKey);
   form.append("file", new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" }), filename);
   const response = await app.request("http://test/files/upload", {
     method: "POST",
@@ -88,11 +89,13 @@ describe("一致性地基验收（审计 / 登录同形 / 会话一致性 / 幂�
     const success = rows.find((r) => r.result === "success");
     expect(failure).toBeDefined();
     expect(success).toBeDefined();
-    // 登录审计行在中间件层记录：此时请求尚无身份，actor/session 为 null（已登记 STATUS：
-    // 建议迭代 1 由后端在登录 resolver 内显式补 actor，文件下载的显式审计即先例）。
-    // 审计行本身齐备（action/result/target_type/ip/created_at），满足「关键写入有审计」。
+    // N1（arch/04 §7 落地）：登录成功审计行由 resolver 显式补记 actor+session
+    const member = await query<{ id: string }>(`SELECT id FROM users WHERE email = 'member@lexflow.demo'`);
+    expect(success?.actor_id).toBe(member[0].id);
+    expect(success?.session_id).toBeTruthy();
     expect(success?.target_type).toBe("rpc");
     expect(failure?.actor_id).toBeNull(); // 未认证 actor 不得伪造
+    expect(failure?.session_id).toBeNull();
   });
 
   it("上传审计：file.upload 行 actor=上传人、target 与响应一致、同事务可追溯", async () => {
@@ -168,25 +171,26 @@ describe("一致性地基验收（审计 / 登录同形 / 会话一致性 / 幂�
     expect(afterCodes.sort()).toEqual(beforeCodes.sort());
   });
 
-  it("[偏差取证] 上传重复提交当前行为：无幂等键入口，重复上传建行两行", async () => {
+  it("D2 幂等拦截：同键重复上传返回首次结果且仅建行一次（arch/02 §4 v1.1 翻转）", async () => {
     const app = await getApp();
-    // 专用字节串，避免与本文件其他用例的上传在 sha256 维度互相干扰
     const probeBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x58]);
-    const first = await uploadOnce(app, pmCookie, projectAId, "重复提交取证.pdf", probeBytes);
-    const second = await uploadOnce(app, pmCookie, projectAId, "重复提交取证.pdf", probeBytes);
-    // 偏差证据（非验收通过标准）：当前实现两次均建行并返回不同 id——
-    // 证明「幂等键重复提交不产生重复行」在迭代 0 无受保护入口，待架构裁定（STATUS 偏差与仲裁）
-    expect(first.fileObjectId).not.toBe(second.fileObjectId);
+    const key = crypto.randomUUID();
+    const first = await uploadOnce(app, pmCookie, projectAId, "幂等拦截取证.pdf", probeBytes, key);
+    const second = await uploadOnce(app, pmCookie, projectAId, "幂等拦截取证.pdf", probeBytes, key);
+    // 拦截语义：同键重放返回首次结果，不产生新行
+    expect(second.fileObjectId).toBe(first.fileObjectId);
+    expect(second.fileVersionId).toBe(first.fileVersionId);
+    expect(second.sha256).toBe(first.sha256);
 
-    const objectId = first.fileObjectId as string;
-    const sha = first.sha256 as string;
-    const dupes = await query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM file_versions WHERE sha256 = $1 AND uploaded_by = (
-         SELECT id FROM users WHERE email = 'pm@lexflow.demo')`,
-      [sha],
+    const rows = await query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM file_versions WHERE idempotency_key = $1`,
+      [key],
     );
-    expect(dupes[0].n).toBe(2);
-    expect(objectId).toBeTruthy();
+    expect(rows[0].n).toBe(1);
+
+    // 对照：不同键照常建行（幂等键不阻塞正常多次上传）
+    const third = await uploadOnce(app, pmCookie, projectAId, "幂等拦截取证.pdf", probeBytes, crypto.randomUUID());
+    expect(third.fileObjectId).not.toBe(first.fileObjectId);
   });
 
   it("[D2 已落地] idempotency_key 列随迭代 1 表落地（file_versions / approval_instances）", async () => {
