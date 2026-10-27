@@ -12,6 +12,8 @@ import {
   planVersions,
   stages,
   tasks,
+  travelEvents,
+  travelRequests,
 } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
@@ -232,15 +234,10 @@ export function registerAccessGrantHandler(): void {
     },
 
     async onRejected(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
-      // 状态机无 rejected 态：pending_approval 被拒 → revoked（留 revoke_reason，STATUS 留坑待架构确认）
+      // arch/01 §3 v1.1：授权状态机含 rejected——驳回落 rejected（不留 revoke_* 痕迹）
       await tx
         .update(accessGrants)
-        .set({
-          status: "revoked",
-          revokedAt: new Date().toISOString(),
-          revokeReason: "审批驳回",
-          updatedAt: new Date().toISOString(),
-        })
+        .set({ status: "rejected", updatedAt: new Date().toISOString() })
         .where(and(eq(accessGrants.id, instance.bizId), eq(accessGrants.status, "pending_approval")));
     },
 
@@ -258,8 +255,121 @@ export function registerAccessGrantHandler(): void {
   });
 }
 
+/* ===== travel / travel_change（arch/05 §4：通过不写任何预算占用，TRV-004） ===== */
+
+interface TravelChangePayload {
+  changes: Record<string, unknown>;
+  before: Record<string, unknown>;
+}
+
+export function registerTravelHandlers(): void {
+  registerHandler("travel", {
+    async onApproved(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
+      const rows = await tx
+        .select()
+        .from(travelRequests)
+        .where(eq(travelRequests.id, instance.bizId))
+        .limit(1);
+      const travel = rows[0];
+      if (!travel) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "出差申请不存在");
+      if (travel.status !== "pending_approval") {
+        throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "出差状态不允许审批通过落地");
+      }
+      await tx
+        .update(travelRequests)
+        .set({ status: "approved", updatedAt: new Date().toISOString(), rowVersion: sql`${travelRequests.rowVersion} + 1` })
+        .where(eq(travelRequests.id, travel.id));
+      await tx.insert(travelEvents).values({
+        travelRequestId: travel.id,
+        actorId: instance.applicantId,
+        action: "approve",
+      });
+      await notify(tx, {
+        eventType: "travel_approval",
+        recipientId: travel.applicantId,
+        sourceType: "travel",
+        sourceId: travel.id,
+        payload: { result: "approved", code: travel.code },
+      });
+    },
+    async onRejected(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
+      await tx
+        .update(travelRequests)
+        .set({ status: "rejected", updatedAt: new Date().toISOString() })
+        .where(and(eq(travelRequests.id, instance.bizId), eq(travelRequests.status, "pending_approval")));
+      await tx.insert(travelEvents).values({
+        travelRequestId: instance.bizId,
+        actorId: instance.applicantId,
+        action: "reject",
+      });
+      await notify(tx, {
+        eventType: "travel_approval",
+        recipientId: instance.applicantId,
+        sourceType: "travel",
+        sourceId: instance.bizId,
+        payload: { result: "rejected" },
+      });
+    },
+    async onWithdrawn(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
+      await tx
+        .update(travelRequests)
+        .set({ status: "draft", updatedAt: new Date().toISOString() })
+        .where(and(eq(travelRequests.id, instance.bizId), eq(travelRequests.status, "pending_approval")));
+      await tx.insert(travelEvents).values({
+        travelRequestId: instance.bizId,
+        actorId: instance.applicantId,
+        action: "withdraw",
+      });
+    },
+  });
+
+  registerHandler("travel_change", {
+    async onApproved(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
+      const rows = await tx
+        .select()
+        .from(travelRequests)
+        .where(eq(travelRequests.id, instance.bizId))
+        .limit(1);
+      const travel = rows[0];
+      if (!travel) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "出差申请不存在");
+      if (travel.status !== "approved" && travel.status !== "in_progress") {
+        throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "仅 approved/in_progress 可应用变更");
+      }
+      const payload = (instance.formSnapshot.changePayload ?? null) as TravelChangePayload | null;
+      const changes = payload?.changes ?? {};
+      await tx
+        .update(travelRequests)
+        .set({
+          ...(changes.destination !== undefined ? { destination: String(changes.destination) } : {}),
+          ...(changes.startOn !== undefined ? { startOn: String(changes.startOn) } : {}),
+          ...(changes.endOn !== undefined ? { endOn: String(changes.endOn) } : {}),
+          ...(changes.estimatedCostCents !== undefined
+            ? { estimatedCostCents: Number(changes.estimatedCostCents) }
+            : {}),
+          updatedAt: new Date().toISOString(),
+          rowVersion: sql`${travelRequests.rowVersion} + 1`,
+        })
+        .where(eq(travelRequests.id, travel.id));
+      await tx.insert(travelEvents).values({
+        travelRequestId: travel.id,
+        actorId: instance.applicantId,
+        action: "change_approved",
+        payloadJson: (payload ?? null) as Record<string, unknown> | null,
+      });
+    },
+    async onRejected(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
+      // 驳回原状不动（arch/05 §4.6），仅事件由引擎审计留痕
+      void instance;
+    },
+    async onWithdrawn(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
+      void instance;
+    },
+  });
+}
+
 /** 引擎处理器注册入口（server 启动与测试 setup 各调用一次，幂等覆盖） */
 export function registerApprovalHandlers(): void {
   registerChangeRequestHandler();
   registerAccessGrantHandler();
+  registerTravelHandlers();
 }

@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, sql, type SQL } from "drizzle-orm";
 
 import { ERROR_CODE } from "@lexflow/shared";
 
@@ -7,13 +7,17 @@ import {
   approvalSteps,
   auditEvents,
   decisions,
+  meetingMinutes,
+  meetings,
   notifications,
   projects,
   qualityIssues,
   tasks,
+  travelRequests,
 } from "../../db/schema";
 import { BusinessError } from "../../lib/errors";
 import { can, projectScopeFilter } from "../../services/access";
+import { sweepActionItems } from "../../modules/collab/sweeps";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
 import { cursorCondition, encodeCursor, nowIso } from "./util";
@@ -171,6 +175,7 @@ export async function markHandled(db: DbOrTx, user: SessionUser, ids: string[]) 
 /* ===== todo.mine（统一并集，arch/04 §5） ===== */
 
 export async function todoMine(db: DbOrTx, user: SessionUser) {
+  await sweepActionItems(db, user); // 查询时判定+写入（action_item_due）
   const today = nowIso().slice(0, 10);
   const soon = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
 
@@ -244,6 +249,40 @@ export async function todoMine(db: DbOrTx, user: SessionUser) {
     )
     .limit(20);
 
+  // 待我整理纪要：记录人=我，会议已结束且纪要 pending_draft
+  const minutesToDraft = await db
+    .select({
+      id: meetings.id,
+      code: meetings.code,
+      title: meetings.subject,
+      projectId: meetings.projectId,
+    })
+    .from(meetings)
+    .where(
+      and(
+        eq(meetings.recorderId, user.id),
+        eq(meetings.status, "completed"),
+        eq(meetings.minutesStatus, "pending_draft"),
+      ),
+    )
+    .limit(20);
+
+  // 待我确认纪要：确认人=我，pending_confirm（分钟行 confirmer_id=me 且未确认）
+  const minutesToConfirm = await db
+    .select({
+      id: meetings.id,
+      code: meetings.code,
+      title: meetings.subject,
+      projectId: meetings.projectId,
+    })
+    .from(meetings)
+    .innerJoin(
+      meetingMinutes,
+      and(eq(meetingMinutes.meetingId, meetings.id), sql`${meetingMinutes.confirmedAt} is null`),
+    )
+    .where(and(eq(meetings.minutesStatus, "pending_confirm"), eq(meetingMinutes.confirmerId, user.id)))
+    .limit(20);
+
   const grantsToHandle = await db
     .select({
       id: approvalInstances.id,
@@ -296,6 +335,20 @@ export async function todoMine(db: DbOrTx, user: SessionUser) {
       code: "WEEKLY",
       title: r.title,
       projectId: r.projectId,
+    })),
+    ...minutesToDraft.map((m) => ({
+      kind: "minutes_draft" as const,
+      id: m.id,
+      code: m.code,
+      title: `待整理纪要：${m.title}`,
+      projectId: m.projectId,
+    })),
+    ...minutesToConfirm.map((m) => ({
+      kind: "minutes_confirm" as const,
+      id: m.id,
+      code: m.code,
+      title: `待确认纪要：${m.title}`,
+      projectId: m.projectId,
     })),
     ...grantsToHandle.map((g) => ({
       kind: "grant_handle" as const,
@@ -363,12 +416,36 @@ export async function dashboardSummary(db: DbOrTx, user: SessionUser) {
       ),
     );
 
+  const weekStart = new Date();
+  weekStart.setUTCDate(weekStart.getUTCDate() - ((weekStart.getUTCDay() + 6) % 7));
+  weekStart.setUTCHours(0, 0, 0, 0);
+  const [weeklyMeetings] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(meetings)
+    .where(
+      and(
+        gte(meetings.startAt, weekStart.toISOString()),
+        sql`${meetings.projectId} IN (SELECT id FROM projects WHERE ${scope})`,
+      ),
+    );
+  const [traveling] = await db
+    .select({ n: sql<number>`count(distinct ${travelRequests.applicantId})::int` })
+    .from(travelRequests)
+    .where(
+      and(
+        eq(travelRequests.status, "in_progress"),
+        sql`${travelRequests.projectId} IN (SELECT id FROM projects WHERE ${scope})`,
+      ),
+    );
+
   return {
     asOf: nowIso(),
     projects: pulse,
     pendingApprovals: pendingApprovals.n,
     pendingDecisions: pendingDecisions.n,
     blockingQuality: blockingQuality.n,
+    weeklyMeetings: weeklyMeetings.n,
+    travelingCount: traveling.n,
   };
 }
 

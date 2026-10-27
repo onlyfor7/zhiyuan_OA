@@ -22,31 +22,24 @@ export interface NotifyInput {
   sourceType: SourceType;
   sourceId: string;
   payload?: Record<string, unknown>;
+  /** 覆写聚合键（默认 event:sourceId:日；「只提醒一次」类事件用 sourceId:once） */
+  aggregateKey?: string;
 }
 
-/** 事件写入（聚合防重；须在业务事务内调用，与业务写同事务） */
+/** 事件写入（聚合防重：部分唯一索引 (recipient_id, aggregate_key)，ON CONFLICT DO NOTHING） */
 export async function notify(db: DbOrTx, input: NotifyInput): Promise<void> {
-  const aggregateKey = `${input.eventType}:${input.sourceId}:${dayKey()}`;
-  const existing = await db
-    .select({ id: notifications.id })
-    .from(notifications)
-    .where(
-      and(
-        eq(notifications.recipientId, input.recipientId),
-        eq(notifications.aggregateKey, aggregateKey),
-      ),
-    )
-    .limit(1);
-  if (existing[0]) return;
-
-  await db.insert(notifications).values({
-    recipientId: input.recipientId,
-    eventType: input.eventType,
-    sourceType: input.sourceType,
-    sourceId: input.sourceId,
-    payloadJson: input.payload ?? null,
-    aggregateKey,
-  });
+  const aggregateKey = input.aggregateKey ?? `${input.eventType}:${input.sourceId}:${dayKey()}`;
+  await db
+    .insert(notifications)
+    .values({
+      recipientId: input.recipientId,
+      eventType: input.eventType,
+      sourceType: input.sourceType,
+      sourceId: input.sourceId,
+      payloadJson: input.payload ?? null,
+      aggregateKey,
+    })
+    .onConflictDoNothing();
 }
 
 /** 业务动作完成后同步 handled（不靠用户手动已读替代处理，arch/04 §6） */

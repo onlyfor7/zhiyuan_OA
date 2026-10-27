@@ -15,6 +15,8 @@ import { notificationRouter } from "./notification";
 import { todoRouter } from "./todo";
 import { dashboardRouter } from "./dashboard";
 import { auditRouter } from "./audit";
+import { meetingRouter } from "./meeting";
+import { travelRouter } from "./travel";
 import { router } from "../trpc";
 
 /** AppRouter：前端经 `import type { AppRouter } from "@lexflow/server"` 消费推断类型 */
@@ -36,6 +38,8 @@ export const appRouter = router({
   todo: todoRouter,
   dashboard: dashboardRouter,
   audit: auditRouter,
+  meeting: meetingRouter,
+  travel: travelRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -103,6 +103,93 @@ export async function directoryItems(
   };
 }
 
+/**
+ * 结构化来源归集（内部直挂，供会议纪要确认/出差完成等同事务调用；arch/05 §2.2 二态放宽）。
+ * 系统权威写入：调用方须在已通过权限校验的业务事务内使用。
+ */
+export async function linkSourceToDirectory(
+  db: DbOrTx,
+  input: {
+    projectId: string;
+    directoryId: string;
+    sourceType: "report" | "meeting" | "travel";
+    sourceId: string;
+    fileVersionId?: string | null;
+    createdBy?: string | null;
+  },
+): Promise<void> {
+  await db
+    .insert(archiveLinks)
+    .values({
+      projectId: input.projectId,
+      directoryId: input.directoryId,
+      fileVersionId: input.fileVersionId ?? null,
+      sourceType: input.sourceType,
+      sourceId: input.sourceId,
+      createdBy: input.createdBy ?? null,
+    })
+    .onConflictDoNothing();
+}
+
+/** 按 dir_key 归集到项目目录（无目录则跳过，不阻断业务主流程） */
+export async function linkSourceByDirKey(
+  db: DbOrTx,
+  input: {
+    projectId: string;
+    dirKey: string;
+    sourceType: "report" | "meeting" | "travel";
+    sourceId: string;
+    fileVersionId?: string | null;
+    createdBy?: string | null;
+  },
+): Promise<void> {
+  const dir = await db
+    .select({ id: archiveDirectories.id })
+    .from(archiveDirectories)
+    .where(
+      and(
+        eq(archiveDirectories.projectId, input.projectId),
+        eq(archiveDirectories.dirKey, input.dirKey),
+      ),
+    )
+    .limit(1);
+  if (!dir[0]) return;
+  await linkSourceToDirectory(db, { ...input, directoryId: dir[0].id });
+}
+
+/** 会议/出差材料归集：把来源文件的全部版本挂入目录（fv 非空 + 来源对；唯一约束去重） */
+export async function linkMaterialFiles(
+  db: DbOrTx,
+  input: {
+    projectId: string;
+    dirKey: string;
+    sourceType: "meeting" | "travel";
+    sourceId: string;
+    createdBy?: string | null;
+  },
+): Promise<void> {
+  const objects = await db
+    .select({ id: fileObjects.id })
+    .from(fileObjects)
+    .where(and(eq(fileObjects.sourceType, input.sourceType), eq(fileObjects.sourceId, input.sourceId)));
+  for (const object of objects) {
+    const versions = await db
+      .select({ id: fileVersions.id })
+      .from(fileVersions)
+      .where(eq(fileVersions.fileObjectId, object.id));
+    for (const version of versions) {
+      await linkSourceByDirKey(db, {
+        projectId: input.projectId,
+        dirKey: input.dirKey,
+        sourceType: input.sourceType,
+        sourceId: input.sourceId,
+        fileVersionId: version.id,
+        createdBy: input.createdBy ?? null,
+      });
+    }
+  }
+}
+
 export async function linkItem(
   db: DbOrTx,
   user: SessionUser,

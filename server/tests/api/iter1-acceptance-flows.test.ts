@@ -318,14 +318,14 @@ describe("迭代 1 验收 A5–A10（arch/04 §8）", () => {
     expect(act1.status).toBe(200);
     expect((act1.json as { result: { data: { applied: boolean } } }).result.data.applied).toBe(true);
 
-    // 顺序重放：实例已终态 → STATE_CONFLICT 拦截（单终态的另一种保证）；
-    // 并发双 act 的 applied=false 语义由后端 governance-approval 覆盖
+    // 同键顺序重放（N4 语义，arch/05 §9）：200 + applied=false，不产生副作用；
+    // 异键重放终态 409 由后端 carryover-n4 套件覆盖
     const act2 = await trpc(app, "approval.act", {
       cookie: pmCookie,
       input: { instanceId: crAfter.approvalInstanceId, stepSeq: 1, action: "approve", idempotencyKey: actKey },
     });
-    expect(act2.status).toBe(409);
-    expect(trpcError(act2).businessCode).toBe("STATE_CONFLICT");
+    expect(act2.status).toBe(200);
+    expect((act2.json as { result: { data: { applied: boolean } } }).result.data.applied).toBe(false);
 
     const instance = await query<{ status: string }>(
       `SELECT status FROM approval_instances WHERE id = $1`,

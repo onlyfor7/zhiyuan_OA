@@ -16,7 +16,7 @@ import { notify } from "../../modules/notify";
  * countersign=all 且多候选人 → 展开为 seq=i*1000+j（j=1..N），组键=floor(seq/1000)。
  */
 
-export type BizType = "change_request" | "access_grant";
+export type BizType = "change_request" | "access_grant" | "travel" | "travel_change";
 
 export interface ApprovalInstanceRow {
   id: string;
@@ -28,6 +28,7 @@ export interface ApprovalInstanceRow {
   currentStepSeq: number;
   status: "pending" | "approved" | "rejected" | "withdrawn";
   idempotencyKey: string;
+  formSnapshot: Record<string, unknown>;
 }
 
 export interface ApprovalHandlers {
@@ -52,6 +53,12 @@ export function registerHandler(bizType: string, h: ApprovalHandlers): () => voi
   };
 }
 
+/** biz_type → 通知 source_type（travel_change 归属 travel 来源） */
+function bizSourceType(bizType: string): "change_request" | "access_grant" | "travel" {
+  if (bizType === "change_request") return "change_request";
+  if (bizType === "travel" || bizType === "travel_change") return "travel";
+  return "access_grant";
+}
 function groupKey(seq: number): number {
   return seq >= 1000 ? Math.floor(seq / 1000) : seq;
 }
@@ -69,7 +76,14 @@ interface PolicyRow {
 }
 
 function matchPolicy(policy: PolicyRow, snapshot: Record<string, unknown>): boolean {
-  return Object.entries(policy.matchJson).every(([key, expected]) => snapshot[key] === expected);
+  return Object.entries(policy.matchJson).every(([key, expected]) => {
+    // min_ 前缀键按 ≥ 匹配（金额阈值类策略，arch/05 §7 出差预计费用阈值）
+    if (key.startsWith("min_")) {
+      const actual = Number(snapshot[key.slice(4)]);
+      return Number.isFinite(actual) && actual >= Number(expected);
+    }
+    return snapshot[key] === expected;
+  });
 }
 
 async function resolvePolicy(
@@ -146,7 +160,8 @@ async function resolveSteps(
     }
     if (countersign === "all" && candidates.length > 1) {
       candidates.forEach((candidate, j) => {
-        steps.push({ seq: (i + 1) * 1000 + (j + 1), countersign: "all", candidates: [candidate], approverRole });
+        // 会签子步精确到人：清空角色，防止同角色其他成员代审他人子步
+        steps.push({ seq: (i + 1) * 1000 + (j + 1), countersign: "all", candidates: [candidate], approverRole: null });
       });
     } else {
       steps.push({ seq: i + 1, countersign, candidates, approverRole });
@@ -219,7 +234,7 @@ export async function submit(db: DbOrTx, input: SubmitInput): Promise<ApprovalIn
     await notify(db, {
       eventType: "approval_pending",
       recipientId: step.candidates[0],
-      sourceType: input.bizType === "change_request" ? "change_request" : "access_grant",
+      sourceType: bizSourceType(input.bizType),
       sourceId: input.bizId,
       payload: { approvalInstanceId: instance.id, code: instance.code },
     });
@@ -235,6 +250,8 @@ export interface ActInput {
   action: "approve" | "reject" | "transfer";
   comment?: string | null;
   transferTo?: string | null;
+  /** N4（arch/05 §9）：审批动作幂等键；同键重放返回现状 200，异键重放已处理步骤 409 */
+  idempotencyKey?: string | null;
 }
 
 export interface ActResult {
@@ -246,6 +263,20 @@ export interface ActResult {
 export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
   const instance = await loadInstance(db, input.instanceId);
   if (instance.status !== "pending") {
+    // N4：终态实例上的同键重放 → 200 applied=false（按 acted_idempotency_key 识别）；异键 → 409
+    if (input.idempotencyKey) {
+      const acted = await db
+        .select({ id: approvalSteps.id })
+        .from(approvalSteps)
+        .where(
+          and(
+            eq(approvalSteps.instanceId, instance.id),
+            eq(approvalSteps.actedIdempotencyKey, input.idempotencyKey),
+          ),
+        )
+        .limit(1);
+      if (acted.length > 0) return { instance, applied: false };
+    }
     throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "审批实例已终态，不可再操作");
   }
   if (groupKey(instance.currentStepSeq) !== groupKey(input.stepSeq)) {
@@ -284,10 +315,11 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
         delegatedFrom: step.approverId,
         actedBy: input.actorId,
         actedAt: now,
+        actedIdempotencyKey: input.idempotencyKey ?? null,
       })
       .where(and(eq(approvalSteps.id, step.id), eq(approvalSteps.status, "pending")))
       .returning();
-    if (updated.length === 0) return { instance, applied: false }; // 已处理，返回现状
+    if (updated.length === 0) return replayOrConflict(db, step, input, instance); // N4：同键 200，异键 409
     return { instance, applied: true };
   }
 
@@ -297,7 +329,7 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
     });
   }
 
-  // 条件更新（并发/重试安全；影响行数=0 视为已处理，直接返回现状）
+  // 条件更新（并发/重试安全；N4：同键重放返回现状 200，异键重放已处理步骤 409）
   const acted = await db
     .update(approvalSteps)
     .set({
@@ -305,12 +337,12 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
       actedBy: input.actorId,
       comment: input.comment ?? null,
       actedAt: now,
+      actedIdempotencyKey: input.idempotencyKey ?? null,
     })
     .where(and(eq(approvalSteps.id, step.id), eq(approvalSteps.status, "pending")))
     .returning({ id: approvalSteps.id });
   if (acted.length === 0) {
-    const current = await loadInstance(db, input.instanceId);
-    return { instance: current, applied: false };
+    return replayOrConflict(db, step, input, instance);
   }
 
   if (input.action === "reject") {
@@ -369,7 +401,7 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
         await notify(db, {
           eventType: "approval_pending",
           recipientId: s.approverId,
-          sourceType: instance.bizType === "change_request" ? "change_request" : "access_grant",
+          sourceType: bizSourceType(instance.bizType),
           sourceId: instance.bizId,
           payload: { approvalInstanceId: instance.id, code: instance.code },
         });
@@ -385,7 +417,7 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
   await notify(db, {
     eventType: "approval_result",
     recipientId: instance.applicantId,
-    sourceType: instance.bizType === "change_request" ? "change_request" : "access_grant",
+    sourceType: bizSourceType(instance.bizType),
     sourceId: instance.bizId,
     payload: { approvalInstanceId: instance.id, result: "approved" },
   });
@@ -414,6 +446,23 @@ export async function withdraw(db: DbOrTx, input: WithdrawInput): Promise<Approv
   const handler = handlers.get(instance.bizType);
   if (handler) await handler.onWithdrawn(db, instance);
   return loadInstance(db, instance.id);
+}
+
+async function replayOrConflict(
+  db: DbOrTx,
+  step: { id: string; actedIdempotencyKey: string | null },
+  input: ActInput,
+  instance: ApprovalInstanceRow,
+): Promise<ActResult> {
+  // N4：同键重放 → 200 返回现状（applied=false）；异键重放已处理步骤 → 409
+  const current = await loadInstance(db, input.instanceId);
+  if (input.idempotencyKey && step.actedIdempotencyKey === input.idempotencyKey) {
+    return { instance: current, applied: false };
+  }
+  throw new BusinessError(
+    ERROR_CODE.STATE_CONFLICT,
+    "该审批步骤已被处理（异键重放或并发冲突）",
+  );
 }
 
 async function finalize(

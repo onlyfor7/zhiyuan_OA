@@ -42,6 +42,7 @@ export const approvalRouter = router({
         action: input.action,
         comment: input.comment ?? null,
         transferTo: input.transferTo ?? null,
+        idempotencyKey: input.idempotencyKey ?? null,
       });
       // 处理后同步 handled（arch/04 §6：不靠用户手动已读替代处理）
       if (result.applied) {
