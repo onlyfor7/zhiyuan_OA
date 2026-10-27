@@ -35,3 +35,16 @@ export function useUserNameMap(): Map<string, string> {
   const query = useQuery(trpc.user.list.queryOptions({ limit: 100 }));
   return new Map((query.data?.items ?? []).map((u) => [u.id, u.name]));
 }
+
+/** 金额展示：整数分 → 元字符串（展示层换算，输入侧 parseYuanToCents） */
+export function formatYuan(cents: number | null | undefined): string {
+  if (cents === null || cents === undefined) return "—";
+  return (cents / 100).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** 元字符串 → 整数分（四舍五入到分；非法返回 null） */
+export function parseYuanToCents(v: string): number | null {
+  const n = Number(v);
+  if (!v.trim() || Number.isNaN(n) || n < 0) return null;
+  return Math.round(n * 100);
+}

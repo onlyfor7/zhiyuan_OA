@@ -2,13 +2,22 @@ import { Link } from "react-router";
 import { ArrowRight, CircleAlert, ShieldCheck } from "lucide-react";
 
 import { useProjectOverview } from "../../api/project";
+import { useShell } from "../../components/shell-rail";
+import { BudgetBar } from "../../components/finance";
+import { canViewFinance } from "../../lib/permissions";
+import { ChevronRight } from "lucide-react";
 import { NotConnected } from "../../components/NotConnected";
 import { useSpaceParams } from "./space-context";
 
 /** 项目空间·总览页签：project.overview 真实聚合（arch/04 §5） */
 export default function OverviewTab() {
   const { projectId } = useSpaceParams();
+  const { me } = useShell();
   const overview = useProjectOverview(projectId);
+  const allowed = canViewFinance(
+    me.projects.find((p) => p.id === projectId)?.projectRole ?? null,
+    me.globalRoles,
+  );
 
   if (overview.isPending) return <p className="list-note">正在加载总览…</p>;
   if (overview.isError) throw overview.error;
@@ -68,6 +77,21 @@ export default function OverviewTab() {
           </div>
           <NotConnected hint="整体完成度与质量明细见「计划」「质量」页签；统计口径由服务端统一计算" />
         </section>
+        {allowed && overview.data?.budgetSummary ? (
+          <section>
+            <div className="section-heading">
+              <div>
+                <span className="section-label">BUDGET</span>
+                <h2>预算执行摘要</h2>
+              </div>
+              <Link to="budget" className="text-action">
+                下钻台账
+                <ChevronRight size={14} />
+              </Link>
+            </div>
+            <BudgetBar aggregate={overview.data.budgetSummary} />
+          </section>
+        ) : null}
         <section>
           <div className="section-heading">
             <div>

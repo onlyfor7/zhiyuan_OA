@@ -19,6 +19,12 @@ import TravelDetailPage from "./pages/TravelDetailPage";
 import TravelNewPage from "./pages/TravelNewPage";
 import TravelPage from "./pages/TravelPage";
 import WorkbenchPage from "./pages/WorkbenchPage";
+import OperationsBudgetPage from "./pages/OperationsBudgetPage";
+import OperationsExpensesPage from "./pages/OperationsExpensesPage";
+import FundingDetailPage from "./pages/FundingDetailPage";
+import FundingNewPage from "./pages/FundingNewPage";
+import ExpenseDetailPage from "./pages/ExpenseDetailPage";
+import ExpenseNewPage from "./pages/ExpenseNewPage";
 import ProjectSpacePage, { FutureTab } from "./pages/project/ProjectSpacePage";
 import OverviewTab from "./pages/project/OverviewTab";
 import PlanTab from "./pages/project/PlanTab";
@@ -30,6 +36,8 @@ import ArchiveTab from "./pages/project/ArchiveTab";
 import MembersTab from "./pages/project/MembersTab";
 import MeetingsTab from "./pages/project/MeetingsTab";
 import TravelTab from "./pages/project/TravelTab";
+import BudgetTab from "./pages/project/BudgetTab";
+import ExpensesTab from "./pages/project/ExpensesTab";
 
 /**
  * 路由表（迭代 1 工单 03）。
@@ -58,11 +66,17 @@ export default function App() {
           <Route path="members" element={<MembersTab />} />
           <Route path="meetings" element={<MeetingsTab />} />
           <Route path="travel" element={<TravelTab />} />
-          <Route path="budget" element={<FutureTab label="预算经费" />} />
-          <Route path="expenses" element={<FutureTab label="费用" />} />
+          <Route path="budget" element={<BudgetTab />} />
+          <Route path="expenses" element={<ExpensesTab />} />
           <Route path="timesheet" element={<FutureTab label="工时" />} />
           <Route path="*" element={<Navigate to="overview" replace />} />
         </Route>
+        <Route path="/operations/budget" element={<OperationsBudgetPage />} />
+        <Route path="/operations/expenses" element={<OperationsExpensesPage />} />
+        <Route path="/operations/funding/new" element={<FundingNewPage />} />
+        <Route path="/operations/funding/:fundingId" element={<FundingDetailPage />} />
+        <Route path="/expenses/new" element={<ExpenseNewPage />} />
+        <Route path="/expenses/:expenseId" element={<ExpenseDetailPage />} />
         <Route path="/meetings" element={<MeetingsPage />} />
         <Route path="/meetings/new" element={<MeetingNewPage />} />
         <Route path="/meetings/:meetingId" element={<MeetingDetailPage />} />

@@ -59,6 +59,15 @@ export function isAccessDeniedOrGone(error: unknown): boolean {
   return businessCodeOf(error) === "ACCESS_DENIED_OR_GONE";
 }
 
+/** 业务错误附加数据（如 DUPLICATE_RECEIPT 的原报销定位 details） */
+export function businessDetailsOf<T>(error: unknown): T | undefined {
+  if (error instanceof TRPCClientError) {
+    const data = error.data as { details?: T } | undefined;
+    return data?.details;
+  }
+  return undefined;
+}
+
 export function fieldErrorsOf(error: unknown): Record<string, string[]> | undefined {
   if (error instanceof TRPCClientError) {
     const data = error.data as ErrorData | undefined;

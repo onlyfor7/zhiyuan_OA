@@ -48,13 +48,14 @@ export interface UploadResult {
 /** 受控上传（Hono 原生 multipart，arch/02 §4 + D2 幂等键） */
 export async function uploadProjectFile(
   file: File,
-  projectId: string,
+  sourceType: string,
+  sourceId: string,
   idempotencyKey: string,
 ): Promise<UploadResult> {
   const form = new FormData();
   form.append("file", file);
-  form.append("sourceType", "project");
-  form.append("sourceId", projectId);
+  form.append("sourceType", sourceType);
+  form.append("sourceId", sourceId);
   form.append("idempotencyKey", idempotencyKey);
   const res = await fetch("/files/upload", { method: "POST", body: form });
   if (!res.ok) {

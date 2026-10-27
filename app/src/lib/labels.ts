@@ -161,6 +161,12 @@ export const APPROVAL_STEP_STATUS_LABEL: Record<ApprovalStepStatus, string> = {
 export const APPROVAL_BIZ_LABEL: Record<string, string> = {
   change_request: "延期申请",
   access_grant: "档案授权",
+  travel: "出差申请",
+  travel_change: "出差变更",
+  budget: "预算",
+  funding: "经费申请",
+  expense: "费用报销",
+  expense_adjustment: "报销调整",
 };
 
 export const TODO_KIND_LABEL: Record<string, string> = {
@@ -171,6 +177,8 @@ export const TODO_KIND_LABEL: Record<string, string> = {
   grant_handle: "授权处理",
   minutes_draft: "待写纪要",
   minutes_confirm: "待确认纪要",
+  funding_mine: "我的经费",
+  expense_mine: "我的报销",
 };
 
 export const QUALITY_EVENT_LABEL: Record<string, string> = {
@@ -242,4 +250,56 @@ export const ATTENDANCE_LABEL: Record<string, string> = {
   attended: "出席",
   absent: "缺席",
   excused: "请假",
+};
+
+/* —— 迭代 3 财务域标签（arch/06） —— */
+
+export const BUDGET_STATUS_LABEL: Record<string, string> = {
+  draft: "草稿",
+  pending_approval: "审批中",
+  active: "生效中",
+  superseded: "已失效",
+  closed: "已关闭",
+};
+
+export const FUNDING_STATUS_LABEL: Record<string, string> = {
+  draft: "草稿",
+  pending_approval: "审批中",
+  approved: "已批准",
+  rejected: "已驳回",
+};
+
+export const FUNDING_USAGE_LABEL: Record<string, string> = {
+  unused: "未使用",
+  partially_used: "部分使用",
+  written_off: "已核销清讫",
+  closed: "已关闭",
+};
+
+export const EXPENSE_STATUS_LABEL: Record<string, string> = {
+  draft: "草稿",
+  pending_approval: "审批中",
+  rejected: "已驳回",
+  approved_pending_payment: "待支付",
+  paid: "已支付",
+};
+
+export const EXPENSE_CATEGORY_LABEL: Record<string, string> = {
+  transport: "交通",
+  accommodation: "住宿",
+  meals: "餐费",
+  meeting: "会议",
+  materials: "资料",
+  translation: "翻译",
+  notarization: "公证",
+  travel_other: "差旅其他",
+};
+
+export const LEDGER_ENTRY_LABEL: Record<string, string> = {
+  BUDGET_ACTIVATED: "预算生效",
+  BUDGET_ADJUSTED: "预算调整",
+  FUNDING_RESERVED: "经费占用",
+  FUNDING_RELEASED: "占用释放",
+  EXPENSE_RECOGNIZED: "实际支出",
+  EXPENSE_ADJUSTED: "支出调整",
 };

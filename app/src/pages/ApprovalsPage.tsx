@@ -37,6 +37,64 @@ function ApprovalRail() {
   );
 }
 
+interface ApprovalCheck {
+  name: string;
+  pass: boolean;
+  detail: string;
+}
+
+/** 审批快照：biz 关键字段 + 提交时检查项（EXP-006；随 formSnapshot 冻结） */
+function SnapshotPanel({ instanceId }: { instanceId: string }) {
+  const approval = useApproval(instanceId);
+  if (approval.isPending) return <p className="list-note">正在加载审批快照…</p>;
+  if (approval.isError) return null;
+  const snap = approval.data.formSnapshot as {
+    checks?: ApprovalCheck[];
+    level?: string;
+    amountCents?: number;
+    changeRequestCode?: string;
+    reason?: string;
+  } | null;
+  const checks = snap?.checks ?? [];
+  return (
+    <div className="checks-panel">
+      {snap?.amountCents != null ? (
+        <p className="context-note">
+          金额 <strong>{(snap.amountCents / 100).toLocaleString("zh-CN", { minimumFractionDigits: 2 })} 元</strong>
+          {snap.level ? ` · 级别 ${snap.level}` : ""}
+        </p>
+      ) : null}
+      {checks.length > 0 ? (
+        <>
+          <span className="section-label">提交时检查项（冻结）</span>
+          {checks.map((c) => (
+            <div className={`check-line ${c.pass ? "pass" : "fail"}`} key={c.name}>
+              <Check size={14} />
+              <strong>{c.name}</strong>
+              <small>{c.detail}</small>
+            </div>
+          ))}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function MineCardExtras({ item }: { item: MineItem }) {
+  const [snapshotOpen, setSnapshotOpen] = useState(false);
+  return (
+    <>
+      <div className="row-ops" style={{ marginTop: 8 }}>
+        <button className="text-action" onClick={() => setSnapshotOpen((v) => !v)}>
+          {snapshotOpen ? "收起快照" : "审批快照/检查项"}
+        </button>
+      </div>
+      {snapshotOpen ? <SnapshotPanel instanceId={item.instance.id} /> : null}
+      <ActPanel item={item} />
+    </>
+  );
+}
+
 function ActPanel({ item }: { item: MineItem }) {
   const act = useApprovalAct();
   const [action, setAction] = useState<"approve" | "reject" | "transfer" | null>(null);
@@ -215,7 +273,7 @@ export default function ApprovalsPage() {
                 提交于 {item.instance.submittedAt?.slice(0, 16).replace("T", " ")}
                 {item.instance.projectId ? ` · 项目 ${item.instance.projectId.slice(0, 8)}` : ""}
               </p>
-              <ActPanel item={item} />
+              <MineCardExtras item={item} />
             </div>
           ))
         )

@@ -43,7 +43,7 @@ function DirectoryView({ dir }: { dir: DirRow }) {
     setError(null);
     setUploading(true);
     try {
-      const uploaded = await uploadProjectFile(file, projectId, idemKey);
+      const uploaded = await uploadProjectFile(file, "project", projectId, idemKey);
       await mutations.link.mutateAsync({ directoryId: dir.id, fileVersionId: uploaded.fileVersionId });
       setIdemKey(newIdempotencyKey());
     } catch (err) {

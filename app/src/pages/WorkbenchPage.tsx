@@ -25,6 +25,10 @@ function todoLink(item: TodoItem): string {
     case "minutes_draft":
     case "minutes_confirm":
       return `/meetings/${item.id}`;
+    case "funding_mine":
+      return `/operations/funding/${item.id}`;
+    case "expense_mine":
+      return `/expenses/${item.id}`;
     default:
       return "/workbench";
   }
@@ -187,6 +191,9 @@ export default function WorkbenchPage() {
                 {item.code}
                 {"dueDate" in item && item.dueDate ? ` · 到期 ${item.dueDate}` : ""}
                 {"submittedAt" in item && item.submittedAt ? ` · 提交 ${item.submittedAt.slice(0, 10)}` : ""}
+                {"amountCents" in item && item.amountCents != null
+                  ? ` · ${(item.amountCents / 100).toLocaleString("zh-CN", { minimumFractionDigits: 2 })} 元`
+                  : ""}
               </small>
               {"overdue" in item && item.overdue ? <em className="mark-overdue">逾期</em> : null}
               {"overdue" in item && item.dueSoon && !item.overdue ? <em className="mark-duesoon">临期</em> : null}

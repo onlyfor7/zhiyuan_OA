@@ -26,7 +26,6 @@ export default function TravelDetailPage() {
   const [changeFields, setChangeFields] = useState({ destination: "", startOn: "", endOn: "", estimatedYuan: "" });
   const [summary, setSummary] = useState("");
   const [costNote, setCostNote] = useState("");
-  const [expenseNotice, setExpenseNotice] = useState(false);
   const [prefillOpen, setPrefillOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const prefill = useTravelTimePrefill(travelId ?? null, prefillOpen);
@@ -148,9 +147,12 @@ export default function TravelDetailPage() {
               >
                 关闭单据
               </button>
-              <button className="primary-action" onClick={() => setExpenseNotice(true)}>
-                报销入口
-              </button>
+              <Link
+                className="primary-action"
+                to={`/expenses/new?travelId=${t.id}&projectId=${t.projectId}`}
+              >
+                发起报销
+              </Link>
             </>
           ) : null}
           <button className="secondary-action" onClick={() => setPrefillOpen((v) => !v)}>
@@ -163,17 +165,6 @@ export default function TravelDetailPage() {
         <p className="form-error" role="alert">
           {error}
         </p>
-      ) : null}
-      {expenseNotice ? (
-        <div className="stat-region prefill-panel">
-          <strong>费用报销模块将于下一迭代（迭代 3）开放。</strong>
-          <p className="context-note">
-            本单完成不产生任何费用记录；出差预计费用仅为提示，从未写入预算台账（TRV-004）。完成后系统已发出一次「返回报销」提醒通知。
-          </p>
-          <button className="text-action" onClick={() => setExpenseNotice(false)}>
-            知道了
-          </button>
-        </div>
       ) : null}
       {prefillOpen ? (
         <div className="stat-region prefill-panel">
