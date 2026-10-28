@@ -167,6 +167,7 @@ export const APPROVAL_BIZ_LABEL: Record<string, string> = {
   funding: "经费申请",
   expense: "费用报销",
   expense_adjustment: "报销调整",
+  timesheet: "工时周期",
 };
 
 export const TODO_KIND_LABEL: Record<string, string> = {
@@ -179,6 +180,8 @@ export const TODO_KIND_LABEL: Record<string, string> = {
   minutes_confirm: "待确认纪要",
   funding_mine: "我的经费",
   expense_mine: "我的报销",
+  time_submit: "待提交工时",
+  time_approve: "待审工时",
 };
 
 export const QUALITY_EVENT_LABEL: Record<string, string> = {
@@ -303,3 +306,51 @@ export const LEDGER_ENTRY_LABEL: Record<string, string> = {
   EXPENSE_RECOGNIZED: "实际支出",
   EXPENSE_ADJUSTED: "支出调整",
 };
+
+/* —— 迭代 4 工时/搜索标签（arch/07） —— */
+
+export const TIMESHEET_STATUS_LABEL: Record<string, string> = {
+  draft: "草稿",
+  pending_approval: "审批中",
+  approved: "已批准",
+  returned: "已退回",
+  locked: "已锁定",
+};
+
+export const TIME_ACTIVITY_LABEL: Record<string, string> = {
+  professional_work: "专业工作",
+  meeting: "会议",
+  travel: "差旅",
+  quality_review: "质量复核",
+  internal_admin: "内部行政",
+  other: "其他",
+};
+
+export const TIME_SOURCE_LABEL: Record<string, string> = {
+  manual: "手动",
+  prefill_meeting: "会议预填",
+  prefill_travel: "出差预填",
+  copy: "复制",
+};
+
+export const SEARCH_TYPE_LABEL: Record<string, string> = {
+  project: "项目",
+  task: "任务",
+  meeting: "会议",
+  travel: "出差",
+  funding: "经费",
+  expense: "报销",
+  decision: "决策",
+  quality_issue: "质量问题",
+  weekly_report: "周报",
+  time_entry: "工时",
+  document: "文件",
+};
+
+/** 分钟 → 「Xh Ym」展示换算（存储一律整数分钟） */
+export function formatMinutes(minutes: number | null | undefined): string {
+  if (minutes === null || minutes === undefined) return "—";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h}h ${m}m（${minutes} 分钟）` : `${m}m（${minutes} 分钟）`;
+}

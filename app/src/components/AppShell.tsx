@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Component, useState } from "react";
+import { Component, useEffect, useState } from "react";
 import {
   Link,
   Navigate,
@@ -8,10 +8,11 @@ import {
   useLocation,
   useNavigate,
 } from "react-router";
-import { ArrowRight, Bell, LogOut, Menu, Network } from "lucide-react";
+import { ArrowRight, Bell, LogOut, Menu, Network, Search } from "lucide-react";
 
 import { useLogout, useMe } from "../api/auth";
 import { useUnreadCount } from "../api/notification";
+import { SearchPalette } from "./SearchPalette";
 import type { ShellContextValue } from "./shell-rail";
 import { isAccessDeniedOrGone, isAuthRequired, queryClient } from "../lib/trpc";
 import NotFoundPage from "../pages/NotFoundPage";
@@ -94,6 +95,18 @@ export default function AppShell() {
   const unread = useUnreadCount();
   const [mobileRail, setMobileRail] = useState(false);
   const [rail, setRail] = useState<ReactNode>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   if (me.isPending) {
     return (
@@ -149,6 +162,11 @@ export default function AppShell() {
           ))}
         </nav>
         <div className="top-actions">
+          <button className="search-trigger" onClick={() => setSearchOpen(true)}>
+            <Search size={16} />
+            <span>搜索项目、任务、报销、文件</span>
+            <kbd>⌘ K</kbd>
+          </button>
           <Link to="/workbench" className="icon-button dark bell-link" aria-label="通知与待办">
             <Bell size={18} />
             {unread.data && unread.data.count > 0 ? (
@@ -179,6 +197,7 @@ export default function AppShell() {
           </button>
         </div>
       </header>
+      {searchOpen ? <SearchPalette onClose={() => setSearchOpen(false)} /> : null}
       <div className="app-body">
         <aside className={`project-rail ${mobileRail ? "mobile-open" : ""}`}>
           <div className="rail-heading">

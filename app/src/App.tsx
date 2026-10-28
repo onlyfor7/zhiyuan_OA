@@ -25,7 +25,7 @@ import FundingDetailPage from "./pages/FundingDetailPage";
 import FundingNewPage from "./pages/FundingNewPage";
 import ExpenseDetailPage from "./pages/ExpenseDetailPage";
 import ExpenseNewPage from "./pages/ExpenseNewPage";
-import ProjectSpacePage, { FutureTab } from "./pages/project/ProjectSpacePage";
+import ProjectSpacePage from "./pages/project/ProjectSpacePage";
 import OverviewTab from "./pages/project/OverviewTab";
 import PlanTab from "./pages/project/PlanTab";
 import TasksTab from "./pages/project/TasksTab";
@@ -34,10 +34,13 @@ import DecisionsTab from "./pages/project/DecisionsTab";
 import ReportsTab from "./pages/project/ReportsTab";
 import ArchiveTab from "./pages/project/ArchiveTab";
 import MembersTab from "./pages/project/MembersTab";
+import TimeCenterPage from "./pages/TimeCenterPage";
+import SearchPage from "./pages/SearchPage";
 import MeetingsTab from "./pages/project/MeetingsTab";
 import TravelTab from "./pages/project/TravelTab";
 import BudgetTab from "./pages/project/BudgetTab";
 import ExpensesTab from "./pages/project/ExpensesTab";
+import TimesheetTab from "./pages/project/TimesheetTab";
 
 /**
  * 路由表（迭代 1 工单 03）。
@@ -68,9 +71,11 @@ export default function App() {
           <Route path="travel" element={<TravelTab />} />
           <Route path="budget" element={<BudgetTab />} />
           <Route path="expenses" element={<ExpensesTab />} />
-          <Route path="timesheet" element={<FutureTab label="工时" />} />
+          <Route path="timesheet" element={<TimesheetTab />} />
           <Route path="*" element={<Navigate to="overview" replace />} />
         </Route>
+        <Route path="/operations/time" element={<TimeCenterPage />} />
+        <Route path="/search" element={<SearchPage />} />
         <Route path="/operations/budget" element={<OperationsBudgetPage />} />
         <Route path="/operations/expenses" element={<OperationsExpensesPage />} />
         <Route path="/operations/funding/new" element={<FundingNewPage />} />

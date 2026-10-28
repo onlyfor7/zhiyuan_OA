@@ -16,6 +16,7 @@ const SECTIONS = [
   ["decisions", "决策与变更"],
   ["risks", "风险与问题"],
   ["next_week", "下周计划"],
+  ["time", "工时（本周口径）"],
 ] as const;
 
 type Content = Record<string, string>;

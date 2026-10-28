@@ -6,6 +6,7 @@ import {
 
 import { fileDownloadUrl, filePreviewUrl } from "../api/archive";
 import { useTravel, useTravelMutations, useTravelTimePrefill } from "../api/travel";
+import { useTimeMutations } from "../api/time";
 import { ApprovalSteps } from "../components/ApprovalSteps";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
 import { formatDateTime } from "../lib/trpc";
@@ -29,6 +30,8 @@ export default function TravelDetailPage() {
   const [prefillOpen, setPrefillOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const prefill = useTravelTimePrefill(travelId ?? null, prefillOpen);
+  const timeMutations = useTimeMutations();
+  const [prefillNotice, setPrefillNotice] = useState<string | null>(null);
 
   if (travel.isPending) return <p className="list-note">正在加载出差单…</p>;
   if (travel.isError) throw travel.error;
@@ -180,7 +183,29 @@ export default function TravelDetailPage() {
                   </li>
                 ))}
               </ul>
-              <p className="context-note">仅为草稿建议：不保存、不自动提交、不计入工时统计（迭代 4 提供填报 UI）。</p>
+              <p className="context-note">仅为建议预览：不保存、不计入工时统计。</p>
+              <button
+                className="primary-action"
+                disabled={timeMutations.prefillFromTravel.isPending}
+                onClick={() => {
+                  setPrefillNotice(null);
+                  timeMutations.prefillFromTravel.mutate(
+                    { travelId: t.id },
+                    {
+                      onSuccess: (r) =>
+                        setPrefillNotice(
+                          r.created > 0
+                            ? `已预填 ${r.created} 条草稿明细（逐日拆分、默认未提交、不计有效工时）`
+                            : "已预填过（幂等跳过）或该出差不可预填",
+                        ),
+                      onError: (err) => setPrefillNotice(rootErrorMessage(err)),
+                    },
+                  );
+                }}
+              >
+                一键预填到本周草稿
+              </button>
+              {prefillNotice ? <p className="context-note">{prefillNotice}</p> : null}
             </>
           ) : (
             <p className="context-note">该出差单无工时预填建议（已取消或已驳回）。</p>

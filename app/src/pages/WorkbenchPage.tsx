@@ -29,6 +29,10 @@ function todoLink(item: TodoItem): string {
       return `/operations/funding/${item.id}`;
     case "expense_mine":
       return `/expenses/${item.id}`;
+    case "time_submit":
+      return "/operations/time";
+    case "time_approve":
+      return "/approvals";
     default:
       return "/workbench";
   }

@@ -113,6 +113,13 @@ export default function CockpitPage() {
           <strong>{s.travelingCount}</strong>
           <small>人（去重申请人）</small>
         </div>
+        {s.timeCard ? (
+          <div>
+            <span>本周已批准工时</span>
+            <strong>{Math.round(s.timeCard.approvedMinutes / 60)}h</strong>
+            <small>待审批 {Math.round(s.timeCard.pendingMinutes / 60)}h</small>
+          </div>
+        ) : null}
       </div>
       <div className="cockpit-lower">
         <section className="project-focus">

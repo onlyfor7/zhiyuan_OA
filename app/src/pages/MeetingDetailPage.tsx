@@ -7,6 +7,7 @@ import {
 import { useMe } from "../api/auth";
 import { fileDownloadUrl, filePreviewUrl } from "../api/archive";
 import { useUserNameMap } from "../api/reference";
+import { useTimeMutations } from "../api/time";
 import {
   useActionItems,
   useActionMutations,
@@ -349,7 +350,9 @@ export default function MeetingDetailPage() {
   const [prefillOpen, setPrefillOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const prefill = useMeetingTimePrefill(meetingId ?? null, prefillOpen);
+  const timeMutations = useTimeMutations();
   const escalate = useEscalateToDecision();
+  const [prefillNotice, setPrefillNotice] = useState<string | null>(null);
 
   if (meeting.isPending || me.isPending) return <p className="list-note">正在加载会议…</p>;
   if (meeting.isError) throw meeting.error;
@@ -457,8 +460,27 @@ export default function MeetingDetailPage() {
               </strong>
               <p className="context-note">
                 出席人：{prefill.data.attendeeUserIds.map((id) => userNames.get(id) ?? id.slice(0, 8)).join("、")}
-                。仅为草稿建议：不保存、不计入任何工时统计（迭代 4 提供填报 UI）。
+                。仅为建议预览：不保存、不计入任何工时统计。
               </p>
+              <button
+                className="primary-action"
+                disabled={timeMutations.prefillFromMeeting.isPending}
+                onClick={() => {
+                  setPrefillNotice(null);
+                  timeMutations.prefillFromMeeting.mutate({ meetingId: m.id }, {
+                    onSuccess: (r) =>
+                      setPrefillNotice(
+                        r.created > 0
+                          ? `已预填 ${r.created} 条草稿明细到本周工时（默认未提交、不计有效工时）`
+                          : "已预填过（幂等跳过）或无需预填",
+                      ),
+                    onError: (err) => setPrefillNotice(rootErrorMessage(err)),
+                  });
+                }}
+              >
+                一键预填到本周草稿
+              </button>
+              {prefillNotice ? <p className="context-note">{prefillNotice}</p> : null}
             </>
           ) : (
             <p className="context-note">该会议无工时预填建议（已取消或无需纪要）。</p>
