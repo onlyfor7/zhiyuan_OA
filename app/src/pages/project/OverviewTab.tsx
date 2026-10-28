@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { ArrowRight, CircleAlert, ShieldCheck } from "lucide-react";
 
 import { useProjectOverview } from "../../api/project";
-import { useShell } from "../../components/shell-rail";
+import { useMe } from "../../api/auth";
 import { BudgetBar } from "../../components/finance";
 import { canViewFinance } from "../../lib/permissions";
 import { ChevronRight } from "lucide-react";
@@ -12,11 +12,11 @@ import { useSpaceParams } from "./space-context";
 /** 项目空间·总览页签：project.overview 真实聚合（arch/04 §5） */
 export default function OverviewTab() {
   const { projectId } = useSpaceParams();
-  const { me } = useShell();
+  const me = useMe();
   const overview = useProjectOverview(projectId);
   const allowed = canViewFinance(
-    me.projects.find((p) => p.id === projectId)?.projectRole ?? null,
-    me.globalRoles,
+    (me.data?.projects ?? []).find((p) => p.id === projectId)?.projectRole ?? null,
+    me.data?.globalRoles ?? [],
   );
 
   if (overview.isPending) return <p className="list-note">正在加载总览…</p>;

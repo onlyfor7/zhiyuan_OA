@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Component, useEffect, useState } from "react";
+import { Component, lazy, Suspense, useEffect, useState } from "react";
 import {
   Link,
   Navigate,
@@ -13,9 +13,10 @@ import { ArrowRight, Bell, LogOut, Menu, Network, Search } from "lucide-react";
 import { useLogout, useMe } from "../api/auth";
 import { useUnreadCount } from "../api/notification";
 import { SearchPalette } from "./SearchPalette";
+import { MobileNavDrawer } from "./MobileNavDrawer";
 import type { ShellContextValue } from "./shell-rail";
 import { isAccessDeniedOrGone, isAuthRequired, queryClient } from "../lib/trpc";
-import NotFoundPage from "../pages/NotFoundPage";
+const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
 
 function BrandMark() {
   return (
@@ -62,7 +63,11 @@ class AccessErrorBoundary extends Component<BoundaryProps, BoundaryState> {
     const { error } = this.state;
     if (error !== null && error !== undefined) {
       if (isAccessDeniedOrGone(error)) {
-        return <NotFoundPage fixedCode="404" />;
+        return (
+          <Suspense fallback={null}>
+            <NotFoundPage fixedCode="404" />
+          </Suspense>
+        );
       }
       if (isAuthRequired(error)) {
         return <Navigate to="/login" replace state={{ from: this.props.from }} />;
@@ -96,6 +101,7 @@ export default function AppShell() {
   const [mobileRail, setMobileRail] = useState(false);
   const [rail, setRail] = useState<ReactNode>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -189,6 +195,15 @@ export default function AppShell() {
             <LogOut size={17} />
           </button>
           <button
+            className="icon-button dark nav-menu-trigger"
+            aria-label="打开主导航"
+            aria-expanded={navOpen}
+            aria-controls="mobile-nav-drawer"
+            onClick={() => setNavOpen(true)}
+          >
+            <Menu size={18} />
+          </button>
+          <button
             className="icon-button dark mobile-menu"
             aria-label="打开项目索引"
             onClick={() => setMobileRail((v) => !v)}
@@ -198,6 +213,7 @@ export default function AppShell() {
         </div>
       </header>
       {searchOpen ? <SearchPalette onClose={() => setSearchOpen(false)} /> : null}
+      <MobileNavDrawer open={navOpen} ganttTo={ganttTo} onClose={() => setNavOpen(false)} />
       <div className="app-body">
         <aside className={`project-rail ${mobileRail ? "mobile-open" : ""}`}>
           <div className="rail-heading">

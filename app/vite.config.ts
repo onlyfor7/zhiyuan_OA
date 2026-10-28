@@ -14,6 +14,17 @@ export default defineConfig({
       "/files": "http://localhost:3001",
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "scheduler"],
+          "vendor-data": ["@tanstack/react-query", "@trpc/client", "@trpc/tanstack-react-query"],
+          "vendor-router": ["react-router"],
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

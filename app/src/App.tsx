@@ -1,46 +1,48 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router";
 
 import AppShell from "./components/AppShell";
-import ArchivePage from "./pages/ArchivePage";
-import AuditPage from "./pages/AuditPage";
-import CockpitPage from "./pages/CockpitPage";
-import DecisionNewPage from "./pages/DecisionNewPage";
-import DecisionsPage from "./pages/DecisionsPage";
-import LoginPage from "./pages/LoginPage";
-import MeetingDetailPage from "./pages/MeetingDetailPage";
-import MeetingNewPage from "./pages/MeetingNewPage";
-import MeetingsPage from "./pages/MeetingsPage";
-import NotFoundPage from "./pages/NotFoundPage";
-import ApprovalsPage from "./pages/ApprovalsPage";
-import ProjectCreatePage from "./pages/ProjectCreatePage";
-import ProjectsPage from "./pages/ProjectsPage";
-import QualityPage from "./pages/QualityPage";
-import TravelDetailPage from "./pages/TravelDetailPage";
-import TravelNewPage from "./pages/TravelNewPage";
-import TravelPage from "./pages/TravelPage";
-import WorkbenchPage from "./pages/WorkbenchPage";
-import OperationsBudgetPage from "./pages/OperationsBudgetPage";
-import OperationsExpensesPage from "./pages/OperationsExpensesPage";
-import FundingDetailPage from "./pages/FundingDetailPage";
-import FundingNewPage from "./pages/FundingNewPage";
-import ExpenseDetailPage from "./pages/ExpenseDetailPage";
-import ExpenseNewPage from "./pages/ExpenseNewPage";
-import ProjectSpacePage from "./pages/project/ProjectSpacePage";
-import OverviewTab from "./pages/project/OverviewTab";
-import PlanTab from "./pages/project/PlanTab";
-import TasksTab from "./pages/project/TasksTab";
-import QualityTab from "./pages/project/QualityTab";
-import DecisionsTab from "./pages/project/DecisionsTab";
-import ReportsTab from "./pages/project/ReportsTab";
-import ArchiveTab from "./pages/project/ArchiveTab";
-import MembersTab from "./pages/project/MembersTab";
-import TimeCenterPage from "./pages/TimeCenterPage";
-import SearchPage from "./pages/SearchPage";
-import MeetingsTab from "./pages/project/MeetingsTab";
-import TravelTab from "./pages/project/TravelTab";
-import BudgetTab from "./pages/project/BudgetTab";
-import ExpensesTab from "./pages/project/ExpensesTab";
-import TimesheetTab from "./pages/project/TimesheetTab";
+
+const ArchivePage = lazy(() => import("./pages/ArchivePage"));
+const AuditPage = lazy(() => import("./pages/AuditPage"));
+const CockpitPage = lazy(() => import("./pages/CockpitPage"));
+const DecisionNewPage = lazy(() => import("./pages/DecisionNewPage"));
+const DecisionsPage = lazy(() => import("./pages/DecisionsPage"));
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const MeetingDetailPage = lazy(() => import("./pages/MeetingDetailPage"));
+const MeetingNewPage = lazy(() => import("./pages/MeetingNewPage"));
+const MeetingsPage = lazy(() => import("./pages/MeetingsPage"));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
+const ApprovalsPage = lazy(() => import("./pages/ApprovalsPage"));
+const ProjectCreatePage = lazy(() => import("./pages/ProjectCreatePage"));
+const ProjectsPage = lazy(() => import("./pages/ProjectsPage"));
+const QualityPage = lazy(() => import("./pages/QualityPage"));
+const TravelDetailPage = lazy(() => import("./pages/TravelDetailPage"));
+const TravelNewPage = lazy(() => import("./pages/TravelNewPage"));
+const TravelPage = lazy(() => import("./pages/TravelPage"));
+const WorkbenchPage = lazy(() => import("./pages/WorkbenchPage"));
+const OperationsBudgetPage = lazy(() => import("./pages/OperationsBudgetPage"));
+const OperationsExpensesPage = lazy(() => import("./pages/OperationsExpensesPage"));
+const FundingDetailPage = lazy(() => import("./pages/FundingDetailPage"));
+const FundingNewPage = lazy(() => import("./pages/FundingNewPage"));
+const ExpenseDetailPage = lazy(() => import("./pages/ExpenseDetailPage"));
+const ExpenseNewPage = lazy(() => import("./pages/ExpenseNewPage"));
+const ProjectSpacePage = lazy(() => import("./pages/project/ProjectSpacePage"));
+const OverviewTab = lazy(() => import("./pages/project/OverviewTab"));
+const PlanTab = lazy(() => import("./pages/project/PlanTab"));
+const TasksTab = lazy(() => import("./pages/project/TasksTab"));
+const QualityTab = lazy(() => import("./pages/project/QualityTab"));
+const DecisionsTab = lazy(() => import("./pages/project/DecisionsTab"));
+const ReportsTab = lazy(() => import("./pages/project/ReportsTab"));
+const ArchiveTab = lazy(() => import("./pages/project/ArchiveTab"));
+const MembersTab = lazy(() => import("./pages/project/MembersTab"));
+const TimeCenterPage = lazy(() => import("./pages/TimeCenterPage"));
+const SearchPage = lazy(() => import("./pages/SearchPage"));
+const MeetingsTab = lazy(() => import("./pages/project/MeetingsTab"));
+const TravelTab = lazy(() => import("./pages/project/TravelTab"));
+const BudgetTab = lazy(() => import("./pages/project/BudgetTab"));
+const ExpensesTab = lazy(() => import("./pages/project/ExpensesTab"));
+const TimesheetTab = lazy(() => import("./pages/project/TimesheetTab"));
 
 /**
  * 路由表（迭代 1 工单 03）。
@@ -48,6 +50,7 @@ import TimesheetTab from "./pages/project/TimesheetTab";
  */
 export default function App() {
   return (
+    <Suspense fallback={<div className="page-loader" role="status">正在加载…</div>}>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<AppShell />}>
@@ -98,5 +101,6 @@ export default function App() {
       <Route path="/404" element={<NotFoundPage fixedCode="404" />} />
       <Route path="*" element={<NotFoundPage fixedCode="404" />} />
     </Routes>
+    </Suspense>
   );
 }
