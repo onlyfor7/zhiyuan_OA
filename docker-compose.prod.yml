@@ -1,0 +1,73 @@
+# LexFlow 生产形态编排（arch/08 §5）：postgres + server + web 三服务。
+# 用法：docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+# 与开发栈（docker-compose.yml，宿主 15432/3000/3001）并存不冲突：
+# 本栈仅 web 发布 ${WEB_PORT:-8080}，postgres/server 不发布宿主端口。
+
+name: lexflow-prod
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: lexflow-prod-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lexflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 未设置：请用 --env-file .env.production 并提供}
+      POSTGRES_DB: ${POSTGRES_DB:-lexflow}
+    volumes:
+      - lexflow-prod-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: lexflow-prod-server
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-lexflow}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-lexflow}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET 未设置：请用 --env-file .env.production 并提供}
+      STORAGE_DIR: /data/storage
+      PORT: 3001
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-8}
+      FILE_MAX_MB: ${FILE_MAX_MB:-20}
+    volumes:
+      - lexflow-prod-storage:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    # 容器启动即重放迁移（幂等），见 server/Dockerfile CMD；演示种子手动执行：
+    #   docker compose -f docker-compose.prod.yml --env-file .env.production exec server node dist/seed.js
+
+  web:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    container_name: lexflow-prod-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  lexflow-prod-pgdata:
+  lexflow-prod-storage:
