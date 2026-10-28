@@ -29,6 +29,38 @@ export function buildApp(): Hono<{ Variables: { requestId: string } }> {
 
   app.get("/health", (c) => c.json({ ok: true }));
 
+  // R5 修复：方法不匹配在过程执行前发生（logging 中间件挂载在过程级），此处统一前置拦截：
+  // query 仅 GET / mutation 仅 POST（batch 请求放行由适配器自理），405 + 带 requestId 的落日志
+  const procedureTypes = new Map<string, "query" | "mutation">();
+  for (const [path, proc] of Object.entries(appRouter._def.procedures)) {
+    procedureTypes.set(path, (proc as unknown as { _def: { type: string } })._def.type as "query" | "mutation");
+  }
+  app.use("/trpc/*", async (c, next) => {
+    const procPath = c.req.path.replace(/^\/trpc\//, "");
+    const type = procedureTypes.get(procPath);
+    if (type && !c.req.query("batch")) {
+      const method = c.req.method;
+      const allowed = type === "query" ? "GET" : "POST";
+      if (method !== allowed) {
+        const requestId = c.get("requestId") ?? "unknown";
+        console.error(
+          JSON.stringify({ requestId, path: c.req.path, error: `method_not_allowed: ${method} → ${type}（须 ${allowed}）` }),
+        );
+        return c.json(
+          {
+            error: {
+              message: `方法不允许：${type} 过程仅接受 ${allowed}`,
+              code: -32600,
+              data: { businessCode: ERROR_CODE.VALIDATION_FAILED, requestId },
+            },
+          },
+          405,
+        );
+      }
+    }
+    await next();
+  });
+
   app.use(
     "/trpc/*",
     trpcServer({

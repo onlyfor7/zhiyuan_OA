@@ -97,10 +97,22 @@ describe("迭代 5 安全与运维收口（arch/08 §3 服务端矩阵 + 收口�
     await query(`UPDATE users SET status = 'active' WHERE email = 'mayue@lexflow.demo'`);
   });
 
-  it("孤儿文件清理：sysadmin 限定；dry-run 列清单+审计；confirm 实删+审计", async () => {
-    // 非 sysadmin → 404 同形
+  it("孤儿文件清理（R5 拆端点）：dry-run=GET 只读；实删=POST mutation；权限与审计齐备", async () => {
+    // 非 sysadmin → 404 同形（两端点同口径）
     const denied = await trpc(app, "admin.storageOrphans", { cookie: memberCookie, method: "GET", input: {} });
     expect(denied.status).toBe(404);
+    const deniedPurge = await trpc(app, "admin.storageOrphansPurge", { cookie: memberCookie, input: {} });
+    expect(deniedPurge.status).toBe(404);
+
+    // 方法不匹配（R5 顺带排查项）：POST 打 query 路径 → 405 带 businessCode；GET 打 mutation → 405
+    const postOnQuery = await trpc(app, "admin.storageOrphans", { cookie: sysadminCookie, method: "POST", input: {} });
+    expect(postOnQuery.status).toBe(405);
+    expect((postOnQuery.json as { error: { data: { businessCode: string } } }).error.data.businessCode).toBe("VALIDATION_FAILED");
+    const getOnMutation = await app.request("http://test/trpc/admin.storageOrphansPurge?input=%7B%7D", {
+      method: "GET",
+      headers: { cookie: sysadminCookie },
+    });
+    expect(getOnMutation.status).toBe(405);
 
     // 造孤儿：物理文件无 file_versions 引用
     const orphanName = `orphan-${crypto.randomUUID()}.pdf`;
@@ -108,29 +120,32 @@ describe("迭代 5 安全与运维收口（arch/08 §3 服务端矩阵 + 收口�
     await writeFile(join(storageRoot, orphanName), Buffer.from("orphan"));
     const withRef = await uploadProbe(app, pmCookie, projectAId);
 
+    // dry-run（GET 只读，无副作用幂等）
     const dryRun = await trpc(app, "admin.storageOrphans", { cookie: sysadminCookie, method: "GET", input: {} });
     expect(dryRun.status).toBe(200);
     const dryData = (dryRun.json as { result: { data: { dryRun: boolean; orphans: string[] } } }).result.data;
     expect(dryData.dryRun).toBe(true);
     expect(dryData.orphans).toContain(orphanName);
     expect(dryData.orphans).not.toContain(withRef);
+    // 再跑一次 dry-run 幂等（孤儿仍在，未被删除）
+    const dryRun2 = await trpc(app, "admin.storageOrphans", { cookie: sysadminCookie, method: "GET", input: {} });
+    expect((dryRun2.json as { result: { data: { orphans: string[] } } }).result.data.orphans).toContain(orphanName);
     const auditDry = await query<{ after_json: { dryRun?: boolean } }>(
       `SELECT after_json FROM audit_events WHERE action = 'admin.storageOrphans' ORDER BY created_at DESC LIMIT 1`,
     );
     expect(auditDry[0].after_json.dryRun).toBe(true);
 
-    const confirm = await trpc(app, "admin.storageOrphans", {
-      cookie: sysadminCookie,
-      method: "GET",
-      input: { confirm: true },
-    });
+    // 实删（POST mutation）+ 审计
+    const confirm = await trpc(app, "admin.storageOrphansPurge", { cookie: sysadminCookie, input: {} });
+    expect(confirm.status).toBe(200);
     const confirmData = (confirm.json as { result: { data: { dryRun: boolean; deleted: string[] } } }).result.data;
     expect(confirmData.dryRun).toBe(false);
     expect(confirmData.deleted).toContain(orphanName);
-    const auditConfirm = await query<{ after_json: { dryRun?: boolean } }>(
-      `SELECT after_json FROM audit_events WHERE action = 'admin.storageOrphans' ORDER BY created_at DESC LIMIT 1`,
+    const auditConfirm = await query<{ after_json: { deleted?: number }; action: string }>(
+      `SELECT action, after_json FROM audit_events WHERE action = 'admin.storageOrphansPurge' ORDER BY created_at DESC LIMIT 1`,
     );
-    expect(auditConfirm[0].after_json.dryRun).toBe(false);
+    expect(auditConfirm[0].action).toBe("admin.storageOrphansPurge");
+    expect(auditConfirm[0].after_json.deleted).toBeGreaterThanOrEqual(1);
   });
 
   it("时刻列精确重叠判定：同日均填时刻区间重叠出警告；不重叠无警告；时刻非法被拦", async () => {
