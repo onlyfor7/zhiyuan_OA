@@ -110,6 +110,9 @@ export interface TimeEntryInput {
   activityType: TimeActivityType;
   workDate: string;
   durationMinutes: number;
+  /** 时刻列（arch/07 §4.1 v1.1 可空）：0..1439 / 1..1440，成对时 end>start；均填时启用精确区间重叠判定 */
+  startMinute?: number | null;
+  endMinute?: number | null;
   description?: string;
   billable?: boolean;
 }
@@ -131,6 +134,25 @@ async function validateEntryShapes(
         entries: [`${entry.workDate} 活动类型非法`],
       });
     }
+    const pair = entry.startMinute != null || entry.endMinute != null;
+    if (pair) {
+      const { startMinute, endMinute } = entry;
+      if (
+        startMinute == null ||
+        endMinute == null ||
+        !Number.isInteger(startMinute) ||
+        !Number.isInteger(endMinute) ||
+        startMinute < 0 ||
+        startMinute > 1439 ||
+        endMinute < 1 ||
+        endMinute > 1440 ||
+        endMinute <= startMinute
+      ) {
+        throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "时刻须成对填写（0≤start≤1439，1≤end≤1440，end>start）", {
+          entries: [`${entry.workDate} 时刻非法`],
+        });
+      }
+    }
     if (entry.projectId) {
       await requireProjectRead(db, user, entry.projectId); // 逐行鉴权
     }
@@ -142,7 +164,9 @@ export async function validatePeriodEntries(
   db: DbOrTx,
   user: SessionUser,
   period: typeof timesheetPeriods.$inferSelect,
-  candidateEntries: Array<Pick<typeof timeEntries.$inferSelect, "workDate" | "durationMinutes" | "description" | "taskId">>,
+  candidateEntries: Array<
+    Pick<typeof timeEntries.$inferSelect, "workDate" | "durationMinutes" | "description" | "taskId" | "startMinute" | "endMinute">
+  >,
 ): Promise<{ blockers: string[]; warnings: string[] }> {
   const blockers: string[] = [];
   const warnings: string[] = [];
@@ -173,16 +197,36 @@ export async function validatePeriodEntries(
   const missing = candidateEntries.filter((e) => !e.description?.trim()).map((e) => e.workDate);
   if (missing.length > 0) warnings.push(`缺说明：${[...new Set(missing)].join("、")}`);
 
-  // 同任务同日多条（无时刻列，重叠按同任务同日重复启发式，STATUS 留坑）
-  const dupTask = new Map<string, number>();
-  for (const e of candidateEntries) {
-    if (e.taskId) {
+  // 重叠判定（arch/07 §4.1 v1.1）：同日均填时刻的行做精确区间重叠判定；
+  // 未填时刻行保留同任务同日多条启发式
+  type SpanEntry = (typeof candidateEntries)[number];
+  const spans = candidateEntries as SpanEntry[];
+  const byDaySpans = new Map<string, SpanEntry[]>();
+  for (const e of spans) {
+    const list = byDaySpans.get(e.workDate) ?? [];
+    list.push(e);
+    byDaySpans.set(e.workDate, list);
+  }
+  for (const [date, dayEntries] of byDaySpans) {
+    const timed = dayEntries.filter((e) => e.startMinute != null && e.endMinute != null);
+    for (let i = 0; i < timed.length; i++) {
+      for (let j = i + 1; j < timed.length; j++) {
+        const a = timed[i];
+        const b = timed[j];
+        if (a.startMinute! < b.endMinute! && b.startMinute! < a.endMinute!) {
+          warnings.push(`${date} 时间重叠：${a.startMinute}-${a.endMinute} 与 ${b.startMinute}-${b.endMinute}`);
+        }
+      }
+    }
+    const heuristic = dayEntries.filter((e) => e.taskId && (e.startMinute == null || e.endMinute == null));
+    const dupTask = new Map<string, number>();
+    for (const e of heuristic) {
       const key = `${e.taskId}:${e.workDate}`;
       dupTask.set(key, (dupTask.get(key) ?? 0) + 1);
     }
-  }
-  for (const [key, n] of dupTask) {
-    if (n > 1) warnings.push(`同任务同日多条（疑似重叠）：${key}`);
+    for (const [key, n] of dupTask) {
+      if (n > 1) warnings.push(`同任务同日多条（疑似重叠）：${key}`);
+    }
   }
 
   return { blockers, warnings };
@@ -203,6 +247,8 @@ export async function saveEntries(
     durationMinutes: e.durationMinutes,
     description: e.description ?? "",
     taskId: e.taskId ?? null,
+    startMinute: e.startMinute ?? null,
+    endMinute: e.endMinute ?? null,
   }));
   const { blockers } = await validatePeriodEntries(db, user, period, candidates);
   if (blockers.length > 0) {
@@ -221,6 +267,8 @@ export async function saveEntries(
       activityType: entry.activityType,
       workDate: entry.workDate,
       durationMinutes: entry.durationMinutes,
+      startMinute: entry.startMinute ?? null,
+      endMinute: entry.endMinute ?? null,
       description: entry.description ?? "",
       billable: entry.billable ?? true,
       source: "manual",

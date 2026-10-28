@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { and, eq, gt } from "drizzle-orm";
 
 import { db } from "../../db/client";
+import { env } from "../../env";
 import { projectMembers, sessions, userRoles, users } from "../../db/schema";
 import type { DbOrTx } from "../../trpc/context";
 
@@ -45,6 +46,7 @@ export async function resolveSession(
     .select({
       sessionId: sessions.id,
       tokenHash: sessions.tokenHash,
+      expiresAt: sessions.expiresAt,
       userId: users.id,
       email: users.email,
       name: users.name,
@@ -64,6 +66,19 @@ export async function resolveSession(
 
   const row = rows[0];
   if (!row) return null;
+
+  // 滑动续期（arch/08 §6 裁定）：距到期 <2h 且未超上限 → 顺延至 now+8h；过期/停用照旧立即失效
+  const SESSION_TTL_MS = env.SESSION_TTL_HOURS * 3600_000;
+  const RENEW_WINDOW_MS = 2 * 3600_000;
+  const expiresMs = new Date(row.expiresAt).getTime();
+  const nowMs = Date.now();
+  if (expiresMs - nowMs < RENEW_WINDOW_MS) {
+    const nextExpiry = new Date(nowMs + SESSION_TTL_MS).toISOString();
+    await dbOrTx
+      .update(sessions)
+      .set({ expiresAt: nextExpiry })
+      .where(eq(sessions.id, row.sessionId));
+  }
 
   const [roles, memberships] = await Promise.all([
     dbOrTx.select({ roleKey: userRoles.roleKey }).from(userRoles).where(eq(userRoles.userId, row.userId)),

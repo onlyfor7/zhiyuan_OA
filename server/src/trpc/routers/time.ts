@@ -14,6 +14,8 @@ const entry = z.object({
   activityType: z.enum(TIME_ACTIVITY_TYPE),
   workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   durationMinutes: z.number().int().min(1, "整数分钟 >0"),
+  startMinute: z.number().int().min(0).max(1439).nullable().optional(),
+  endMinute: z.number().int().min(1).max(1440).nullable().optional(),
   description: z.string().max(1000).optional(),
   billable: z.boolean().optional(),
 });
