@@ -59,7 +59,7 @@ describe("工时域种子与约束", () => {
     const counts = await countRows();
     expect(counts.timesheet_periods).toBe(3);
     expect(counts.time_entries).toBe(13); // A×4 + B×6 + C×3
-    expect(counts.code_sequences).toBe(17);
+    expect(counts.code_sequences).toBe(17); // 17 + CLT/MTR/PRJ/FND/EXP/LED 水位
     expect(counts.system_config).toBe(13);
 
     const { db, pool } = await openDb();
@@ -266,20 +266,21 @@ describe("工时域种子与约束", () => {
         .where(
           and(eq(archiveDirectories.projectId, projectA[0].id), eq(archiveDirectories.dirKey, "11_预算与经费")),
         );
-      const dir10 = await db
-        .select({ id: archiveDirectories.id })
-        .from(archiveDirectories)
-        .where(
-          and(eq(archiveDirectories.projectId, projectA[0].id), eq(archiveDirectories.dirKey, "10_出差与费用")),
-        );
+      // 用未归集的经费/目录组合，避免与 closure 种子已建链接撞唯一约束
       const funding = await db
         .select({ id: schema.fundingRequests.id })
         .from(schema.fundingRequests)
-        .where(eq(schema.fundingRequests.code, `FND-${YEAR}-00001`));
+        .where(eq(schema.fundingRequests.code, `FND-${YEAR}-00002`));
       const expense = await db
         .select({ id: schema.expenseReports.id })
         .from(schema.expenseReports)
         .where(eq(schema.expenseReports.code, `EXP-${YEAR}-00001`));
+      const dir04 = await db
+        .select({ id: archiveDirectories.id })
+        .from(archiveDirectories)
+        .where(
+          and(eq(archiveDirectories.projectId, projectA[0].id), eq(archiveDirectories.dirKey, "04_质量检查与问题")),
+        );
 
       await expect(
         db
@@ -298,7 +299,7 @@ describe("工时域种子与约束", () => {
           .insert(archiveLinks)
           .values({
             projectId: projectA[0].id,
-            directoryId: dir10[0].id,
+            directoryId: dir04[0].id,
             sourceType: "expense",
             sourceId: expense[0].id,
             businessDate: TODAY,

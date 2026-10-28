@@ -77,6 +77,13 @@ export const timeEntries = pgTable(
     activityType: timeActivityTypeEnum("activity_type").notNull(),
     workDate: date("work_date").notNull(),
     durationMinutes: integer("duration_minutes").notNull(),
+    /**
+     * 时刻列（arch/07 §4.1 v1.1 收口项，评估结论=加列）：自午夜分钟数，可空。
+     * 两行均填时重叠判定可升级为精确判定；缺省仍走原启发式（单日 >540min 警告）。
+     * 校验：0<=start<=1439、1<=end<=1440、成对出现时 end>start（DB check 强制）。
+     */
+    startMinute: integer("start_minute"),
+    endMinute: integer("end_minute"),
     description: text("description").notNull().default(""),
     billable: boolean("billable").notNull().default(true),
     source: timeEntrySourceEnum("source").notNull().default("manual"),
@@ -85,6 +92,12 @@ export const timeEntries = pgTable(
   },
   (t) => [
     check("time_entries_duration_positive", sql`"duration_minutes" > 0`),
+    check("time_entries_start_minute_check", sql`"start_minute" is null or ("start_minute" >= 0 and "start_minute" <= 1439)`),
+    check("time_entries_end_minute_check", sql`"end_minute" is null or ("end_minute" >= 1 and "end_minute" <= 1440)`),
+    check(
+      "time_entries_minute_order_check",
+      sql`"start_minute" is null or "end_minute" is null or "end_minute" > "start_minute"`,
+    ),
     check(
       "time_entries_nonproject_activity_check",
       sql`("project_id" is not null or "activity_type" in ('internal_admin', 'other'))`,

@@ -76,7 +76,7 @@ describe("迭代 3 预算域与台账（C1/C3）", () => {
     await closeDb();
   });
 
-  it("C3 台账口径：五公式与种子基线一致（A=80M/占用2M/实际0/可用78M）；幂等键重放不重复记账", async () => {
+  it("C3 台账口径：五公式与种子基线一致（A=80M/占用2.2M/实际0.8M/可用77M）；幂等键重放不重复记账", async () => {
     const agg = await trpc(app, "budget.getById", {
       cookie: pmCookie,
       method: "GET",
@@ -99,10 +99,10 @@ describe("迭代 3 预算域与台账（C1/C3）", () => {
     expect(data).toMatchObject({
       hasBudget: true,
       effectiveBudgetCents: 80_000_000,
-      reservedCents: 2_000_000,
-      actualCents: 0,
-      availableCents: 78_000_000,
-      executionRate: 0,
+      reservedCents: 2_200_000,
+      actualCents: 800_000,
+      availableCents: 77_000_000,
+      executionRate: 0.01,
     });
 
     // 幂等重放：直接重放 FUNDING_RESERVED 同键 → 返回已存在分录，不双记
@@ -271,11 +271,11 @@ describe("迭代 3 预算域与台账（C1/C3）", () => {
       [fundingId],
     );
     expect(Number(releasedLedger[0].reserved_delta_cents)).toBe(-3_000_000);
-    // 已释放后项目净占用恢复（仅剩种子 FND-00001 的 2M；C1 已关闭 A 预算，直接读台账净额）
+    // 已释放后项目净占用恢复（种子净占用 2.2M = FND-00001 的 2M + FND-00003 净 0.2M；C1 已关闭 A 预算，直接读台账净额）
     const reservedAfter = await query<{ net: number }>(
       `SELECT coalesce(sum(reserved_delta_cents),0)::float8 AS net FROM budget_ledger WHERE project_id=$1`,
       [projectAId],
     );
-    expect(Number(reservedAfter[0].net)).toBe(2_000_000);
+    expect(Number(reservedAfter[0].net)).toBe(2_200_000);
   });
 });

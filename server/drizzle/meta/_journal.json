@@ -43,6 +43,13 @@
       "when": 1793126864706,
       "tag": "0005_iter4-time",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793159975263,
+      "tag": "0006_iter5-hardening",
+      "breakpoints": true
     }
   ]
 }

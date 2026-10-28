@@ -68,7 +68,7 @@ describe("工单 02b：参照数据端点 / 立项权限门 / plan_items.name / 
     expect(clients.status).toBe(200);
     const clientItems = (clients.json as { result: { data: { items: { id: string; code: string; name: string }[] } } })
       .result.data.items;
-    expect(clientItems.length).toBe(2);
+    expect(clientItems.length).toBe(3); // 华宸 / 星澜 / 恒岳（arch/08 §7 种子扩充）
     expect(clientItems[0]).toHaveProperty("code");
     expect(clientItems[0]).toHaveProperty("name");
 
@@ -88,7 +88,7 @@ describe("工单 02b：参照数据端点 / 立项权限门 / plan_items.name / 
         result: { data: { items: { id: string; code: string; name: string; clientId: string; clientName: string }[] } };
       }
     ).result.data.items;
-    expect(matterItems.length).toBe(2);
+    expect(matterItems.length).toBe(3); // 华宸 / 星澜 / 恒岳（arch/08 §7 种子扩充）
     expect(matterItems.find((m) => m.code === `MTR-${YEAR}-00001`)).toMatchObject({
       clientName: "华宸贸易有限公司",
     });

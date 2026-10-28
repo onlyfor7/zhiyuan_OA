@@ -10,6 +10,7 @@ import { loadEnvFile, requireDatabaseUrl } from "../env";
 import * as schema from "../schema";
 import { clients, matters, orgUnits, projectMembers, projects, roles, systemConfig, userRoles, users } from "../schema";
 import { SYSTEM_CONFIG_DEFAULTS } from "./config-defaults";
+import { seedClosure } from "./closure";
 import { seedCollab } from "./collab";
 import { seedFinance } from "./finance";
 import { seedGovernance } from "./governance";
@@ -291,6 +292,9 @@ async function seedSchema(databaseUrl: string): Promise<void> {
 
       // 迭代 4 工时域种子（timesheet 策略/默认审批人配置/draft/approved/locked 三周期演示态）
       await seedTime(tx);
+
+      // 迭代 5 收口种子（客户 3/项目 5、项目 A 全链闭环核销/归档/授权）
+      await seedClosure(tx);
 
       // 编号序列水位对齐到种子最大序号，避免后续 next_code 撞号
       await tx.execute(

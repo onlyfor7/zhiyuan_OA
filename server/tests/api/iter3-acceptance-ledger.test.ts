@@ -148,7 +148,7 @@ describe("迭代 3 验收·台账重资产（arch/06 §9）", () => {
     const a0 = await recomputeFive(projectAId);
     const aggA0 = await aggregateOf(app, pmCookie, await activeBudgetId(projectAId));
     expect(a0).toMatchObject({
-      effectiveBudget: 80_000_000, reserved: 2_000_000, actual: 0, available: 78_000_000, executionRate: 0, hasBudget: true,
+      effectiveBudget: 80_000_000, reserved: 2_200_000, actual: 800_000, available: 77_000_000, executionRate: 0.01, hasBudget: true,
     });
     expect(aggA0.aggregate).toMatchObject({
       effectiveBudgetCents: a0.effectiveBudget, reservedCents: a0.reserved,
@@ -181,11 +181,11 @@ describe("迭代 3 验收·台账重资产（arch/06 §9）", () => {
     });
     await submitAndApproveExpense(app, memberCookie, (expense.json as { result: { data: { id: string } } }).result.data.id);
 
-    // ③ 重算：占用 2M+3M−2.2M=2.8M；实际 2.2M；聚合接口一致
+    // ③ 重算：占用 2.2M(种子)+3M−2.2M=3.0M；实际 0.8M(种子)+2.2M=3.0M；聚合接口一致
     const a1 = await recomputeFive(projectAId);
     const aggA1 = await aggregateOf(app, pmCookie, await activeBudgetId(projectAId));
-    expect(a1).toMatchObject({ effectiveBudget: 80_000_000, reserved: 2_800_000, actual: 2_200_000, available: 75_000_000 });
-    expect(a1.executionRate).toBeCloseTo(2_200_000 / 80_000_000, 10);
+    expect(a1).toMatchObject({ effectiveBudget: 80_000_000, reserved: 3_000_000, actual: 3_000_000, available: 74_000_000 });
+    expect(a1.executionRate).toBeCloseTo(3_000_000 / 80_000_000, 10);
     expect(aggA1.aggregate).toMatchObject({
       reservedCents: a1.reserved, actualCents: a1.actual, availableCents: a1.available, hasBudget: true,
     });

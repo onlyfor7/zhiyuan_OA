@@ -60,12 +60,12 @@ describe("财务域种子与台账口径", () => {
     const counts = await countRows();
     expect(counts.budgets).toBe(2); // A 80 万 + B 20 万
     expect(counts.budget_categories).toBe(2); // 仅 A：差旅 30 万 + 资料 10 万
-    expect(counts.funding_requests).toBe(2); // approved 2 万 + pending 6 万
-    expect(counts.expense_reports).toBe(1); // member draft
-    expect(counts.expense_items).toBe(2);
-    expect(counts.budget_ledger).toBe(3); // ACTIVATED×2 + FUNDING_RESERVED×1
+    expect(counts.funding_requests).toBe(3); // approved 2 万 + pending 6 万 + 闭环经费 1 万
+    expect(counts.expense_reports).toBe(2); // member draft + paid（核销闭环）
+    expect(counts.expense_items).toBe(4);
+    expect(counts.budget_ledger).toBe(7); // ACTIVATED×2 + RESERVED×2 + RELEASED×1 + RECOGNIZED×2（arch/08 §7 闭环核销）
     expect(counts.expense_adjustments).toBe(0);
-    expect(counts.file_objects).toBe(2); // 两张票据文件
+    expect(counts.file_objects).toBe(4); // 四张票据文件
     expect(counts.code_sequences).toBe(17);
 
     await runSeed(TEST_DATABASE_URL);
@@ -87,7 +87,7 @@ describe("财务域种子与台账口径", () => {
         .from(projects)
         .where(eq(projects.code, `PRJ-${YEAR}-00002`));
 
-      // 项目 A：有效预算 80,000,000；有效占用 2,000,000；实际支出 0；可用 78,000,000
+      // 项目 A：有效预算 80,000,000；有效占用 2,200,000（2M+1M−0.8M）；实际支出 800,000；可用 77,000,000
       const aBudget = await db
         .select({ totalCents: budgets.totalCents })
         .from(budgets)
@@ -103,9 +103,9 @@ describe("财务域种子与台账口径", () => {
         .where(eq(budgetLedger.projectId, projectA[0].id));
       const reservedA = Number(aLedger[0].reserved);
       const actualA = Number(aLedger[0].actual);
-      expect(reservedA).toBe(2000000); // 仅 approved 经费占位（draft 报销不产生台账）
-      expect(actualA).toBe(0);
-      expect(aBudget[0].totalCents - reservedA - actualA).toBe(78000000);
+      expect(reservedA).toBe(2200000); // FND-00001 2M + FND-00003 净 0.2M（1M 已释放 0.8M）
+      expect(actualA).toBe(800000); // EXP-2026-00002 核销两笔（draft 报销不产生台账）
+      expect(aBudget[0].totalCents - reservedA - actualA).toBe(77000000);
 
       // 项目 B：20,000,000 / 0 / 0 / 20,000,000（无类别行 ≠ 零预算）
       const bBudget = await db
@@ -122,17 +122,28 @@ describe("财务域种子与台账口径", () => {
       const cBudget = await db.select({ id: budgets.id }).from(budgets).where(eq(budgets.projectId, projectC[0].id));
       expect(cBudget).toHaveLength(0);
 
-      // 报销单合计 = 明细合计（服务端口径种子自洽）
-      const report = await db
-        .select({ id: expenseReports.id, totalCents: expenseReports.totalCents })
+      // 报销单合计 = 明细合计（服务端口径种子自洽；EXP-00002 paid 同理）
+      for (const expCode of [`EXP-${YEAR}-00001`, `EXP-${YEAR}-00002`]) {
+        const report = await db
+          .select({ id: expenseReports.id, totalCents: expenseReports.totalCents, status: expenseReports.status })
+          .from(expenseReports)
+          .where(eq(expenseReports.code, expCode));
+        const items = await db
+          .select({ amountCents: expenseItems.amountCents })
+          .from(expenseItems)
+          .where(eq(expenseItems.expenseReportId, report[0].id));
+        expect(items.reduce((sum, i) => sum + i.amountCents, 0)).toBe(report[0].totalCents);
+      }
+      const exp1 = await db
+        .select({ totalCents: expenseReports.totalCents })
         .from(expenseReports)
         .where(eq(expenseReports.code, `EXP-${YEAR}-00001`));
-      const items = await db
-        .select({ amountCents: expenseItems.amountCents })
-        .from(expenseItems)
-        .where(eq(expenseItems.expenseReportId, report[0].id));
-      expect(items.reduce((sum, i) => sum + i.amountCents, 0)).toBe(report[0].totalCents);
-      expect(report[0].totalCents).toBe(1400000);
+      expect(exp1[0].totalCents).toBe(1400000);
+      const exp2 = await db
+        .select({ totalCents: expenseReports.totalCents, status: expenseReports.status })
+        .from(expenseReports)
+        .where(eq(expenseReports.code, `EXP-${YEAR}-00002`));
+      expect(exp2[0]).toEqual({ totalCents: 800000, status: "paid" });
     } finally {
       await pool.end();
     }
