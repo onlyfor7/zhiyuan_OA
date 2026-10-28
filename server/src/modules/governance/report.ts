@@ -2,7 +2,7 @@ import { and, desc, eq, sql, type SQL } from "drizzle-orm";
 
 import { ERROR_CODE } from "@lexflow/shared";
 
-import { archiveDirectories, archiveLinks, changeRequests, decisions, expenseReports, qualityIssues, tasks, weeklyReports } from "../../db/schema";
+import { archiveDirectories, archiveLinks, changeRequests, decisions, expenseReports, projects, qualityIssues, tasks, users, weeklyReports } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
 import { can, requireProjectRead } from "../../services/access";
@@ -97,6 +97,43 @@ async function aggregateContent(
       ? `本周已批准报销 ${approvedExpenses.length} 笔，合计 ${expenseAmount} 分（${approvedExpenses.map((e) => e.code).join("、")}）。`
       : "本周无已批准报销。";
 
+  // 工时节（arch/07 §6/§7：本周已批准按人员/活动类型汇总 + 待审批单列；同一聚合口径）
+  const { aggregateTime } = await import("../time/stats");
+  const [timeByPerson, timeByActivity, timePending] = await Promise.all([
+    aggregateTime(db, {
+      from: periodStart,
+      to: periodEnd,
+      statuses: ["approved", "locked"],
+      groupBy: "user",
+      scopeProjects: sql`${projects.id} = ${projectId}`,
+    }),
+    aggregateTime(db, {
+      from: periodStart,
+      to: periodEnd,
+      statuses: ["approved", "locked"],
+      groupBy: "activity",
+      scopeProjects: sql`${projects.id} = ${projectId}`,
+    }),
+    aggregateTime(db, {
+      from: periodStart,
+      to: periodEnd,
+      statuses: ["pending_approval"],
+      groupBy: "user",
+      scopeProjects: sql`${projects.id} = ${projectId}`,
+    }),
+  ]);
+  const userNames = new Map(
+    (await db.select({ id: users.id, name: users.name }).from(users)).map((u) => [u.id, u.name]),
+  );
+  const fmtTime = (items: typeof timeByPerson.items) =>
+    items.length === 0
+      ? "无"
+      : items.map((i) => `${userNames.get(i.key ?? "") ?? i.key}:${i.minutes}分钟`).join("；");
+  const timeSection =
+    `已批准工时（有效口径）：${timeByPerson.items.reduce((s, i) => s + i.minutes, 0)} 分钟。` +
+    `按人员：${fmtTime(timeByPerson.items)}。按活动：${timeByActivity.items.map((i) => `${i.key}:${i.minutes}分钟`).join("；")}。` +
+    `待审批单列：${timePending.items.reduce((s, i) => s + i.minutes, 0)} 分钟（${fmtTime(timePending.items)}）。`;
+
   return {
     progress: doneTasks.length
       ? `本周完成任务：${doneTasks.map((t) => t.title).join("；")}`
@@ -114,6 +151,7 @@ async function aggregateContent(
     risks: quality.some((q) => q.status === "pending_review") ? "存在待复核质量问题，需关注。" : "",
     next_week: "",
     expenses: expensesSection,
+    time: timeSection,
   };
 }
 

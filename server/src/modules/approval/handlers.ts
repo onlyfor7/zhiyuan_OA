@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 import { ERROR_CODE } from "@lexflow/shared";
 
@@ -8,6 +8,7 @@ import { CONFIG_KEY } from "@lexflow/shared";
 
 import {
   accessGrants,
+  approvalSteps,
   budgets,
   budgetLedger,
   changeRequests,
@@ -22,6 +23,7 @@ import {
   stages,
   systemConfig,
   tasks,
+  timesheetPeriods,
   travelEvents,
   travelRequests,
   userRoles,
@@ -680,10 +682,69 @@ async function notifyBudgetExceeded(
   }
 }
 
+/* ===== timesheet（arch/07 §4.2/§4.3：通过置 approved、驳回→returned 写意见） ===== */
+
+export function registerTimesheetHandler(): void {
+  registerHandler("timesheet", {
+    async onApproved(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
+      const [period] = await tx
+        .select()
+        .from(timesheetPeriods)
+        .where(eq(timesheetPeriods.id, instance.bizId))
+        .limit(1);
+      if (!period) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "工时周期不存在");
+      if (period.status !== "pending_approval") {
+        throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "工时周期状态不允许审批通过落地");
+      }
+      await tx
+        .update(timesheetPeriods)
+        .set({
+          status: "approved",
+          approvedAt: new Date().toISOString(),
+          returnedNote: null,
+          updatedAt: new Date().toISOString(),
+          rowVersion: sql`${timesheetPeriods.rowVersion} + 1`,
+        })
+        .where(eq(timesheetPeriods.id, period.id));
+    },
+    async onRejected(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
+      // 驳回意见取自审批步骤 comment（驳回必填，arch/04 §4）
+      const [step] = await tx
+        .select({ comment: approvalSteps.comment })
+        .from(approvalSteps)
+        .where(and(eq(approvalSteps.instanceId, instance.id), eq(approvalSteps.status, "rejected")))
+        .orderBy(desc(approvalSteps.actedAt))
+        .limit(1);
+      await tx
+        .update(timesheetPeriods)
+        .set({
+          status: "returned",
+          returnedNote: step?.comment ?? "审批驳回",
+          updatedAt: new Date().toISOString(),
+          rowVersion: sql`${timesheetPeriods.rowVersion} + 1`,
+        })
+        .where(and(eq(timesheetPeriods.id, instance.bizId), eq(timesheetPeriods.status, "pending_approval")));
+    },
+    async onWithdrawn(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
+      await tx
+        .update(timesheetPeriods)
+        .set({
+          status: "draft",
+          approverId: null,
+          submittedAt: null,
+          updatedAt: new Date().toISOString(),
+          rowVersion: sql`${timesheetPeriods.rowVersion} + 1`,
+        })
+        .where(and(eq(timesheetPeriods.id, instance.bizId), eq(timesheetPeriods.status, "pending_approval")));
+    },
+  });
+}
+
 /** 引擎处理器注册入口（server 启动与测试 setup 各调用一次，幂等覆盖） */
 export function registerApprovalHandlers(): void {
   registerChangeRequestHandler();
   registerAccessGrantHandler();
   registerTravelHandlers();
   registerFinanceHandlers();
+  registerTimesheetHandler();
 }

@@ -16,7 +16,7 @@ import { notify } from "../../modules/notify";
  * countersign=all 且多候选人 → 展开为 seq=i*1000+j（j=1..N），组键=floor(seq/1000)。
  */
 
-export type BizType = "change_request" | "access_grant" | "travel" | "travel_change" | "budget" | "funding" | "expense" | "expense_adjustment";
+export type BizType = "change_request" | "access_grant" | "travel" | "travel_change" | "budget" | "funding" | "expense" | "expense_adjustment" | "timesheet";
 
 export interface ApprovalInstanceRow {
   id: string;
@@ -138,6 +138,7 @@ async function resolveSteps(
   policy: PolicyRow,
   projectId: string | null,
   applicantId: string,
+  runtimeApproverId?: string,
 ): Promise<ResolvedStep[]> {
   const steps: ResolvedStep[] = [];
   for (let i = 0; i < policy.stepsJson.length; i++) {
@@ -145,7 +146,13 @@ async function resolveSteps(
     const countersign = (def.countersign as "any" | "all" | undefined) ?? "any";
     const approverRole = typeof def.approver_role === "string" ? def.approver_role : null;
     let candidates: string[] = [];
-    if (typeof def.approver_id === "string") {
+    if (def.runtime_resolve === true) {
+      // arch/07 §4.2：工时周期审批人运行时解析（调用方落 approver_id，职责分离在解析处保证）
+      if (!runtimeApproverId) {
+        throw new BusinessError(ERROR_CODE.POLICY_NOT_FOUND, "策略要求运行时解析审批人，但未提供 runtimeApproverId");
+      }
+      candidates = [runtimeApproverId];
+    } else if (typeof def.approver_id === "string") {
       candidates = [def.approver_id];
     } else if (approverRole) {
       candidates = await resolveRoleCandidates(db, approverRole, projectId);
@@ -181,6 +188,8 @@ export interface SubmitInput {
   idempotencyKey: string;
   /** 超预算 escalate 等场景追加的管理层步骤（arch/06 §4.4；加性参数，不影响既有调用） */
   extraStepRoles?: string[];
+  /** 策略占位 runtime_resolve 时的运行时审批人（arch/07 §4.2 工时周期：pm→partner / 主项目 manager / 配置默认） */
+  runtimeApproverId?: string;
 }
 
 export async function submit(db: DbOrTx, input: SubmitInput): Promise<ApprovalInstanceRow> {
@@ -193,7 +202,7 @@ export async function submit(db: DbOrTx, input: SubmitInput): Promise<ApprovalIn
   if (dup[0]) return dup[0] as ApprovalInstanceRow;
 
   const policy = await resolvePolicy(db, input.bizType, input.formSnapshot);
-  const steps = await resolveSteps(db, policy, input.projectId ?? null, input.applicantId);
+  const steps = await resolveSteps(db, policy, input.projectId ?? null, input.applicantId, input.runtimeApproverId);
   // escalate：在策略步骤之后追加管理层步骤（原因已写入 formSnapshot）
   for (const role of input.extraStepRoles ?? []) {
     const candidates = (await resolveRoleCandidates(db, role, input.projectId ?? null)).filter(

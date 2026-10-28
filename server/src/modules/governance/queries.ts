@@ -17,11 +17,13 @@ import {
   projects,
   qualityIssues,
   tasks,
+  timeEntries,
+  timesheetPeriods,
   travelRequests,
 } from "../../db/schema";
 import { BusinessError } from "../../lib/errors";
 import { can, projectScopeFilter } from "../../services/access";
-import { sweepActionItems } from "../../modules/collab/sweeps";
+import { sweepActionItems, sweepTimesheets } from "../../modules/collab/sweeps";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
 import { cursorCondition, encodeCursor, nowIso } from "./util";
@@ -180,6 +182,7 @@ export async function markHandled(db: DbOrTx, user: SessionUser, ids: string[]) 
 
 export async function todoMine(db: DbOrTx, user: SessionUser) {
   await sweepActionItems(db, user); // 查询时判定+写入（action_item_due）
+  await sweepTimesheets(db, user); // timesheet_gap：缺口/审批积压
   const today = nowIso().slice(0, 10);
   const soon = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
 
@@ -301,6 +304,25 @@ export async function todoMine(db: DbOrTx, user: SessionUser) {
     .orderBy(desc(expenseReports.createdAt))
     .limit(5);
 
+  // 待提交工时：本人 draft/returned 周期有明细未提交
+  const timeToSubmit = await db
+    .select({ id: timesheetPeriods.id, code: timesheetPeriods.code, status: timesheetPeriods.status })
+    .from(timesheetPeriods)
+    .where(
+      and(
+        eq(timesheetPeriods.userId, user.id),
+        sql`${timesheetPeriods.status} in ('draft', 'returned')`,
+        sql`exists (SELECT 1 FROM time_entries te WHERE te.period_id = ${timesheetPeriods.id})`,
+      ),
+    )
+    .limit(10);
+  // 待我审工时：approver=我 且 pending
+  const timeToApprove = await db
+    .select({ id: timesheetPeriods.id, code: timesheetPeriods.code })
+    .from(timesheetPeriods)
+    .where(and(eq(timesheetPeriods.approverId, user.id), eq(timesheetPeriods.status, "pending_approval")))
+    .limit(20);
+
   const grantsToHandle = await db
     .select({
       id: approvalInstances.id,
@@ -383,6 +405,20 @@ export async function todoMine(db: DbOrTx, user: SessionUser) {
       title: `我的报销 ${e.code}（${e.status}）`,
       projectId: null,
       amountCents: e.totalCents,
+    })),
+    ...timeToSubmit.map((p) => ({
+      kind: "time_submit" as const,
+      id: p.id,
+      code: p.code,
+      title: `待提交工时：${p.code}（${p.status === "returned" ? "已退回待修改" : "草稿"}）`,
+      projectId: null,
+    })),
+    ...timeToApprove.map((p) => ({
+      kind: "time_approve" as const,
+      id: p.id,
+      code: p.code,
+      title: `待我审工时：${p.code}`,
+      projectId: null,
     })),
     ...grantsToHandle.map((g) => ({
       kind: "grant_handle" as const,
@@ -472,6 +508,29 @@ export async function dashboardSummary(db: DbOrTx, user: SessionUser) {
       ),
     );
 
+  // 时间卡（arch/07 §6：本周已批准/待审批工时，有效口径 approved+locked；周起点复用上方 weekStart）
+  const weekStartStr = weekStart.toISOString().slice(0, 10);
+  const timeRows = await db
+    .select({
+      status: timesheetPeriods.status,
+      minutes: sql<number>`coalesce(sum(${timeEntries.durationMinutes}), 0)::int`,
+    })
+    .from(timeEntries)
+    .innerJoin(timesheetPeriods, eq(timesheetPeriods.id, timeEntries.periodId))
+    .where(
+      and(
+        gte(timeEntries.workDate, weekStartStr),
+        sql`(${timeEntries.projectId} is null OR ${timeEntries.projectId} IN (SELECT id FROM projects WHERE ${scope}))`,
+      ),
+    )
+    .groupBy(timesheetPeriods.status);
+  const minutesByStatus = new Map(timeRows.map((r) => [r.status, Number(r.minutes)]));
+  const timeCard = {
+    weekStart: weekStartStr,
+    approvedMinutes: (minutesByStatus.get("approved") ?? 0) + (minutesByStatus.get("locked") ?? 0),
+    pendingMinutes: minutesByStatus.get("pending_approval") ?? 0,
+  };
+
   // 财务摘要（arch/06 §8：角色过滤，成员不见）
   let financeSummary: { effectiveBudgetCents: number; actualCents: number; reservedCents: number } | null = null;
   if (user.globalRoles.includes("partner") || user.globalRoles.includes("finance")) {
@@ -502,6 +561,7 @@ export async function dashboardSummary(db: DbOrTx, user: SessionUser) {
     weeklyMeetings: weeklyMeetings.n,
     travelingCount: traveling.n,
     financeSummary,
+    timeCard,
   };
 }
 

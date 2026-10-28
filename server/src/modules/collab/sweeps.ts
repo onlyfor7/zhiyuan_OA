@@ -4,6 +4,8 @@ import { CONFIG_KEY } from "@lexflow/shared";
 
 import {
   meetingActionItems,
+  timeEntries,
+  timesheetPeriods,
   meetingParticipants,
   meetings,
   projects,
@@ -172,6 +174,62 @@ export async function sweepTravels(db: DbOrTx, user: SessionUser): Promise<void>
         aggregateKey: `travel_return_expense:${row.travel.id}:escalate:once`,
       });
     }
+  }
+}
+
+/** 工时缺口/审批积压（arch/07 §7：timesheet_gap；锁定期临近仍有 draft/returned → 填报人；pending>48h → 审批人） */
+export async function sweepTimesheets(db: DbOrTx, user: SessionUser): Promise<void> {
+  void user;
+  const nowMs = Date.now();
+  const soonMs = nowMs + 2 * 86_400_000;
+  const staleMs = nowMs - 48 * 3600_000;
+  const fmtIso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+
+  const gaps = await db
+    .select()
+    .from(timesheetPeriods)
+    .where(
+      and(
+        sql`${timesheetPeriods.status} in ('draft', 'returned')`,
+        sql`${timesheetPeriods.periodEnd} <= ${fmtIso(soonMs)}`,
+      ),
+    )
+    .limit(100);
+  for (const period of gaps) {
+    const count = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(timeEntries)
+      .where(eq(timeEntries.periodId, period.id));
+    if (Number(count[0].n) === 0) continue;
+    await notify(db, {
+      eventType: "timesheet_gap",
+      recipientId: period.userId,
+      sourceType: "time_entry",
+      sourceId: period.id,
+      payload: { periodCode: period.code, periodEnd: period.periodEnd, status: period.status },
+    });
+  }
+
+  const backlog = await db
+    .select()
+    .from(timesheetPeriods)
+    .where(
+      and(
+        eq(timesheetPeriods.status, "pending_approval"),
+        sql`${timesheetPeriods.submittedAt} < ${new Date(staleMs).toISOString()}`,
+        sql`${timesheetPeriods.approverId} is not null`,
+      ),
+    )
+    .limit(100);
+  for (const period of backlog) {
+    if (!period.approverId) continue;
+    await notify(db, {
+      eventType: "timesheet_gap",
+      recipientId: period.approverId,
+      sourceType: "time_entry",
+      sourceId: period.id,
+      payload: { periodCode: period.code, submittedAt: period.submittedAt, backlog: true },
+    });
   }
 }
 
