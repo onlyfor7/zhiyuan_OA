@@ -8,7 +8,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router";
-import { ArrowRight, Bell, LogOut, Menu, Network, Search } from "lucide-react";
+import { ArrowRight, Bell, LogOut, Menu, Network, Search, Settings } from "lucide-react";
 
 import { useLogout, useMe } from "../api/auth";
 import { useUnreadCount } from "../api/notification";
@@ -144,6 +144,10 @@ export default function AppShell() {
   const ganttTo = firstProjectId ? `/projects/${firstProjectId}/plan` : "/projects";
   const from = location.pathname + location.search;
 
+  if (data.mustChangePassword && location.pathname !== "/settings") {
+    return <Navigate to="/settings" replace />;
+  }
+
   return (
     <div className="concept-app">
       <header className="topbar">
@@ -182,6 +186,9 @@ export default function AppShell() {
           <div className="avatar" title={`${data.user.name} · ${data.user.email}`}>
             {data.user.name.slice(0, 1)}
           </div>
+          <Link to="/settings" className="icon-button dark settings-link" aria-label="账号设置与改密">
+            <Settings size={17} />
+          </Link>
           <button
             className="icon-button dark"
             aria-label="登出"
@@ -213,7 +220,7 @@ export default function AppShell() {
         </div>
       </header>
       {searchOpen ? <SearchPalette onClose={() => setSearchOpen(false)} /> : null}
-      <MobileNavDrawer open={navOpen} ganttTo={ganttTo} onClose={() => setNavOpen(false)} />
+      <MobileNavDrawer open={navOpen} ganttTo={ganttTo} globalRoles={data.globalRoles} onClose={() => setNavOpen(false)} />
       <div className="app-body">
         <aside className={`project-rail ${mobileRail ? "mobile-open" : ""}`}>
           <div className="rail-heading">

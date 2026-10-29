@@ -34,3 +34,16 @@ export function useLogout() {
     }),
   );
 }
+
+/** 自助改密：成功后全会话失效（含本会话），前端须引导重新登录 */
+export function useChangePassword() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  return useMutation(
+    trpc.auth.changePassword.mutationOptions({
+      onSuccess: () => {
+        queryClient.clear();
+      },
+    }),
+  );
+}

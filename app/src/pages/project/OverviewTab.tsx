@@ -3,6 +3,7 @@ import { ArrowRight, CircleAlert, ShieldCheck } from "lucide-react";
 
 import { useProjectOverview } from "../../api/project";
 import { useMe } from "../../api/auth";
+import { formatYuan } from "../../api/reference";
 import { BudgetBar } from "../../components/finance";
 import { canViewFinance } from "../../lib/permissions";
 import { ChevronRight } from "lucide-react";
@@ -90,6 +91,37 @@ export default function OverviewTab() {
               </Link>
             </div>
             <BudgetBar aggregate={overview.data.budgetSummary} />
+          </section>
+        ) : null}
+        {allowed && overview.data?.receiptSummary ? (
+          <section>
+            <div className="section-heading">
+              <div>
+                <span className="section-label">RECEIPTS</span>
+                <h2>收款摘要</h2>
+              </div>
+              <Link to="/operations/receipts" className="text-action">
+                收款台账
+                <ChevronRight size={14} />
+              </Link>
+            </div>
+            <div className="metric-strip">
+              <div>
+                <span>已登记</span>
+                <strong>{formatYuan(overview.data.receiptSummary.registeredCents)} 元</strong>
+                <small>实收登记（原额）</small>
+              </div>
+              <div>
+                <span>已作废</span>
+                <strong>{formatYuan(overview.data.receiptSummary.voidedCents)} 元</strong>
+                <small>冲正留痕</small>
+              </div>
+              <div>
+                <span>净额</span>
+                <strong>{formatYuan(overview.data.receiptSummary.netCents)} 元</strong>
+                <small>登记 − 作废</small>
+              </div>
+            </div>
           </section>
         ) : null}
         <section>

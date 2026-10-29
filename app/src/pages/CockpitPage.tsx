@@ -3,6 +3,7 @@ import { ArrowRight, ChevronRight, ShieldCheck } from "lucide-react";
 
 import { useDashboardSummary } from "../api/dashboard";
 import { useProjectPreview } from "../api/project";
+import { formatYuan } from "../api/reference";
 import { useRail, useShell } from "../components/shell-rail";
 import { HEALTH_LABEL, LIFECYCLE_LABEL } from "../lib/labels";
 import { formatDateTime } from "../lib/trpc";
@@ -118,6 +119,17 @@ export default function CockpitPage() {
             <span>本周已批准工时</span>
             <strong>{Math.round(s.timeCard.approvedMinutes / 60)}h</strong>
             <small>待审批 {Math.round(s.timeCard.pendingMinutes / 60)}h</small>
+          </div>
+        ) : null}
+        {s.receiptsSummary ? (
+          <div>
+            <span>收款净额</span>
+            <strong>{formatYuan(s.receiptsSummary.netCents)} 元</strong>
+            <small>
+              <Link to="/operations/receipts">
+                登记 {formatYuan(s.receiptsSummary.registeredCents)} − 作废 {formatYuan(s.receiptsSummary.voidedCents)}
+              </Link>
+            </small>
           </div>
         ) : null}
       </div>

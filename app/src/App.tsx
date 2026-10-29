@@ -1,5 +1,4 @@
 import { lazy, Suspense } from "react";
-import { RequestDetailPage } from "./pages/preview/RequestsPage";
 import { Navigate, Route, Routes } from "react-router";
 
 import AppShell from "./components/AppShell";
@@ -14,12 +13,14 @@ const MeetingDetailPage = lazy(() => import("./pages/MeetingDetailPage"));
 const MeetingNewPage = lazy(() => import("./pages/MeetingNewPage"));
 const MeetingsPage = lazy(() => import("./pages/MeetingsPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
-const PreviewShell = lazy(() => import("./pages/preview/PreviewShell"));
-const AdminCenterPage = lazy(() => import("./pages/preview/admin/AdminCenterPage"));
-const FlowDesignerPage = lazy(() => import("./pages/preview/admin/FlowDesignerPage"));
-const RequestsPage = lazy(() => import("./pages/preview/RequestsPage"));
-const ReceiptsPage = lazy(() => import("./pages/preview/ReceiptsPage"));
-const SettingsPage = lazy(() => import("./pages/preview/SettingsPage"));
+const AdminCenterPage = lazy(() => import("./pages/admin/AdminCenterPage"));
+const FlowDesignerPage = lazy(() => import("./pages/admin/FlowDesignerPage"));
+const RequestsPage = lazy(() => import("./pages/RequestsPage"));
+const RequestDetailPage = lazy(() =>
+  import("./pages/RequestsPage").then((m) => ({ default: m.RequestDetailPage })),
+);
+const ReceiptsPage = lazy(() => import("./pages/ReceiptsCenterPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const ApprovalsPage = lazy(() => import("./pages/ApprovalsPage"));
 const ProjectCreatePage = lazy(() => import("./pages/ProjectCreatePage"));
 const ProjectsPage = lazy(() => import("./pages/ProjectsPage"));
@@ -52,7 +53,7 @@ const ExpensesTab = lazy(() => import("./pages/project/ExpensesTab"));
 const TimesheetTab = lazy(() => import("./pages/project/TimesheetTab"));
 
 /**
- * 路由表（迭代 1 工单 03）。
+ * 路由表（迭代 1 工单 03；迭代 6 工单 04 扩展域转正）。
  * 项目空间为页签式嵌套路由：8 个真实数据页签 + 5 个后续迭代占位页签。
  */
 export default function App() {
@@ -60,20 +61,17 @@ export default function App() {
     <Suspense fallback={<div className="page-loader" role="status">正在加载…</div>}>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/preview" element={<Navigate to="/preview/admin" replace />} />
-      <Route element={<PreviewShell />}>
-        <Route path="/preview/admin" element={<AdminCenterPage />} />
-        <Route path="/preview/admin/flows/:flowId" element={<FlowDesignerPage />} />
-        <Route path="/preview/requests" element={<RequestsPage />} />
-        <Route path="/preview/requests/:requestId" element={<RequestDetailPage />} />
-        <Route path="/preview/receipts" element={<ReceiptsPage />} />
-        <Route path="/preview/settings" element={<SettingsPage />} />
-      </Route>
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="/cockpit" replace />} />
         <Route path="/cockpit" element={<CockpitPage />} />
         <Route path="/workbench" element={<WorkbenchPage />} />
         <Route path="/approvals" element={<ApprovalsPage />} />
+        <Route path="/admin" element={<AdminCenterPage />} />
+        <Route path="/admin/flows/:flowId" element={<FlowDesignerPage />} />
+        <Route path="/requests" element={<RequestsPage />} />
+        <Route path="/requests/:requestId" element={<RequestDetailPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/operations/receipts" element={<ReceiptsPage />} />
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/projects/new" element={<ProjectCreatePage />} />
         <Route path="/projects/:projectId" element={<ProjectSpacePage />}>

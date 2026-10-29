@@ -11,6 +11,7 @@ import {
 import type { RouterOutputs } from "../lib/trpc";
 import { useRail } from "../components/shell-rail";
 import { UserPicker } from "../components/UserPicker";
+import { FlowProgressGraph } from "../components/FlowProgressGraph";
 
 type MineItem = RouterOutputs["approval"]["listMine"]["items"][number];
 type AppliedItem = RouterOutputs["approval"]["listMineApplied"]["items"][number];
@@ -82,16 +83,40 @@ function SnapshotPanel({ instanceId }: { instanceId: string }) {
 
 function MineCardExtras({ item }: { item: MineItem }) {
   const [snapshotOpen, setSnapshotOpen] = useState(false);
+  const [flowOpen, setFlowOpen] = useState(false);
   return (
     <>
       <div className="row-ops" style={{ marginTop: 8 }}>
         <button className="text-action" onClick={() => setSnapshotOpen((v) => !v)}>
           {snapshotOpen ? "收起快照" : "审批快照/检查项"}
         </button>
+        <button className="text-action" onClick={() => setFlowOpen((v) => !v)}>
+          {flowOpen ? "收起流程节点图" : "流程节点图"}
+        </button>
       </div>
       {snapshotOpen ? <SnapshotPanel instanceId={item.instance.id} /> : null}
+      {flowOpen ? <FlowProgressPanel id={item.instance.id} /> : null}
       <ActPanel item={item} />
     </>
+  );
+}
+
+/** 自定义流程实例的节点图进度（arch/09 §3.3；非自定义流程实例返回 null 不渲染） */
+function FlowProgressPanel({ id }: { id: string }) {
+  const approval = useApproval(id);
+  if (approval.isPending) return <p className="list-note">正在加载流程进度…</p>;
+  if (approval.isError) return null;
+  const progress = approval.data.flowProgress;
+  if (!progress) return null;
+  return (
+    <div className="checks-panel">
+      <span className="section-label">
+        FLOW · {progress.flowName}
+        {progress.flowVersion != null ? ` V${progress.flowVersion}` : ""}
+      </span>
+      {progress.currentNodeLabel ? <p className="context-note">当前节点：{progress.currentNodeLabel}</p> : null}
+      <FlowProgressGraph progress={progress} />
+    </div>
   );
 }
 
@@ -207,6 +232,7 @@ function AppliedSteps({ id }: { id: string }) {
   const a = approval.data;
   return (
     <div className="resolution-timeline">
+      {a.flowProgress ? <FlowProgressGraph progress={a.flowProgress} /> : null}
       {a.steps.map((s) => (
         <div className={s.status === "pending" ? "active" : "done"} key={s.id}>
           <Check size={15} />

@@ -1225,6 +1225,8 @@
   .topbar { grid-template-columns: 1fr auto; min-height: 64px; }
   .topbar .brand { border-right: 0; }
   .nav-menu-trigger { display: inline-flex; }
+  /* 窄屏顶栏让位：设置入口已在汉堡抽屉（OPERATIONS·账号设置） */
+  .top-actions .settings-link { display: none; }
 }
 
 @media (max-width: 820px) {
@@ -1388,9 +1390,9 @@
   /* 原型表格窄屏卡片化（820 即生效）：必须覆盖 App.css 820 段的 .grant-table { min-width:690px }
      ——该 min-width 会把移动布局视口撑宽到 708px，随后 max-480 媒体不再命中（恶性循环）。
      行内子元素块级化 + 任意换行，保证 min-content ≤ 视口宽度。 */
-  .preview-screen .grant-table { overflow-x: visible; min-width: 0; }
-  .preview-screen .grant-head { display: none; }
-  .preview-screen .grant-row {
+  :is(.preview-screen, .receipts-center-screen, .admin-screen) .grant-table { overflow-x: visible; min-width: 0; }
+  :is(.preview-screen, .receipts-center-screen, .admin-screen) .grant-head { display: none; }
+  :is(.preview-screen, .receipts-center-screen, .admin-screen) .grant-row {
     display: block;
     min-width: 0;
     border: 1px solid var(--line);
@@ -1398,7 +1400,7 @@
     padding: 12px;
     background: var(--surface);
   }
-  .preview-screen .grant-row > * { display: block; margin: 4px 0; overflow-wrap: anywhere; }
+  :is(.preview-screen, .receipts-center-screen, .admin-screen) .grant-row > * { display: block; margin: 4px 0; overflow-wrap: anywhere; }
 }
 
 .designer-props .check-line { grid-template-columns: 18px 1fr; }

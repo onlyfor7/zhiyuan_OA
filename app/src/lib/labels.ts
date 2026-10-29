@@ -354,3 +354,33 @@ export function formatMinutes(minutes: number | null | undefined): string {
   const m = minutes % 60;
   return h > 0 ? `${h}h ${m}m（${minutes} 分钟）` : `${m}m（${minutes} 分钟）`;
 }
+
+/* —— 迭代 6 审批流设计器常量（arch/09 §3.1 冻结） —— */
+
+export const APPROVER_KIND_LABEL: Record<string, string> = {
+  role: "全局角色",
+  user: "指定用户",
+  initiator_manager: "发起人的上级",
+  project_manager: "项目负责人",
+};
+
+export const CONDITION_FIELD_WHITELIST = [
+  ["amount_cents", "金额（分）"],
+  ["confidentiality", "密级"],
+  ["level", "级别"],
+  ["borrow", "借款"],
+  ["request_type", "申请类型"],
+] as const;
+
+export const FLOW_BIZ_BINDINGS = [
+  ["expense", "费用报销"],
+  ["generic_request", "通用申请单"],
+  ["travel", "出差申请"],
+  ["travel_change", "出差变更"],
+  ["funding", "经费申请"],
+  ["expense_adjustment", "报销调整"],
+  ["budget", "预算"],
+  ["change_request", "延期申请"],
+  ["access_grant", "档案授权"],
+  ["timesheet", "工时周期"],
+] as const;

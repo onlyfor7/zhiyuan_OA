@@ -14,12 +14,25 @@ const NAV_ITEMS = [
   { to: "/audit", label: "权限审计", index: "08" },
 ] as const;
 
-const OPS_ITEMS = [
+const OPS_ITEMS: { to: string; label: string; gate?: "receipts" | "sysadmin" }[] = [
   { to: "/operations/time", label: "工时中心" },
   { to: "/operations/budget", label: "预算管理" },
   { to: "/operations/expenses", label: "费用中心" },
+  { to: "/operations/receipts", label: "收款台账", gate: "receipts" },
   { to: "/approvals", label: "审批中心" },
-] as const;
+  { to: "/requests", label: "通用申请" },
+  { to: "/settings", label: "账号设置" },
+  { to: "/admin", label: "配置中心", gate: "sysadmin" },
+];
+
+function canSee(item: { gate?: "receipts" | "sysadmin" }, globalRoles: string[]): boolean {
+  if (item.gate === "sysadmin") return globalRoles.includes("sysadmin");
+  if (item.gate === "receipts") {
+    // member/viewer 全 404（服务端同形），入口直接隐藏；其余角色（pm/质量/档案/财务/合伙人/管理员）可见
+    return globalRoles.some((r) => r !== "member" && r !== "viewer");
+  }
+  return true;
+}
 
 /**
  * N3：375px 汉堡抽屉导航（替代顶导航逐字堆叠）。
@@ -28,10 +41,12 @@ const OPS_ITEMS = [
 export function MobileNavDrawer({
   open,
   ganttTo,
+  globalRoles,
   onClose,
 }: {
   open: boolean;
   ganttTo: string;
+  globalRoles: string[];
   onClose: () => void;
 }) {
   const location = useLocation();
@@ -87,7 +102,7 @@ export function MobileNavDrawer({
         </div>
         <div className="mobile-nav-ops">
           <span className="section-label">OPERATIONS · 经营中心</span>
-          {OPS_ITEMS.map((item) => (
+          {OPS_ITEMS.filter((item) => canSee(item, globalRoles)).map((item) => (
             <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? "active" : "")} onClick={onClose}>
               {item.label}
             </NavLink>
