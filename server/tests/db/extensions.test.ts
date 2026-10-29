@@ -279,6 +279,46 @@ describe("扩展域种子与约束（arch/09）", () => {
     }
   });
 
+  it("种子自愈（09b 打回修复）：同名种子默认流旧规格行重跑 seed 被修正为 partner", async () => {
+    const { db, pool } = await openDb();
+    try {
+      const stale = await db
+        .select({ id: flowDefinitions.id, definitionJson: flowDefinitions.definitionJson })
+        .from(flowDefinitions)
+        .where(eq(flowDefinitions.name, "generic_request 默认流程"));
+      expect(stale).toHaveLength(1);
+      // 预置旧规格（project_manager 单步）模拟 09b 首版遗留行
+      await db
+        .update(flowDefinitions)
+        .set({
+          definitionJson: {
+            nodes: [
+              { id: "start", type: "start" },
+              { id: "n1", type: "approval", label: "项目负责人审批", approver: { kind: "project_manager" }, countersign: "any" },
+              { id: "end", type: "end" },
+            ],
+            edges: [
+              { from: "start", to: "n1" },
+              { from: "n1", to: "end" },
+            ],
+          },
+        })
+        .where(eq(flowDefinitions.id, stale[0].id));
+
+      await runSeed(TEST_DATABASE_URL);
+
+      const healed = await db
+        .select({ definitionJson: flowDefinitions.definitionJson })
+        .from(flowDefinitions)
+        .where(eq(flowDefinitions.id, stale[0].id));
+      const nodes = (healed[0].definitionJson as { nodes: Array<{ type: string; approver?: { kind: string; role?: string } }> }).nodes;
+      const approval = nodes.find((n) => n.type === "approval");
+      expect(approval?.approver).toEqual({ kind: "role", role: "partner" });
+    } finally {
+      await pool.end();
+    }
+  });
+
   it("策略迁移等价性：新旧解析出的步骤集一致（既有审批行为不变）", async () => {
     const { db, pool } = await openDb();
     try {
@@ -327,6 +367,12 @@ describe("扩展域种子与约束（arch/09）", () => {
         );
         expect(defaults.length, `${bizType} 应有 ≥1 条 enabled 默认流程`).toBeGreaterThanOrEqual(1);
       }
+
+      // 09b 打回裁定：generic_request 全局默认流解析必须为 [partner]（project_manager 会自审死锁）
+      const genericFlow = flows.find((f) => f.bizBinding === "generic_request" && f.enabled && f.projectId === null)!;
+      expect(resolveFlow(genericFlow, {}, configRows)).toEqual([
+        { approver: { kind: "role", role: "partner" }, countersign: "any" },
+      ]);
 
       // timesheet：占位策略 ↔ 运行时解析节点（initiator_manager）
       const tsPolicy = policies.find((p) => p.bizType === "timesheet");

@@ -181,8 +181,8 @@ const DEFAULT_FLOWS: Array<{ name: string; bizBinding: string; spec: FlowSpec; n
   {
     name: "generic_request 默认流程",
     bizBinding: "generic_request",
-    note: "project_manager 单步（通用申请单默认审批人——数据会话推断默认值，无冻结策略来源，待架构确认）",
-    spec: linearFlow([{ label: "项目负责人审批", approver: PM }]),
+    note: "partner 单步（09b 打回裁定：全局申请单无项目上下文，project_manager 解析自审死锁；partner 全局兜底）",
+    spec: linearFlow([{ label: "管理层审批", approver: role("partner") }]),
   },
 ];
 
@@ -244,10 +244,11 @@ async function ensureFlow(
 export async function seedDefaultFlows(tx: SeedTx): Promise<void> {
   const pmId = await userIdByEmail(tx, "pm@lexflow.demo");
   for (const flow of DEFAULT_FLOWS) {
-    // 共存守卫（09b）：该 biz_binding 已有 enabled 的全局默认流程（如 prod 测试现场所建）即跳过——
-    // 按 (biz_binding, project_id null, enabled) 幂等，与既有流同名或异名均不冲突、不撞组合唯一索引。
+    // 共存与自愈（09b）：该 biz_binding 已有 enabled 全局默认流时分两种——
+    // ① 同名的种子默认流（如 dev 既有旧规格行）：更新 definition_json 自愈（种子即迁移）；
+    // ② 异名（prod 测试现场所建）：跳过，不冲突、不撞 (biz_binding, coalesce(project_id)) 组合唯一索引。
     const existing = await tx
-      .select({ id: flowDefinitions.id })
+      .select({ id: flowDefinitions.id, name: flowDefinitions.name })
       .from(flowDefinitions)
       .where(
         and(
@@ -256,7 +257,19 @@ export async function seedDefaultFlows(tx: SeedTx): Promise<void> {
           sql`${flowDefinitions.projectId} is null`,
         ),
       );
-    if (existing[0]) continue;
+    if (existing[0]) {
+      if (existing[0].name === flow.name) {
+        await tx
+          .update(flowDefinitions)
+          .set({
+            definitionJson: flow.spec as unknown as Record<string, unknown>,
+            updatedBy: pmId,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(flowDefinitions.id, existing[0].id));
+      }
+      continue;
+    }
     await ensureFlow(tx, flow, pmId);
   }
 }
