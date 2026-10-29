@@ -16,11 +16,11 @@
 | 2 | 会议与出差垂直闭环 | **通过** | 2026-10-27 |
 | 3 | 预算、经费与费用垂直闭环 | **通过** | 2026-10-27 |
 | 4 | 工时与统一经营视图 | **通过** | 2026-10-28 |
-| 5 | 系统验收 | 进行中 | — |
+| 5 | 系统验收 | **通过** | 2026-10-29 |
 | 2 | 会议与出差垂直闭环 | 未开始 | — |
 | 3 | 预算、经费与费用垂直闭环 | 未开始 | — |
 | 4 | 工时与统一经营视图 | 未开始 | — |
-| 5 | 系统验收 | 未开始 | — |
+
 
 ## 契约冻结记录
 
@@ -61,10 +61,10 @@
 | 02 安全与运维收口 | 后端 | **通过** | 后端会话 | 2026-10-28 | R5 复测全过（只读 dry-run 可重试/405 双路径/purge 实删+审计）；四道门 210/210 |
 | 03 移动与视觉收口 | 前端 | **通过** | 前端会话 | 2026-10-28 | 架构会话已验收（四道门全绿 0 警告、汉堡抽屉与驾驶舱截图核验、总览潜伏崩溃修复确认） |
 | 04 生产构建与部署 | 部署 | **通过** | 部署会话 | 2026-10-28 | 架构会话已验收（三服务 healthy、prod 全链冒烟、备份恢复演练复核、交付物齐备） |
-| 05 系统验收 | 测试 | **通过（E2E 主体）** | 测试会话 | 2026-10-28 | 七条总门中 E2E/安全/性能/冷启动全过；P0 生产深链缺陷证实，迭代 5 待 03b→04b→05b 收口链完成后关闭 |
+| 05 系统验收 | 测试 | **通过** | 测试会话 | 2026-10-28 | 七条总门全过；P0 生产深链经 03b→04b→05b 链修复并复测通过（2026-10-29），迭代 5 收口、项目交付 |
 | 03b 修正 vite base | 前端 | **通过** | 前端会话 | 2026-10-28 | 架构会话已验收（diff 仅一行、产物绝对路径、app 四道门全绿） |
 | 04b 重建 web 镜像复起 | 部署 | **通过** | 部署会话 | 2026-10-29 | 架构会话已验收（web 重建 2min、深链资产 application/javascript、仅 web 重建数据原样） |
-| 05b 生产栈深链复测 | 测试 | 未认领 | | | 已解锁（最后一步） |
+| 05b 生产栈深链复测 | 测试 | **通过** | 测试会话 | 2026-10-29 | P0 深链复测 4/4 全过（Playwright，prod :8080），迭代 5 收口 |
 
 ## 迭代 4 工单状态
 
@@ -124,7 +124,7 @@
 
 | 日期 | 会话 | 事项 | 架构裁定 | 状态 |
 |---|---|---|---|---|
-| 2026-10-28 | 测试 | **P0（系统验收实测发现）**：生产栈（:8080）SPA 多级路径深链白屏——`vite base:'./'` 相对资产路径在 `/meetings/:id`、`/projects/:id`、`/expenses/:id` 等多段路径下被解析为 `/<seg>/assets/...`，nginx SPA 回退返回 HTML 致 React 挂载失败（实测：index.html 200、chunk 200 但内容为 HTML、root innerHTML=0、无 JS 异常）；单段路径（/login、/cockpit）不受影响故部署冒烟未暴露。影响：生产环境全部业务详情深链/刷新/回跳不可用。建议修复：app 构建 base 改 `/`（或 nginx assets 绝对别名）后重建镜像。E2E 矩阵暂按工单「dev 或 prod」约定改用 dev 栈执行，prod 复测留修复后 | **裁定：缺陷属实且违反基线 §5.3 硬性要求（直链/刷新），迭代 5 不关闭**。架构会话已独立证实（深链资产路径返回 text/html）。修复链：03b 前端改 `base:'/'` → 04b 部署重建 web 镜像复起 → 05b 测试 prod 深链复测。E2E「dev 或 prod」约定修订为「至少 prod 栈复测深链」。测试会话发现并如实上报 P0、判定不阻塞但不隐瞒——符合验收职责 | 修复中（03b→04b→05b 链） |
+| 2026-10-28 | 测试 | **P0（系统验收实测发现）**：生产栈（:8080）SPA 多级路径深链白屏——`vite base:'./'` 相对资产路径在 `/meetings/:id`、`/projects/:id`、`/expenses/:id` 等多段路径下被解析为 `/<seg>/assets/...`，nginx SPA 回退返回 HTML 致 React 挂载失败（实测：index.html 200、chunk 200 但内容为 HTML、root innerHTML=0、无 JS 异常）；单段路径（/login、/cockpit）不受影响故部署冒烟未暴露。影响：生产环境全部业务详情深链/刷新/回跳不可用。建议修复：app 构建 base 改 `/`（或 nginx assets 绝对别名）后重建镜像。E2E 矩阵暂按工单「dev 或 prod」约定改用 dev 栈执行，prod 复测留修复后 | **裁定：缺陷属实且违反基线 §5.3 硬性要求（直链/刷新），迭代 5 不关闭**。架构会话已独立证实（深链资产路径返回 text/html）。修复链：03b 前端改 `base:'/'` → 04b 部署重建 web 镜像复起 → 05b 测试 prod 深链复测。E2E「dev 或 prod」约定修订为「至少 prod 栈复测深链」。测试会话发现并如实上报 P0、判定不阻塞但不隐瞒——符合验收职责 | **已关闭**：03b 前端 base '/' 修复 + 04b 重建 web 镜像复起（架构复核确认资产 application/javascript），05b 测试会话 Playwright 深链复测 4/4 全过（10 桌面深链+3 移动+刷新/返回+核心链冒烟，截图 D:	mp\shots-iter5-deeplink\） |
 
 | 日期 | 会话 | 事项 | 架构裁定 | 状态 |
 |---|---|---|---|---|
@@ -143,6 +143,7 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-10-29｜测试｜迭代5-05b｜**工单 05b 完成（收口判定：深链全过，迭代 5 关闭、项目交付）。** 交付：`e2e/specs/prod-deeplink.spec.ts`（prod 栈 Playwright 复测 **4/4 全过**，21.9s）——① P0 深链直开 10 条桌面多级路径（/projects/:id/overview|plan|quality|timesheet、/meetings/:id、/travel/:id、/operations/expenses|time|budget、/operations/funding/:id）全部真实渲染非白屏（HTTP 200、body 文本>50 字、关键元素可见、资产 content-type 逐条核验 *.js→application/javascript、*.css→css）；② 刷新恢复 + 浏览器返回（plan↔overview 往返渲染正常）；③ 375px 移动深链 3 条直开（plan/meeting/expenses）；④ prod 核心链冒烟（登录→项目列表→审批中心）。截图 15 张在 D:\tmp\shots-iter5-deeplink\。怎么验证：`npx playwright test prod-deeplink.spec.ts`（e2e/ 目录，系统 Chrome）。报告 P0 行已转「已修复并复测通过」，STATUS 偏差行关闭、迭代总览迭代 5 置「通过」（2026-10-29）。修复链：03b base '/'（9bc1c67）→ 04b 重建 web 镜像复起（架构复核）→ 05b 本复测。运维：prod :8080 保持运行。提交：`[测试]` 前缀 commit。
 - 2026-10-29｜架构｜迭代5-04b｜**工单 04b（重建 web 镜像复起）验收通过。** 独立复核：web 容器为 2 分钟新实例（postgres/server 14h 未动，演示数据原样）；index.html 资产全部绝对路径；**P0 缺陷形态消除**——深链 `/meetings/<id>` 的资产实测 `application/javascript`（原返回 text/html）；深链页 200。部署会话的重建实录（镜像 ID 2f66d21ff62e、92s 构建、8s 复起）采信。**解锁最后一步工单 05b（测试会话·生产栈深链复测）：通过后迭代 5 关闭、项目交付。**
 - 2026-10-29｜部署｜迭代5-04b｜**工单 04b（重建 web 镜像复起）完成，转待验收（重建实录如下）。** 做了什么：① 同步 03b 合入代码（commit `9bc1c67`，`app/vite.config.ts` 确认 `base: '/'`）；② 沿用本机 buildkit 规避方案（compose build 在后台 shell 报 gRPC sharedkey 非 ASCII 错，见工单 04 交接条）`docker build -f app/Dockerfile -t lexflow-prod-web .` 重建——92s、exit 0，vite v7.3.7 真实重跑（非全缓存）；③ `docker compose -f docker-compose.prod.yml --env-file .env.production up -d` 复起：仅 web 容器重建，postgres/server 未动（Up 14h 未重启），**未重灌种子，现有演示数据原样**（projects=5/users=12）。**重建实录：新镜像 `lexflow-prod-web:latest` ID `2f66d21ff62e`（sha256:2f66d21ff62e4e879530cd188bb5632ed42cf3458293f511bd1a33e91f022071，构建于 2026-10-29 10:48:11 +0800）；起栈 2026-10-29T02:48:46Z 发起、8 秒后三服务全 healthy。** 怎么验证（全实测）：⑴ index.html 资产全部绝对路径——`src="/assets/index-DpA4iQBy.js"`、`href="/assets/vendor-{router,data,react}-*.js"`；⑵ 三服务 healthy（lexflow-prod-postgres/server/web）；⑶ 首页 GET / → 200 text/html；⑷ **P0 修复佐证**：深链 `GET /meetings/<随机uuid>` 返回 index.html 且其引用资产 `/assets/index-DpA4iQBy.js` 实测 200 `application/javascript`（原缺陷形态=chunk 返回 text/html 已消除，深链白屏链路断点闭合）；⑸ 登录正常——pm@lexflow.demo 经 nginx :8080 登录成功（Set-Cookie lexflow_session 在位、auth.me 返回陈立）。按工单「不改 compose/配置、不重灌种子」，无任何配置变更，提交仅 STATUS.md。遗留：无。prod 栈保持运行（:8080）供 05b 深链复测直接使用。
 - 2026-10-28｜架构｜迭代5-03b｜**工单 03b（vite base 修复）验收通过。** 独立复核：diff 恰为一行 `base './'→'/'`；app 四道门全绿（typecheck/lint/build 0 警告/test 23）；产物 dist/index.html 资产引用全部绝对路径（`/assets/index-*.js` 等）；dev 深链回归声明采信。**P0 代码侧已修复，等 04b 重建镜像后在 prod 栈复测（05b）确认关闭。解锁工单 04b（部署会话）。** 小备注：该提交作者身份为部署会话属本会话 git 配置问题，不影响审计内容；建议各会话开工核对本地 git user。
