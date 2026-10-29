@@ -40,7 +40,7 @@ async function writeJsonConfig(db: DbOrTx, key: string, value: unknown, userId: 
 
 export async function userList(db: DbOrTx, user: SessionUser) {
   await requireAdminConfig(db, user);
-  return db
+  const rows = await db
     .select({
       id: users.id,
       email: users.email,
@@ -48,11 +48,21 @@ export async function userList(db: DbOrTx, user: SessionUser) {
       status: users.status,
       orgUnitId: users.orgUnitId,
       orgUnitName: orgUnits.name,
+      mustChangePassword: users.mustChangePassword,
       createdAt: users.createdAt,
     })
     .from(users)
     .leftJoin(orgUnits, eq(orgUnits.id, users.orgUnitId))
     .orderBy(users.createdAt);
+  // roles 聚合（arch 裁定 04b-②）：每用户全局角色数组
+  const roleRows = await db.select({ userId: userRoles.userId, roleKey: userRoles.roleKey }).from(userRoles);
+  const rolesByUser = new Map<string, string[]>();
+  for (const r of roleRows) {
+    const list = rolesByUser.get(r.userId) ?? [];
+    list.push(r.roleKey);
+    rolesByUser.set(r.userId, list);
+  }
+  return rows.map((r) => ({ ...r, roles: rolesByUser.get(r.id) ?? [] }));
 }
 
 export async function createUser(

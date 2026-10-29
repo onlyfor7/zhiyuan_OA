@@ -253,3 +253,14 @@ export async function exportCsv(db: DbOrTx, user: SessionUser, input: { from?: s
   });
   return { csv, rowCount: rows.length, asOf: nowIso() };
 }
+
+/** 收款登记表单项目下拉（arch 裁定 04b-①）：finance/partner 参照级清单，无业务内容；其他角色同形 404 */
+export async function projectOptions(db: DbOrTx, user: SessionUser) {
+  if (!(user.globalRoles.includes("finance") || user.globalRoles.includes("partner"))) {
+    throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "收款不存在或无权访问");
+  }
+  return db
+    .select({ id: projects.id, code: projects.code, name: projects.name })
+    .from(projects)
+    .orderBy(projects.code);
+}

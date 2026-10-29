@@ -11,6 +11,25 @@ const cursorPage = {
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 export const genericRequestRouter = router({
+  /** 申请类型清单公开读（arch 裁定 04b-③）：任意登录用户；键值来自 system_config，前端不再本地静态 */
+  types: authedProcedure.query(async ({ ctx }) => {
+    const { systemConfig } = await import("../../db/schema");
+    const { CONFIG_KEY } = await import("@lexflow/shared");
+    const { eq } = await import("drizzle-orm");
+    const [row] = await ctx.db
+      .select()
+      .from(systemConfig)
+      .where(eq(systemConfig.key, CONFIG_KEY.GENERIC_REQUEST_TYPES))
+      .limit(1);
+    const raw = (row?.valueJson as { types?: unknown } | undefined)?.types;
+    const items = (Array.isArray(raw) ? raw : []).map((t) =>
+      typeof t === "string"
+        ? { key: t, label: t }
+        : { key: (t as { key?: string }).key ?? "", label: (t as { label?: string; name?: string }).label ?? (t as { name?: string }).name ?? "" },
+    );
+    return { items: items.filter((i) => i.key) };
+  }),
+
   list: authedProcedure
     .input(
       z

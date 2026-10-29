@@ -29,6 +29,8 @@ export const receiptsRouter = router({
     .input(z.object({ id: z.uuid() }))
     .query(({ ctx, input }) => service.getReceipt(ctx.db, ctx.user, input.id)),
 
+  projectOptions: authedProcedure.query(({ ctx }) => service.projectOptions(ctx.db, ctx.user)),
+
   create: authedMutation
     .input(
       z.object({
