@@ -89,8 +89,7 @@ const DEFAULT_FLOWS: Array<{ name: string; bizBinding: string; spec: FlowSpec; n
   },
   {
     name: "travel 默认流程",
-    bizBinding: "travel",
-    note: "borrow=true → pm+finance 会签 all；金额≥阈值($config) → pm→partner 两步；默认 pm（等价原 p10/p20/p100 三条；阈值引用 approval.amount_thresholds.fundingManagementReviewCents）",
+    bizBinding: "travel",    note: "borrow=true → pm+finance 会签 all；金额≥阈值($config) → pm→partner 两步；默认 pm（等价原 p10/p20/p100 三条；阈值引用 approval.amount_thresholds.fundingManagementReviewCents）",
     spec: {
       nodes: [
         { id: "start", type: "start" },
@@ -116,6 +115,12 @@ const DEFAULT_FLOWS: Array<{ name: string; bizBinding: string; spec: FlowSpec; n
         { from: "n5", to: "end" },
       ],
     },
+  },
+  {
+    name: "travel_change 默认流程",
+    bizBinding: "travel_change",
+    note: "project_manager 单步（等价迭代 2 策略；09b 补漏——策略迁移时遗漏该 biz_type）",
+    spec: linearFlow([{ label: "项目负责人审批", approver: PM }]),
   },
   {
     name: "funding 默认流程",
@@ -173,6 +178,12 @@ const DEFAULT_FLOWS: Array<{ name: string; bizBinding: string; spec: FlowSpec; n
     note: "审批人运行时解析（arch/07 §4.2：pm→partner 不自审；否则主项目 manager；无项目明细→默认审批人配置）——等价原占位策略",
     spec: linearFlow([{ label: "运行时解析（arch/07 §4.2）", approver: { kind: "initiator_manager" } }]),
   },
+  {
+    name: "generic_request 默认流程",
+    bizBinding: "generic_request",
+    note: "project_manager 单步（通用申请单默认审批人——数据会话推断默认值，无冻结策略来源，待架构确认）",
+    spec: linearFlow([{ label: "项目负责人审批", approver: PM }]),
+  },
 ];
 
 /** 演示：带金额条件+会签的 funding 自定义流程（enabled=false，默认流程仍生效，避免同 biz_binding 双启用歧义） */
@@ -229,10 +240,23 @@ async function ensureFlow(
   }
 }
 
-/** 八条默认流程（策略等价迁移）。minimal 档亦调用（仅默认流程，不含演示流程）。 */
+/** 十条默认流程（策略等价迁移，09b 补 travel_change/generic_request）。minimal 档亦调用（仅默认流程，不含演示流程）。 */
 export async function seedDefaultFlows(tx: SeedTx): Promise<void> {
   const pmId = await userIdByEmail(tx, "pm@lexflow.demo");
   for (const flow of DEFAULT_FLOWS) {
+    // 共存守卫（09b）：该 biz_binding 已有 enabled 的全局默认流程（如 prod 测试现场所建）即跳过——
+    // 按 (biz_binding, project_id null, enabled) 幂等，与既有流同名或异名均不冲突、不撞组合唯一索引。
+    const existing = await tx
+      .select({ id: flowDefinitions.id })
+      .from(flowDefinitions)
+      .where(
+        and(
+          eq(flowDefinitions.bizBinding, flow.bizBinding),
+          eq(flowDefinitions.enabled, true),
+          sql`${flowDefinitions.projectId} is null`,
+        ),
+      );
+    if (existing[0]) continue;
     await ensureFlow(tx, flow, pmId);
   }
 }

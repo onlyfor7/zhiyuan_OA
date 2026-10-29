@@ -154,20 +154,22 @@ describe("02b 实体状态列与流程项目绑定", () => {
         .from(projects)
         .where(eq(projects.code, `PRJ-${YEAR}-00001`));
       const emptyDef = { nodes: [{ id: "start", type: "start" }, { id: "end", type: "end" }], edges: [{ from: "start", to: "end" }] };
+      // 用虚构 biz_binding 做索引形态测试（十个引擎 biz_type 均已有种子默认流，避免撞组合）
+      const BIZ = "index_shape_test";
 
       // 同 biz_binding 双 enabled（均 null 项目 = 同一组合）→ 23505
       await expectPgViolation(
         db.insert(flowDefinitions).values([
-          { name: "f1 流程", scope: "global", bizBinding: "generic_request", versionNo: 1, definitionJson: emptyDef, enabled: true },
-          { name: "f2 流程", scope: "global", bizBinding: "generic_request", versionNo: 1, definitionJson: emptyDef, enabled: true },
+          { name: "f1 流程", scope: "global", bizBinding: BIZ, versionNo: 1, definitionJson: emptyDef, enabled: true },
+          { name: "f2 流程", scope: "global", bizBinding: BIZ, versionNo: 1, definitionJson: emptyDef, enabled: true },
         ]),
         "23505",
       );
       // 同 biz 不同项目组合（null 与 A）→ 可共存
       await expect(
         db.insert(flowDefinitions).values([
-          { name: "f3 流程", scope: "project", bizBinding: "generic_request", projectId: projectA[0].id, versionNo: 1, definitionJson: emptyDef, enabled: true },
-          { name: "f4 流程", scope: "global", bizBinding: "generic_request", versionNo: 1, definitionJson: emptyDef, enabled: true },
+          { name: "f3 流程", scope: "project", bizBinding: BIZ, projectId: projectA[0].id, versionNo: 1, definitionJson: emptyDef, enabled: true },
+          { name: "f4 流程", scope: "global", bizBinding: BIZ, versionNo: 1, definitionJson: emptyDef, enabled: true },
         ]).returning({ id: flowDefinitions.id }),
       ).resolves.toHaveLength(2);
       // 同 biz 同项目双 enabled → 23505
@@ -175,7 +177,7 @@ describe("02b 实体状态列与流程项目绑定", () => {
         db.insert(flowDefinitions).values({
           name: "f5 流程",
           scope: "project",
-          bizBinding: "generic_request",
+          bizBinding: BIZ,
           projectId: projectA[0].id,
           versionNo: 1,
           definitionJson: emptyDef,
@@ -188,19 +190,24 @@ describe("02b 实体状态列与流程项目绑定", () => {
         db.insert(flowDefinitions).values({
           name: "f6 流程",
           scope: "project",
-          bizBinding: "generic_request",
+          bizBinding: BIZ,
           projectId: "00000000-0000-0000-0000-000000000000",
           versionNo: 1,
           definitionJson: emptyDef,
         }),
         "23503",
       );
-      // 九条种子默认流程（null 项目）在新索引下互不冲突且仍唯一生效
+      // 十条种子默认流程（null 项目，含 09b 补的 travel_change/generic_request）在新索引下互不冲突且仍唯一生效
       const enabledDefaults = await db
         .select({ name: flowDefinitions.name })
         .from(flowDefinitions)
-        .where(and(eq(flowDefinitions.enabled, true), sql`${flowDefinitions.projectId} is null`));
-      expect(enabledDefaults).toHaveLength(9);
+        .where(
+          and(
+            eq(flowDefinitions.enabled, true),
+            sql`${flowDefinitions.projectId} is null and ${flowDefinitions.bizBinding} <> ${BIZ}`,
+          ),
+        );
+      expect(enabledDefaults).toHaveLength(10);
     } finally {
       await pool.end();
     }

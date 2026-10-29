@@ -60,6 +60,7 @@ interface PolicyRow {
 interface FlowRow {
   bizBinding: string;
   enabled: boolean;
+  projectId: string | null;
   definitionJson: { nodes: Array<Record<string, unknown>>; edges: Array<Record<string, unknown>> };
 }
 
@@ -132,7 +133,7 @@ describe("扩展域种子与约束（arch/09）", () => {
     await runSeed(TEST_DATABASE_URL);
     const counts = await countRows();
     expect(counts.payment_receipts).toBe(3);
-    expect(counts.flow_definitions).toBe(9); // 8 默认（策略等价迁移）+ 1 演示（disabled）
+    expect(counts.flow_definitions).toBe(11); // 10 默认（含 09b 补的 travel_change/generic_request）+ 1 演示（disabled）
     expect(counts.generic_requests).toBe(0);
     expect(counts.code_sequences).toBe(19);
     expect(counts.system_config).toBe(14);
@@ -291,6 +292,7 @@ describe("扩展域种子与约束（arch/09）", () => {
         ["travel", { borrow: true }],
         ["travel", { borrow: false, amount_cents: 6000000 }],
         ["travel", { borrow: false, amount_cents: 100000 }],
+        ["travel_change", {}],
         ["funding", { amount_cents: 6000000 }],
         ["funding", { amount_cents: 100000 }],
         ["expense", {}],
@@ -300,10 +302,30 @@ describe("扩展域种子与约束（arch/09）", () => {
       ];
       for (const [bizType, form] of scenarios) {
         const fromPolicy = resolvePolicy(policies, bizType, form);
-        const flow = flows.find((f) => f.bizBinding === bizType && f.enabled);
+        const flow = flows.find((f) => f.bizBinding === bizType && f.enabled && f.projectId === null);
         expect(flow, `${bizType} 应有唯一 enabled 默认流程`).toBeTruthy();
         const fromFlow = resolveFlow(flow!, form, configRows);
         expect(fromFlow, `${bizType} ${JSON.stringify(form)}`).toEqual(fromPolicy);
+      }
+
+      // 09b 补强：每个引擎接入的 biz_type 恰有 ≥1 条 enabled 全局默认流程（防策略迁移再漏）
+      const ENGINE_BIZ_TYPES = [
+        "change_request",
+        "travel",
+        "travel_change",
+        "funding",
+        "expense",
+        "expense_adjustment",
+        "budget",
+        "access_grant",
+        "timesheet",
+        "generic_request",
+      ];
+      for (const bizType of ENGINE_BIZ_TYPES) {
+        const defaults = flows.filter(
+          (f) => f.bizBinding === bizType && f.enabled && f.projectId === null,
+        );
+        expect(defaults.length, `${bizType} 应有 ≥1 条 enabled 默认流程`).toBeGreaterThanOrEqual(1);
       }
 
       // timesheet：占位策略 ↔ 运行时解析节点（initiator_manager）

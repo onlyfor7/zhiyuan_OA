@@ -95,7 +95,7 @@ describe("SEED_PROFILE=minimal 清库种子档（工单 07）", () => {
     expect(counts.system_config).toBe(14); // §18 全量 + timesheet.default_approver + generic_request.types
     // minimal 清单项：2 模板 + 默认审批流（8 条，无演示流程）+ 编号水位（19 前缀）
     expect(counts.project_templates).toBe(2);
-    expect(counts.flow_definitions).toBe(8);
+    expect(counts.flow_definitions).toBe(10); // 10 默认（含 09b 补的 travel_change/generic_request）
     expect(counts.code_sequences).toBe(19);
     // 零演示业务数据
     for (const table of MINIMAL_ZERO_TABLES) {
@@ -114,7 +114,7 @@ describe("SEED_PROFILE=minimal 清库种子档（工单 07）", () => {
         .select({ name: flowDefinitions.name, enabled: flowDefinitions.enabled })
         .from(flowDefinitions);
       expect(flows.every((f) => f.enabled)).toBe(true);
-      expect(flows).toHaveLength(8);
+      expect(flows).toHaveLength(10);
       const jia = await db.select({ id: clients.id }).from(clients).where(eq(clients.code, `CLT-${new Date().getFullYear()}-00004`));
       expect(jia).toHaveLength(0); // 佳力奇亦属演示数据，minimal 不建
     } finally {
@@ -132,7 +132,7 @@ describe("SEED_PROFILE=minimal 清库种子档（工单 07）", () => {
     const counts = await countRows();
     expect(counts.clients).toBe(4);
     expect(counts.projects).toBe(5);
-    expect(counts.flow_definitions).toBe(9); // 8 默认 + 1 演示
+    expect(counts.flow_definitions).toBe(11); // 10 默认 + 1 演示
     expect(counts.project_templates).toBe(2); // 模板不重复建行
     expect(counts.code_sequences).toBe(19);
     expect(counts.system_config).toBe(14);
@@ -147,7 +147,7 @@ describe("SEED_PROFILE=minimal 清库种子档（工单 07）", () => {
     const counts = await countRows();
     expect(counts.projects).toBe(5);
     expect(counts.clients).toBe(4);
-    expect(counts.flow_definitions).toBe(9);
+    expect(counts.flow_definitions).toBe(11);
     expect(counts.payment_receipts).toBe(3);
   });
 
