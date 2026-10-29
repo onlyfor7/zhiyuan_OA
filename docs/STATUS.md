@@ -79,8 +79,8 @@
 | 03b R1 修复与状态列切换 | 后端 | **通过** | 后端会话 | 2026-10-29 | 架构会话复测全过（R1 四路径同形 404、pm 对照正常、停用落列消失/恢复）；225/225 |
 | 04 扩展域前端接入 | 前端 | **通过** | 前端会话 | 2026-10-29 | 架构会话已验收（四道门全绿+走查截图核验）；4 项偏差裁定出 04b/04c 收口微工单 |
 | 04b 参照与配置端点补齐 | 后端 | **通过** | 后端会话 | 2026-10-29 | 架构会话已验收（三端点实弹：finance 清单/member 同形 404/types 公开读/userList roles 聚合） |
-| 04c 四处缺口收口 | 前端 | **待验收** | 前端会话 | 2026-10-29 | 三端点接线+配置驱动实弹证明；app 侧四道门全绿（tsc/eslint/build/test 23）；走查截图 D:\tmp\shots-iter6-gapfix\ |
-| 05 迭代 6 验收 + 佳力奇试用 | 测试 | 未认领 | | | 总收口，待 04 通过 |
+| 04c 四处缺口收口 | 前端 | **通过** | 前端会话 | 2026-10-29 | 架构会话已验收（四处接线截图核验+配置驱动实弹证明+四道门全绿） |
+| 05 迭代 6 验收 + 佳力奇试用 | 测试 | 未认领 | | | 总收口，已解锁 |
 
 ## 迭代 4 工单状态
 
@@ -160,6 +160,7 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-10-29｜架构｜迭代6-04c｜**工单 04c（四处缺口收口）验收通过。** 截图核验：收款登记项目下拉接 `receipts.projectOptions`（5 项目全可选，含无收款记录项目——①闭合）；/admin 用户表角色列 chip+移除+授予+停用/启用循环实测（②闭合）；申请单类型三处改读 `genericRequest.types` 且配置驱动实弹（改名即时生效+还原，③闭合）。四道门 app 侧全绿（build 最大 chunk 248kB）。迭代 6 全部功能棒完成。**解锁工单 05（测试会话·迭代 6 验收 + 佳力奇全周期模拟试用总收口）。**
 - 2026-10-29｜前端｜迭代6-04c｜**工单 04c（四处缺口前端收口）完成，转待验收。** 三处接线全部落地：① 收款登记项目下拉改接 `receipts.projectOptions`（替换原 summary 源）——参照级全量 5 项目全部可选，含无收款记录的「恒岳建设并购法律尽调」「星澜科技数据合规专项」，表单来源说明同步更新；② /admin 用户表补「角色」列（`userList.roles` 聚合，chip 呈现、× 即 unassignRole；walktest 实显 项目成员+合伙人 双 chip，gapfix2 临时用户完成 授予档案管理员→chip 出现→×移除 闭环；停用行「启用」按钮与 enableUser 实测 disable→revoked→启用→在职 全循环）；③ 通用申请单类型改从 `genericRequest.types` 公开读（列表筛选/发起表单/详情徽章三处统一，本地静态 REQUEST_TYPE_LABEL 移除）——**配置驱动实弹证明**：sysadmin setConfig 改 请假→年假（配置驱动）→ member 端发起表单即时生效（截图 g3-request-types-config）→ 还原配置→恢复 请假（g3-request-types-restored）。质量门 app 侧四道全绿：tsc --noEmit / eslint 0 / build（最大 chunk 248kB）/ vitest 23/23。CDP 走查截图 4 组（`D:\tmp\shots-iter6-gapfix\`：g1-register-project-options/g2-users-roles/g2-disabled-row/g3-request-types-config+g3-request-types-restored）。分支 `iter6/frontend-gapfix`（基于 04b 后端 HEAD c8ca9bf），`[前端]` 前缀 commit。**解锁工单 05（测试会话·迭代 6 验收 + 佳力奇试用总收口）。**
 - 2026-10-29｜架构｜迭代6-04b｜**工单 04b 验收通过。** 实弹复核：finance 经 `receipts.projectOptions` 拿到全部项目参照级清单（{id,code,name} 三键）；member 同形 404；`genericRequest.types` 任意登录可读（leave/procurement/seal/other key+label）；`admin.userList` roles 聚合在位（+mustChangePassword）。四道门 228/228 全绿。看板勘误：04b 状态行曾误落迭代 5 区，已归位。**解锁工单 04c（前端会话·四处缺口收口）。**
 - 2026-10-29｜后端｜迭代6-04b｜**工单 04b（参照与配置端点补齐）完成，转待验收。**三端点（依据 STATUS 置顶架构裁定条）：① **`receipts.projectOptions`**（新 query）——finance/partner 可调，返回全部项目参照级最小字段 `{id, code, name}`（ORDER BY code；无业务内容字段，测试逐键断言仅三键），收款登记表单项目下拉数据源；member/pm 等其他角色同形 404。② **`admin.userList` 增 `roles: string[]`**——join user_roles 按用户聚合成数组（pm→含 project_manager、member→["member"]），顺带暴露 mustChangePassword 便于管理端展示；sysadmin 门不变（member 调用仍 404）。③ **`genericRequest.types`**（新 query，任意登录可调）——读 `system_config.generic_request.types`，归一化为 `{key,label}` 形状输出（种子 [{key,name}] 映射 name→label；兼容纯字符串数组），未登录 401。测试：新增 `tests/api/gapfix-04b.test.ts` 3 用例（projectOptions 权限矩阵+最小字段断言；userList roles 聚合+门；types 形状+匿名 401）。怎么验证（逐条照工单验收命令）：`npm run test -w @lexflow/server` **205/205 绿**（既有 202 零回归 + 3 新）✓；根 `npm run test` 228/228（205+23）✓；根 `npm run typecheck`/`build` exit 0✓。提交：`iter6/server-gapfix` 分支 `[后端]` 前缀 commit。
