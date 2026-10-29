@@ -230,11 +230,24 @@ export function compileFlow(
 export async function findEnabledFlow(
   db: DbOrTx,
   bizType: string,
-  _projectId: string | null,
+  projectId: string | null,
 ): Promise<{ id: string; name: string; versionNo: number; definitionJson: Record<string, unknown>; scope: string } | null> {
-  // 注：flow_definitions 无 project_id 绑定列（数据棒 0007 未含），project scope 暂无法绑定到具体项目——
-  // 登记偏差待裁定；当前 enabled 流程一律按 global 生效（同 biz_binding 仅一条 enabled，索引保证）。
-  void _projectId;
+  // 02b 项目绑定列就位：项目 scope 且 project_id 匹配 → 优先于 global；
+  // 同 (biz_binding, project_id) 双 enabled 由 DB 部分唯一索引兜底
+  if (projectId) {
+    const scoped = await db
+      .select()
+      .from(flowDefinitions)
+      .where(
+        and(
+          eq(flowDefinitions.bizBinding, bizType),
+          eq(flowDefinitions.enabled, true),
+          eq(flowDefinitions.projectId, projectId),
+        ),
+      )
+      .limit(1);
+    if (scoped[0]) return scoped[0];
+  }
   const rows = await db
     .select()
     .from(flowDefinitions)

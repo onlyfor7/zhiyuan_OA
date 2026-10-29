@@ -47,7 +47,8 @@ export async function listClients(
   _user: SessionUser,
   input: { keyword?: string; cursor?: string; limit: number },
 ) {
-  const conditions: (SQL | undefined)[] = [];
+  // 02b：停用客户不下发（参照端点只提供可用主数据）
+  const conditions: (SQL | undefined)[] = [eq(clients.status, "active")];
   if (input.keyword) {
     const keyword = input.keyword.replace(/[\\%_]/g, (m) => `\\${m}`);
     conditions.push(or(ilike(clients.name, `%${keyword}%`), ilike(clients.code, `%${keyword}%`)));
@@ -77,7 +78,8 @@ export async function listMatters(
   _user: SessionUser,
   input: { keyword?: string; clientId?: string; cursor?: string; limit: number },
 ) {
-  const conditions: (SQL | undefined)[] = [];
+  // 02b：停用事项不下发
+  const conditions: (SQL | undefined)[] = [eq(matters.status, "active")];
   if (input.keyword) {
     const keyword = input.keyword.replace(/[\\%_]/g, (m) => `\\${m}`);
     conditions.push(or(ilike(matters.name, `%${keyword}%`), ilike(matters.code, `%${keyword}%`)));

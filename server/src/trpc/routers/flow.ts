@@ -19,6 +19,7 @@ export const flowRouter = router({
         name: z.string().trim().min(1).max(100),
         scope: z.enum(["global", "project"]),
         bizBinding: z.string().min(1).max(50),
+        projectId: z.uuid().optional(),
         definitionJson: definition,
       }),
     )

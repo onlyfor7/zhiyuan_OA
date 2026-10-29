@@ -34,7 +34,7 @@ export async function getFlowById(db: DbOrTx, user: SessionUser, id: string) {
 export async function createFlowDraft(
   db: DbOrTx,
   user: SessionUser,
-  input: { name: string; scope: "global" | "project"; bizBinding: string; definitionJson: Record<string, unknown> },
+  input: { name: string; scope: "global" | "project"; bizBinding: string; projectId?: string | null; definitionJson: Record<string, unknown> },
 ) {
   await requireFlowAdmin(db, user);
   validateFlowStructure(input.definitionJson); // FLOW_INVALID（400）
@@ -48,6 +48,7 @@ export async function createFlowDraft(
       name: input.name,
       scope: input.scope,
       bizBinding: input.bizBinding,
+      projectId: input.scope === "project" ? (input.projectId ?? null) : null,
       versionNo: Number(maxVersion.max) + 1,
       definitionJson: input.definitionJson,
       enabled: false,

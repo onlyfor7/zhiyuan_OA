@@ -131,17 +131,15 @@ export async function listReceipts(
 ) {
   const conditions: (SQL | undefined)[] = [];
   if (input.projectId) {
+    // R1：与 getById 同口径——无财务可见权角色（member/viewer 等）统一同形 404（arch/03 §5）
     await requireReceiptRead(db, user, input.projectId);
     conditions.push(eq(paymentReceipts.projectId, input.projectId));
-  } else if (user.globalRoles.includes("finance") || user.globalRoles.includes("partner")) {
-    if (!user.globalRoles.includes("partner") && user.globalRoles.includes("finance")) {
-      // finance 全量（处理职责）
-    } else if (user.globalRoles.includes("partner")) {
-      conditions.push(sql`${paymentReceipts.projectId} IN (SELECT id FROM projects WHERE ${projectScopeFilter(user)})`);
-    }
-  } else if (user.projectRoles.size > 0) {
+  } else if (user.globalRoles.includes("finance")) {
+    // finance 全量（处理职责）
+  } else if (user.globalRoles.includes("partner")) {
     conditions.push(sql`${paymentReceipts.projectId} IN (SELECT id FROM projects WHERE ${projectScopeFilter(user)})`);
   } else {
+    // R1 修复：member 等普通成员不再走 projectRoles>0 分支泄漏金额——同形 404
     throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "收款不存在或无权访问");
   }
   if (input.clientId) conditions.push(eq(paymentReceipts.clientId, input.clientId));
@@ -170,7 +168,8 @@ export async function summaryReceipts(
   user: SessionUser,
   input: { by: ReceiptSummaryBy; from?: string; to?: string },
 ) {
-  if (!(user.globalRoles.includes("finance") || user.globalRoles.includes("partner") || user.projectRoles.size > 0)) {
+  // R1：汇总含跨项目金额——仅 finance/partner 可见（member/viewer/pm 无跨项目财务权，同形 404）
+  if (!(user.globalRoles.includes("finance") || user.globalRoles.includes("partner"))) {
     throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "收款汇总不存在或无权访问");
   }
   const groupColumn =

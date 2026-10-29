@@ -24,10 +24,6 @@ async function requireAdminConfig(db: DbOrTx, user: SessionUser): Promise<void> 
   if (!allowed) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "无系统管理权限");
 }
 
-const MUST_CHANGE_KEY = "auth.must_change_password";
-const DISABLED_CLIENTS_KEY = "admin.disabled_clients";
-const DISABLED_MATTERS_KEY = "admin.disabled_matters";
-
 async function readJsonConfig<T>(db: DbOrTx, key: string, fallback: T): Promise<T> {
   const [row] = await db.select().from(systemConfig).where(eq(systemConfig.key, key)).limit(1);
   return (row?.valueJson as T | undefined) ?? fallback;
@@ -73,15 +69,12 @@ export async function createUser(
       name: input.name.trim(),
       passwordHash: hashPassword(initialPassword),
       status: "active",
+      mustChangePassword: true, // 02b 列就位：首登强制改密落到行
       orgUnitId: input.orgUnitId ?? null,
     })
     .returning({ id: users.id, email: users.email, name: users.name });
   if (!row) throw new Error("用户插入失败");
   await db.insert(userRoles).values({ userId: row.id, roleKey: input.roleKey }).onConflictDoNothing();
-  // 首登强制改密标记（system_config 承载，登记偏差）
-  const flags = await readJsonConfig<Record<string, boolean>>(db, MUST_CHANGE_KEY, {});
-  flags[row.id] = true;
-  await writeJsonConfig(db, MUST_CHANGE_KEY, flags, actor.id);
   await recordAudit(db, {
     actorId: actor.id,
     sessionId: input.sessionId,
@@ -164,9 +157,11 @@ export async function createClient(db: DbOrTx, actor: SessionUser, input: { name
 
 export async function setClientDisabled(db: DbOrTx, actor: SessionUser, input: { clientId: string; disabled: boolean; ip: string | null; sessionId: string | null }) {
   await requireAdminConfig(db, actor);
-  const list = await readJsonConfig<string[]>(db, DISABLED_CLIENTS_KEY, []);
-  const next = input.disabled ? [...new Set([...list, input.clientId])] : list.filter((id) => id !== input.clientId);
-  await writeJsonConfig(db, DISABLED_CLIENTS_KEY, next, actor.id);
+  // 02b 列就位：停用落到行（status=active/disabled），非删除、不存 system_config
+  await db
+    .update(clients)
+    .set({ status: input.disabled ? "disabled" : "active", updatedBy: actor.id, updatedAt: new Date().toISOString() })
+    .where(eq(clients.id, input.clientId));
   await recordAudit(db, { actorId: actor.id, sessionId: input.sessionId, action: "admin.setClientDisabled", targetType: "client", targetId: input.clientId, result: "success", afterJson: { disabled: input.disabled }, ip: input.ip });
   return { disabled: input.disabled };
 }
@@ -184,9 +179,10 @@ export async function createMatter(db: DbOrTx, actor: SessionUser, input: { clie
 
 export async function setMatterDisabled(db: DbOrTx, actor: SessionUser, input: { matterId: string; disabled: boolean; ip: string | null; sessionId: string | null }) {
   await requireAdminConfig(db, actor);
-  const list = await readJsonConfig<string[]>(db, DISABLED_MATTERS_KEY, []);
-  const next = input.disabled ? [...new Set([...list, input.matterId])] : list.filter((id) => id !== input.matterId);
-  await writeJsonConfig(db, DISABLED_MATTERS_KEY, next, actor.id);
+  await db
+    .update(matters)
+    .set({ status: input.disabled ? "disabled" : "active", updatedBy: actor.id, updatedAt: new Date().toISOString() })
+    .where(eq(matters.id, input.matterId));
   await recordAudit(db, { actorId: actor.id, sessionId: input.sessionId, action: "admin.setMatterDisabled", targetType: "matter", targetId: input.matterId, result: "success", afterJson: { disabled: input.disabled }, ip: input.ip });
   return { disabled: input.disabled };
 }
@@ -215,7 +211,7 @@ export async function updateTemplate(db: DbOrTx, actor: SessionUser, input: { id
   return updated;
 }
 
-const CONFIG_WHITELIST = new Set<string>([...Object.values(CONFIG_KEY), MUST_CHANGE_KEY, DISABLED_CLIENTS_KEY, DISABLED_MATTERS_KEY]);
+const CONFIG_WHITELIST = new Set<string>([...Object.values(CONFIG_KEY)]);
 
 export async function getConfig(db: DbOrTx, actor: SessionUser, input: { key: string }) {
   await requireAdminConfig(db, actor);
@@ -265,11 +261,7 @@ export async function changePassword(
   await db.update(users).set({ passwordHash: hashPassword(input.newPassword), updatedAt: new Date().toISOString() }).where(eq(users.id, user.id));
   // 全会话失效（含本会话——改密后须重新登录）
   await db.update(sessions).set({ expiresAt: new Date().toISOString() }).where(eq(sessions.userId, user.id));
-  const flags = await readJsonConfig<Record<string, boolean>>(db, MUST_CHANGE_KEY, {});
-  if (flags[user.id]) {
-    delete flags[user.id];
-    await writeJsonConfig(db, MUST_CHANGE_KEY, flags, user.id);
-  }
+  await db.update(users).set({ mustChangePassword: false }).where(eq(users.id, user.id));
   await recordAudit(db, {
     actorId: user.id,
     sessionId: input.sessionId,
@@ -284,6 +276,7 @@ export async function changePassword(
 }
 
 export async function mustChangePasswordFlag(db: DbOrTx, userId: string): Promise<boolean> {
-  const flags = await readJsonConfig<Record<string, boolean>>(db, MUST_CHANGE_KEY, {});
-  return flags[userId] === true;
+  // 02b 列就位：读 users.must_change_password（system_config 临时键已被迁移删除）
+  const [row] = await db.select({ mustChangePassword: users.mustChangePassword }).from(users).where(eq(users.id, userId)).limit(1);
+  return row?.mustChangePassword === true;
 }
