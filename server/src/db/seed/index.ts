@@ -12,6 +12,7 @@ import { clients, matters, orgUnits, projectMembers, projects, roles, systemConf
 import { SYSTEM_CONFIG_DEFAULTS } from "./config-defaults";
 import { seedClosure } from "./closure";
 import { seedCollab } from "./collab";
+import { seedExtensions } from "./extensions";
 import { seedFinance } from "./finance";
 import { seedGovernance } from "./governance";
 import { seedTime } from "./time";
@@ -295,6 +296,9 @@ async function seedSchema(databaseUrl: string): Promise<void> {
 
       // 迭代 5 收口种子（客户 3/项目 5、项目 A 全链闭环核销/归档/授权）
       await seedClosure(tx);
+
+      // 迭代 6 扩展域种子（默认流程等价迁移/演示流程/佳力奇主数据/收款演示）
+      await seedExtensions(tx);
 
       // 编号序列水位对齐到种子最大序号，避免后续 next_code 撞号
       await tx.execute(

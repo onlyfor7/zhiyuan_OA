@@ -21,6 +21,9 @@ export const CODE_PREFIX = {
   STG: "STG", // 阶段
   MLS: "MLS", // 里程碑
   DLV: "DLV", // 交付物
+  // RCV/REQ：2026-10-29 由架构会话正式增补进注册表（arch/00 §3.5 v1.3，arch/09 §2/§3）。
+  RCV: "RCV", // 收款登记
+  REQ: "REQ", // 通用申请单
 } as const;
 export type CodePrefix = (typeof CODE_PREFIX)[keyof typeof CODE_PREFIX];
 
@@ -52,6 +55,8 @@ export const CONFIG_KEY = {
   APPROVAL_AMOUNT_THRESHOLDS: "approval.amount_thresholds",
   /** 工时默认审批人（arch/07 §4.2：无项目明细周期提交时的 org 指定审批人） */
   TIMESHEET_DEFAULT_APPROVER: "timesheet.default_approver",
+  /** 通用申请单类型配置（arch/09 §3.2：种子 leave/procurement/seal/other，可扩充） */
+  GENERIC_REQUEST_TYPES: "generic_request.types",
 } as const;
 export type ConfigKey = (typeof CONFIG_KEY)[keyof typeof CONFIG_KEY];
 

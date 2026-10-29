@@ -30,12 +30,12 @@ describe("种子幂等与验收布局", () => {
     expect(first.roles).toBe(8); // arch/03 §1
     expect(first.users).toBe(12); // ≥10
     expect(first.user_roles).toBe(12);
-    expect(first.clients).toBe(3); // 华宸 / 星澜 / 恒岳（arch/08 §7）
-    expect(first.matters).toBe(3);
+    expect(first.clients).toBe(4); // 华宸 / 星澜 / 恒岳 / 佳力奇（虚构，承工单 06）
+    expect(first.matters).toBe(4);
     expect(first.projects).toBe(5); // A/B/C + D 恒岳尽调 + E 数据合规
     expect(first.project_members).toBe(12); // 4+2+2+2+2
-    expect(first.system_config).toBe(13); // 需求基线 §18 全量 12 项 + timesheet.default_approver（arch/07 §4.2）
-    expect(first.code_sequences).toBe(17); // CLT/MTR/PRJ/STG/MLS/TSK/DLV/QLT/DEC/RPT/MTG/TRV/BUD/FND/EXP/LED/TS（closure 为既有前缀上移水位）
+    expect(first.system_config).toBe(14); // 13 + generic_request.types（arch/09 §3.2）
+    expect(first.code_sequences).toBe(19); // 17 + RCV/REQ
   });
 
   it("验收场景布局：pm 负责 A/B、member 仅在 A、C 对二者不可见", async () => {

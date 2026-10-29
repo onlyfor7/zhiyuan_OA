@@ -17,7 +17,9 @@ import {
   DELIVERABLE_STATUS,
   EXPENSE_CATEGORY,
   EXPENSE_STATUS,
+  FLOW_SCOPE,
   FUNDING_USAGE_STATUS,
+  GENERIC_REQUEST_STATUS,
   LEDGER_ENTRY_TYPE,
   MEETING_STATUS,
   MEETING_TYPE,
@@ -32,6 +34,7 @@ import {
   QUALITY_EVENT_ACTION,
   QUALITY_ISSUE_STATUS,
   QUALITY_SEVERITY,
+  RECEIPT_STATUS,
   SEGMENT_TYPE,
   STAGE_STATUS,
   TASK_STATUS,
@@ -135,3 +138,11 @@ export const timesheetStatusEnum = pgEnum("timesheet_status", TIMESHEET_PERIOD_S
 export const timeActivityTypeEnum = pgEnum("time_activity_type", TIME_ACTIVITY_TYPE);
 
 export const timeEntrySourceEnum = pgEnum("time_entry_source", TIME_ENTRY_SOURCE);
+
+/** 迭代 6 扩展域枚举（arch/09 §2/§3） */
+
+export const receiptStatusEnum = pgEnum("receipt_status", RECEIPT_STATUS);
+
+export const flowScopeEnum = pgEnum("flow_scope", FLOW_SCOPE);
+
+export const genericRequestStatusEnum = pgEnum("generic_request_status", GENERIC_REQUEST_STATUS);

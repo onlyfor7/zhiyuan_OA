@@ -24,6 +24,10 @@ export const ERROR_CODE = {
   SELF_REVIEW_BLOCKED: "SELF_REVIEW_BLOCKED",
   /** 审批策略无命中（arch/04 §2.9/§4） */
   POLICY_NOT_FOUND: "POLICY_NOT_FOUND",
+  /** 流程定义结构非法（arch/09 §3.1：环/悬空/start|end 不唯一/条件分支单边） */
+  FLOW_INVALID: "FLOW_INVALID",
+  /** 流程校验不过不可发布（arch/09 §3.1：解析为空/自审全跳过等阻断发布） */
+  FLOW_UNPUBLISHABLE: "FLOW_UNPUBLISHABLE",
   /** 兜底，无堆栈，带 requestId */
   INTERNAL: "INTERNAL",
 } as const;

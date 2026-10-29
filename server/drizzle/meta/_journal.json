@@ -50,6 +50,13 @@
       "when": 1793159975263,
       "tag": "0006_iter5-hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793258081276,
+      "tag": "0007_iter6-extensions",
+      "breakpoints": true
     }
   ]
 }

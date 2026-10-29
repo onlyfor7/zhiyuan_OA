@@ -64,6 +64,9 @@ export const ALL_TABLES = [
   "expense_adjustments",
   "timesheet_periods",
   "time_entries",
+  "payment_receipts",
+  "flow_definitions",
+  "generic_requests",
 ] as const;
 
 export async function migrateToLatest(url: string = TEST_DATABASE_URL): Promise<void> {

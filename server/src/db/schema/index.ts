@@ -9,3 +9,4 @@ export * from "./governance";
 export * from "./collab";
 export * from "./finance";
 export * from "./time";
+export * from "./extensions";

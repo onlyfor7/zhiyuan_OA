@@ -3,3 +3,4 @@ export * from "./state-machines";
 export * from "./domain";
 export * from "./governance";
 export * from "./collab";
+export * from "./extensions";

@@ -59,4 +59,16 @@ export const SYSTEM_CONFIG_DEFAULTS: ReadonlyArray<{ key: string; value: Record<
       note: "arch/07 §4.2：无项目明细的工时周期提交时 org 指定默认审批人",
     },
   },
+  {
+    key: CONFIG_KEY.GENERIC_REQUEST_TYPES,
+    value: {
+      types: [
+        { key: "leave", name: "请假" },
+        { key: "procurement", name: "采购" },
+        { key: "seal", name: "用章" },
+        { key: "other", name: "其他" },
+      ],
+      note: "arch/09 §3.2：固定核心字段，不做自由表单设计器；system_config 可扩充",
+    },
+  },
 ];

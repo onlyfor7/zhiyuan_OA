@@ -59,8 +59,8 @@ describe("工时域种子与约束", () => {
     const counts = await countRows();
     expect(counts.timesheet_periods).toBe(3);
     expect(counts.time_entries).toBe(13); // A×4 + B×6 + C×3
-    expect(counts.code_sequences).toBe(17); // 17 + CLT/MTR/PRJ/FND/EXP/LED 水位
-    expect(counts.system_config).toBe(13);
+    expect(counts.code_sequences).toBe(19); // 17 + CLT/MTR/PRJ/FND/EXP/LED 水位
+    expect(counts.system_config).toBe(14); // 13 + generic_request.types
 
     const { db, pool } = await openDb();
     try {
