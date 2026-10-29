@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 
-import type { NotificationEventType, SourceType } from "@lexflow/shared";
+import type { NotificationEventType } from "@lexflow/shared";
 
 import { notifications } from "../db/schema";
 import type { DbOrTx } from "../trpc/context";
@@ -19,7 +19,8 @@ function dayKey(): string {
 export interface NotifyInput {
   eventType: NotificationEventType;
   recipientId: string;
-  sourceType: SourceType;
+  /** notifications.source_type 为 text 无枚举约束；冻结 SourceType 之外的新来源（generic_request 等）亦可入 */
+  sourceType: string;
   sourceId: string;
   payload?: Record<string, unknown>;
   /** 覆写聚合键（默认 event:sourceId:日；「只提醒一次」类事件用 sourceId:once） */
@@ -46,7 +47,7 @@ export async function notify(db: DbOrTx, input: NotifyInput): Promise<void> {
 export async function markHandledFor(
   db: DbOrTx,
   recipientId: string,
-  sourceType: SourceType,
+  sourceType: string,
   sourceId: string,
 ): Promise<void> {
   await db

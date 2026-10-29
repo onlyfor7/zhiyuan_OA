@@ -247,8 +247,10 @@ describe("迭代 4 工时域（D1–D6/D10）", () => {
     expect(submitted.status).toBe(200);
     const instanceId = (submitted.json as { result: { data: { instance: { id: string } } } }).result.data.instance.id;
     const detail = await trpc(app, "approval.getById", { cookie: partnerCookie, input: { id: instanceId }, method: "GET" });
-    const steps = (detail.json as { result: { data: { steps: { approverRole: string | null }[]; approverId: string } } }).result.data;
-    expect(steps.steps[0].approverRole).toBeNull(); // 运行时解析落具体人
+    const steps = (detail.json as { result: { data: { steps: { approverRole: string | null; approverId: string }[] } } }).result.data;
+    // 流程编译后 approverRole 标记 initiator_manager（arch/09 §3.1），审批人落 partner 具体人
+    expect(steps.steps[0].approverRole).toBe("initiator_manager");
+    expect(steps.steps[0].approverId).toBeTruthy();
     // pm 自审被拦（非当前审批人）
     const selfAct = await trpc(app, "approval.act", { cookie: pmCookie, input: { instanceId, stepSeq: 1, action: "approve", idempotencyKey: crypto.randomUUID() } });
     expect(selfAct.status).toBe(404);

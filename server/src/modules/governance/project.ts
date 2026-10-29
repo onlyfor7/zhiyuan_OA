@@ -4,6 +4,7 @@ import { ERROR_CODE } from "@lexflow/shared";
 
 import {
   archiveDirectories,
+  paymentReceipts,
   changeRequests,
   decisions,
   planItems,
@@ -354,10 +355,23 @@ export async function projectOverview(db: DbOrTx, user: SessionUser, projectId: 
     .where(eq(projects.id, projectId))
     .limit(1);
 
-  // 财务摘要（arch/06 §8）：仅 pm/partner/finance 可见；成员默认不见（E2E-12）
+  // 财务摘要（arch/06 §8）+ 收款摘要（arch/09 §2）：仅 pm/partner/finance 可见；成员默认不见（E2E-12）
   let budgetSummary: Awaited<ReturnType<typeof aggregateProject>> | null = null;
+  let receiptSummary: { registeredCents: number; voidedCents: number; netCents: number } | null = null;
   if (canFinanceSummary(user, projectId)) {
     budgetSummary = await aggregateProject(db, projectId);
+    const [receiptRow] = await db
+      .select({
+        registered: sql<number>`coalesce(sum(${paymentReceipts.amountCents}) filter (where ${paymentReceipts.status} = 'registered'), 0)::float8`,
+        voided: sql<number>`coalesce(sum(${paymentReceipts.amountCents}) filter (where ${paymentReceipts.status} = 'voided'), 0)::float8`,
+      })
+      .from(paymentReceipts)
+      .where(eq(paymentReceipts.projectId, projectId));
+    receiptSummary = {
+      registeredCents: Number(receiptRow.registered),
+      voidedCents: Number(receiptRow.voided),
+      netCents: Number(receiptRow.registered) - Number(receiptRow.voided),
+    };
   }
 
   return {
@@ -370,6 +384,7 @@ export async function projectOverview(db: DbOrTx, user: SessionUser, projectId: 
     pendingApprovals: pendingApprovals.n,
     myRole: user.projectRoles.get(projectId) ?? null,
     budgetSummary,
+    receiptSummary,
   };
 }
 

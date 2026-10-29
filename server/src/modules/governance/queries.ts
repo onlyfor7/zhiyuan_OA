@@ -14,6 +14,7 @@ import {
   meetingMinutes,
   meetings,
   notifications,
+  paymentReceipts,
   projects,
   qualityIssues,
   tasks,
@@ -117,7 +118,30 @@ export async function getApprovalById(db: DbOrTx, user: SessionUser, id: string)
     .from(approvalSteps)
     .where(eq(approvalSteps.instanceId, id))
     .orderBy(approvalSteps.seq);
-  return { ...instance, steps };
+  // 流程节点图进度（arch/09 §3.3）：自定义流程实例附 compiledSteps 映射
+  const snapshot = instance.policySnapshot as { flowName?: string; flowVersion?: number; compiledSteps?: Array<{ nodeId: string; label: string; conditionTrace: unknown[] }> } | null;
+  let flowProgress: {
+    flowName: string;
+    flowVersion: number | null;
+    currentNodeLabel: string | null;
+    nodes: Array<{ label: string; status: string; conditionTrace: unknown[] }>;
+  } | null = null;
+  if (snapshot?.flowName && Array.isArray(snapshot.compiledSteps)) {
+    const seqByIndex = new Map(snapshot.compiledSteps.map((_, idx) => [idx + 1, snapshot.compiledSteps![idx]]));
+    flowProgress = {
+      flowName: snapshot.flowName,
+      flowVersion: snapshot.flowVersion ?? null,
+      currentNodeLabel: null,
+      nodes: steps.map((step) => ({
+        label: seqByIndex.get(step.seq)?.label ?? `子步 ${step.seq}`,
+        status: step.status,
+        conditionTrace: seqByIndex.get(step.seq)?.conditionTrace ?? [],
+      })),
+    };
+    const current = steps.find((s) => s.seq === instance.currentStepSeq);
+    if (current) flowProgress.currentNodeLabel = seqByIndex.get(current.seq)?.label ?? null;
+  }
+  return { ...instance, steps, flowProgress };
 }
 
 /* ===== notification ===== */
@@ -531,6 +555,27 @@ export async function dashboardSummary(db: DbOrTx, user: SessionUser) {
     pendingMinutes: minutesByStatus.get("pending_approval") ?? 0,
   };
 
+  // 收款卡（arch/09 §2：角色范围过滤；finance/partner 可见）
+  let receiptsSummary: { registeredCents: number; voidedCents: number; netCents: number } | null = null;
+  if (user.globalRoles.includes("finance") || user.globalRoles.includes("partner")) {
+    const receiptRow = await db
+      .select({
+        registered: sql<number>`coalesce(sum(${paymentReceipts.amountCents}) filter (where ${paymentReceipts.status} = 'registered'), 0)::float8`,
+        voided: sql<number>`coalesce(sum(${paymentReceipts.amountCents}) filter (where ${paymentReceipts.status} = 'voided'), 0)::float8`,
+      })
+      .from(paymentReceipts)
+      .where(
+        user.globalRoles.includes("finance")
+          ? sql`true` // finance 处理职责：全量（与 expense list 同口径）
+          : sql`${paymentReceipts.projectId} IN (SELECT id FROM projects WHERE ${scope})`,
+      );
+    receiptsSummary = {
+      registeredCents: Number(receiptRow[0].registered),
+      voidedCents: Number(receiptRow[0].voided),
+      netCents: Number(receiptRow[0].registered) - Number(receiptRow[0].voided),
+    };
+  }
+
   // 财务摘要（arch/06 §8：角色过滤，成员不见）
   let financeSummary: { effectiveBudgetCents: number; actualCents: number; reservedCents: number } | null = null;
   if (user.globalRoles.includes("partner") || user.globalRoles.includes("finance")) {
@@ -561,6 +606,7 @@ export async function dashboardSummary(db: DbOrTx, user: SessionUser) {
     weeklyMeetings: weeklyMeetings.n,
     travelingCount: traveling.n,
     financeSummary,
+    receiptsSummary,
     timeCard,
   };
 }

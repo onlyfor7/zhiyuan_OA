@@ -740,6 +740,30 @@ export function registerTimesheetHandler(): void {
   });
 }
 
+registerHandler("generic_request", {
+  async onApproved(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
+    const { genericRequests } = await import("../../db/schema");
+    await tx
+      .update(genericRequests)
+      .set({ status: "approved", updatedAt: new Date().toISOString(), rowVersion: sql`${genericRequests.rowVersion} + 1` })
+      .where(and(eq(genericRequests.id, instance.bizId), eq(genericRequests.status, "pending_approval")));
+  },
+  async onRejected(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
+    const { genericRequests } = await import("../../db/schema");
+    await tx
+      .update(genericRequests)
+      .set({ status: "rejected", updatedAt: new Date().toISOString(), rowVersion: sql`${genericRequests.rowVersion} + 1` })
+      .where(and(eq(genericRequests.id, instance.bizId), eq(genericRequests.status, "pending_approval")));
+  },
+  async onWithdrawn(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
+    const { genericRequests } = await import("../../db/schema");
+    await tx
+      .update(genericRequests)
+      .set({ status: "withdrawn", updatedAt: new Date().toISOString(), rowVersion: sql`${genericRequests.rowVersion} + 1` })
+      .where(and(eq(genericRequests.id, instance.bizId), eq(genericRequests.status, "pending_approval")));
+  },
+});
+
 /** 引擎处理器注册入口（server 启动与测试 setup 各调用一次，幂等覆盖） */
 export function registerApprovalHandlers(): void {
   registerChangeRequestHandler();

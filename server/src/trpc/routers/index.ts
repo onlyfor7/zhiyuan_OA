@@ -23,6 +23,9 @@ import { expenseRouter } from "./expense";
 import { timeRouter } from "./time";
 import { searchRouter } from "./search";
 import { adminRouter } from "./admin";
+import { flowRouter } from "./flow";
+import { receiptsRouter } from "./receipts";
+import { genericRequestRouter } from "./generic-request";
 import { router } from "../trpc";
 
 /** AppRouter：前端经 `import type { AppRouter } from "@lexflow/server"` 消费推断类型 */
@@ -52,6 +55,9 @@ export const appRouter = router({
   time: timeRouter,
   search: searchRouter,
   admin: adminRouter,
+  flow: flowRouter,
+  receipts: receiptsRouter,
+  genericRequest: genericRequestRouter,
 });
 
 export type AppRouter = typeof appRouter;

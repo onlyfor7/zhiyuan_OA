@@ -30,7 +30,7 @@ export interface LoginResult {
  * 登录：email + scrypt 口令校验，成功建服务端会话（arch/00 §4）。
  * 在事务中调用（session 建行 + 审计同事务）。
  */
-export async function login(db: DbOrTx, input: LoginInput): Promise<LoginResult> {
+export async function login(db: DbOrTx, input: LoginInput): Promise<LoginResult & { mustChangePassword: boolean }> {
   const rows = await db
     .select({
       id: users.id,
@@ -62,11 +62,13 @@ export async function login(db: DbOrTx, input: LoginInput): Promise<LoginResult>
     .returning({ id: sessions.id });
   if (!session) throw new Error("会话插入失败");
 
+  const { mustChangePasswordFlag } = await import("../admin/admin");
   return {
     sessionToken,
     sessionId: session.id,
     tokenHash,
     user: { id: user.id, email: user.email, name: user.name },
+    mustChangePassword: await mustChangePasswordFlag(db, user.id),
   };
 }
 
@@ -90,7 +92,7 @@ export interface MeResult {
 }
 
 /** auth.me：本人可见项目 = 成员项目（与 projectScopeFilter 同口径） */
-export async function buildMe(db: DbOrTx, user: SessionUser): Promise<MeResult> {
+export async function buildMe(db: DbOrTx, user: SessionUser): Promise<MeResult & { mustChangePassword: boolean }> {
   const memberships = [...user.projectRoles.entries()];
   let projects: MeResult["projects"] = [];
   if (memberships.length > 0) {
@@ -118,9 +120,11 @@ export async function buildMe(db: DbOrTx, user: SessionUser): Promise<MeResult> 
     orgUnit = orgRows[0] ?? null;
   }
 
+  const { mustChangePasswordFlag } = await import("../admin/admin");
   return {
     user: { id: user.id, email: user.email, name: user.name, orgUnit },
     globalRoles: user.globalRoles,
     projects,
+    mustChangePassword: await mustChangePasswordFlag(db, user.id),
   };
 }

@@ -7,6 +7,7 @@ import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
 import type { DbOrTx } from "../../trpc/context";
 import { notify } from "../../modules/notify";
+import { compileFlow, findEnabledFlow } from "./flow";
 
 /**
  * 统一审批引擎（arch/04 §4 接口逐字；arch/03 §6：唯一审批实现，禁止各模块自建）。
@@ -16,7 +17,7 @@ import { notify } from "../../modules/notify";
  * countersign=all 且多候选人 → 展开为 seq=i*1000+j（j=1..N），组键=floor(seq/1000)。
  */
 
-export type BizType = "change_request" | "access_grant" | "travel" | "travel_change" | "budget" | "funding" | "expense" | "expense_adjustment" | "timesheet";
+export type BizType = "change_request" | "access_grant" | "travel" | "travel_change" | "budget" | "funding" | "expense" | "expense_adjustment" | "timesheet" | "generic_request";
 
 export interface ApprovalInstanceRow {
   id: string;
@@ -53,10 +54,15 @@ export function registerHandler(bizType: string, h: ApprovalHandlers): () => voi
   };
 }
 
-/** biz_type → 通知 source_type（travel_change 归属 travel 来源） */
-function bizSourceType(bizType: string): "change_request" | "access_grant" | "travel" {
+/** biz_type → 通知 source_type（travel_change 归属 travel；notifications.source_type 为 text 无枚举约束） */
+function bizSourceType(bizType: string): string {
   if (bizType === "change_request") return "change_request";
   if (bizType === "travel" || bizType === "travel_change") return "travel";
+  if (bizType === "budget") return "budget";
+  if (bizType === "funding") return "funding";
+  if (bizType === "expense" || bizType === "expense_adjustment") return "expense";
+  if (bizType === "timesheet") return "time_entry";
+  if (bizType === "generic_request") return "generic_request";
   return "access_grant";
 }
 function groupKey(seq: number): number {
@@ -109,6 +115,15 @@ async function resolveRoleCandidates(
   role: string,
   projectId: string | null,
 ): Promise<string[]> {
+  if (role === "project_manager" && projectId === "__global_pm_pool__") {
+    // 全局范围流程的 project_manager 解析：全部 pm 全局角色用户（通用申请单等无项目上下文）
+    const rows = await db
+      .select({ userId: userRoles.userId })
+      .from(userRoles)
+      .innerJoin(users, eq(users.id, userRoles.userId))
+      .where(and(eq(userRoles.roleKey, "project_manager"), eq(users.status, "active")));
+    return rows.map((r) => r.userId);
+  }
   if (role === "project_manager") {
     if (!projectId) return [];
     const rows = await db
@@ -201,8 +216,74 @@ export async function submit(db: DbOrTx, input: SubmitInput): Promise<ApprovalIn
     .limit(1);
   if (dup[0]) return dup[0] as ApprovalInstanceRow;
 
-  const policy = await resolvePolicy(db, input.bizType, input.formSnapshot);
-  const steps = await resolveSteps(db, policy, input.projectId ?? null, input.applicantId, input.runtimeApproverId);
+  // 流程编译器优先（arch/09 §3.1）：enabled flow_definitions → 条件按表单快照求值展开步骤；
+  // 无自定义流程回退 approval_policies（E4 既有 biz_type 零回归）
+  const flow = await findEnabledFlow(db, input.bizType, input.projectId ?? null);
+  let policySnapshot: Record<string, unknown>;
+  let steps: ResolvedStep[];
+  if (flow) {
+    // 金额键名归一：travel 等快照用 estimated_cost_cents，流程条件白名单为 amount_cents（arch/09 §3.1）
+    const evalSnapshot = {
+      ...input.formSnapshot,
+      amount_cents: input.formSnapshot.amount_cents ?? input.formSnapshot.estimated_cost_cents ?? null,
+    };
+    const compiled = compileFlow(flow.definitionJson, evalSnapshot);
+    steps = [];
+    for (let i = 0; i < compiled.steps.length; i++) {
+      const node = compiled.steps[i];
+      let candidates: string[] = [];
+      if (node.kind === "role") {
+        if (node.role === "project_manager" && !input.projectId) {
+          // 全局范围流程（generic_request 等无项目上下文）：project_manager 解析为全部 pm 角色用户
+          candidates = await resolveRoleCandidates(db, "project_manager", "__global_pm_pool__");
+        } else {
+          candidates = await resolveRoleCandidates(db, node.role!, input.projectId ?? null);
+        }
+      } else if (node.kind === "user") {
+        candidates = node.userId ? [node.userId] : [];
+      } else if (node.kind === "initiator_manager") {
+        candidates = input.runtimeApproverId ? [input.runtimeApproverId] : [];
+      } else if (node.kind === "project_manager") {
+        candidates = input.projectId ? await resolveRoleCandidates(db, "project_manager", input.projectId) : [];
+      }
+      candidates = candidates.filter((id) => id !== input.applicantId);
+      if (candidates.length === 0) {
+        throw new BusinessError(
+          ERROR_CODE.SELF_APPROVAL_BLOCKED,
+          `流程节点「${node.label}」无可用审批人（申请人本人不可自审）`,
+        );
+      }
+      if (node.countersign === "all" && candidates.length > 1) {
+        candidates.forEach((candidate, j) => {
+          steps.push({ seq: (i + 1) * 1000 + (j + 1), countersign: "all", candidates: [candidate], approverRole: null });
+        });
+      } else {
+        steps.push({
+          seq: i + 1,
+          countersign: node.countersign,
+          candidates,
+          // role 存角色名；project_manager/initiator_manager 存 kind 供成员校验与前端识别；user 置空（精确到人）
+          approverRole: node.kind === "role" ? node.role : node.kind === "user" ? null : node.kind,
+        });
+      }
+    }
+    policySnapshot = {
+      flowId: flow.id,
+      flowName: flow.name,
+      flowVersion: flow.versionNo,
+      compiledSteps: compiled.steps,
+    };
+  } else {
+    const policy = await resolvePolicy(db, input.bizType, input.formSnapshot);
+    steps = await resolveSteps(db, policy, input.projectId ?? null, input.applicantId, input.runtimeApproverId);
+    policySnapshot = {
+      policyId: policy.id,
+      bizType: policy.bizType,
+      matchJson: policy.matchJson,
+      stepsJson: policy.stepsJson,
+      description: policy.description,
+    };
+  }
   // escalate：在策略步骤之后追加管理层步骤（原因已写入 formSnapshot）
   for (const role of input.extraStepRoles ?? []) {
     const candidates = (await resolveRoleCandidates(db, role, input.projectId ?? null)).filter(
@@ -227,13 +308,7 @@ export async function submit(db: DbOrTx, input: SubmitInput): Promise<ApprovalIn
       projectId: input.projectId ?? null,
       applicantId: input.applicantId,
       formSnapshot: input.formSnapshot,
-      policySnapshot: {
-        policyId: policy.id,
-        bizType: policy.bizType,
-        matchJson: policy.matchJson,
-        stepsJson: policy.stepsJson,
-        description: policy.description,
-      },
+      policySnapshot,
       currentStepSeq: steps[0].seq,
       status: "pending",
       idempotencyKey: input.idempotencyKey,

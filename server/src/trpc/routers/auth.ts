@@ -65,4 +65,22 @@ export const authRouter = router({
   me: authedProcedure.query(async ({ ctx }) => {
     return buildMe(ctx.db, ctx.user);
   }),
+
+  /** 自助改密（arch/09 §4.2）：验旧口令 + 全会话失效 + 审计（service 内强制） */
+  changePassword: anonMutation
+    .input(
+      z.object({
+        oldPassword: z.string().min(1, "原口令必填"),
+        newPassword: z.string().min(8, "新口令至少 8 位").max(100),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { changePassword } = await import("../../modules/admin/admin");
+      return changePassword(ctx.db, ctx.user!, {
+        oldPassword: input.oldPassword,
+        newPassword: input.newPassword,
+        ip: ctx.ip,
+        sessionId: ctx.session?.id ?? null,
+      });
+    }),
 });
