@@ -80,7 +80,7 @@
 | 04 扩展域前端接入 | 前端 | **通过** | 前端会话 | 2026-10-29 | 架构会话已验收（四道门全绿+走查截图核验）；4 项偏差裁定出 04b/04c 收口微工单 |
 | 04b 参照与配置端点补齐 | 后端 | **通过** | 后端会话 | 2026-10-29 | 架构会话已验收（三端点实弹：finance 清单/member 同形 404/types 公开读/userList roles 聚合） |
 | 04c 四处缺口收口 | 前端 | **通过** | 前端会话 | 2026-10-29 | 架构会话已验收（四处接线截图核验+配置驱动实弹证明+四道门全绿） |
-| 05 迭代 6 验收 + 佳力奇试用 | 测试 | 未认领 | | | 总收口，已解锁 |
+| 05 迭代 6 验收 + 佳力奇试用 | 测试 | **待验收** | 测试会话 | 2026-10-29 | E1–E10 取证完成（E2/E6 附 R6/R7/R8 偏差钉现状）、235/235 零回归、四道门全绿；佳力奇试用 6/6（22 截图，新功能三件套两项全通）；收口待架构裁定 R6–R8 |
 
 ## 迭代 4 工单状态
 
@@ -139,6 +139,10 @@
 ## 偏差与仲裁
 
 | 日期 | 会话 | 事项 | 架构裁定 | 状态 |
+| 2026-10-29 | 测试 | **R6（验收实测缺陷）**：`receipts.create` 的 idempotencyKey 被接受但未落库（payment_receipts 无该列），同键重放双记（实测 RCV-00006/00007 同键两号）——违反 arch/02 §3.7 创建类 mutation 幂等铁律 | 待裁定。修复规格：payment_receipts 加 idempotency_key 唯一列（可空）+ create 先查后插/23505 兜底返回首次结果；iter6-acceptance E1 已钉现状（修复后改回 toBe(1)/同 id 断言） | 待裁定 |
+| 2026-10-29 | 测试 | **R7（验收实测缺陷）**：`flow.publish` 对既有 biz_type（travel/budget）发布 500 INTERNAL（generic_request 发布正常）——arch/09 §3.1「既有 biz_type 全部可自定义流程」不可用；E2/E4 合同场景阻塞 | 待裁定。修复规格：排查 publish 对非 generic 绑定路径（与 approval_policies 兼容迁移相关）的未捕获异常，补用例（travel 发布→业务走自定义→disable 回默认）；iter6-acceptance E2 已钉现状 | 待裁定 |
+| 2026-10-29 | 测试 | **R8（验收实测缺陷）**：`admin.setConfig` 改 `approval.amount_thresholds.fundingManagementReviewCents` 返回 200 但引擎策略匹配不读该配置（match_json 硬编码 min_amount_cents），改配置前后经费审批均两步——arch/09 §6 E6「阈值改配置即生效」不成立 | 待裁定。修复规格：策略 match 阶段读取 system_config 阈值（或迁移 match_json 为配置引用）；iter6-acceptance E6 已钉现状（修复后改回 toHaveLength(1)）。附带观察：admin.createMatter 对不存在 clientId 返回 500（应为 4xx） | 待裁定 |
+
 |---|---|---|---|---|
 | 2026-10-28 | 测试 | **P0（系统验收实测发现）**：生产栈（:8080）SPA 多级路径深链白屏——`vite base:'./'` 相对资产路径在 `/meetings/:id`、`/projects/:id`、`/expenses/:id` 等多段路径下被解析为 `/<seg>/assets/...`，nginx SPA 回退返回 HTML 致 React 挂载失败（实测：index.html 200、chunk 200 但内容为 HTML、root innerHTML=0、无 JS 异常）；单段路径（/login、/cockpit）不受影响故部署冒烟未暴露。影响：生产环境全部业务详情深链/刷新/回跳不可用。建议修复：app 构建 base 改 `/`（或 nginx assets 绝对别名）后重建镜像。E2E 矩阵暂按工单「dev 或 prod」约定改用 dev 栈执行，prod 复测留修复后 | **裁定：缺陷属实且违反基线 §5.3 硬性要求（直链/刷新），迭代 5 不关闭**。架构会话已独立证实（深链资产路径返回 text/html）。修复链：03b 前端改 `base:'/'` → 04b 部署重建 web 镜像复起 → 05b 测试 prod 深链复测。E2E「dev 或 prod」约定修订为「至少 prod 栈复测深链」。测试会话发现并如实上报 P0、判定不阻塞但不隐瞒——符合验收职责 | **已关闭**：03b 前端 base '/' 修复 + 04b 重建 web 镜像复起（架构复核确认资产 application/javascript），05b 测试会话 Playwright 深链复测 4/4 全过（10 桌面深链+3 移动+刷新/返回+核心链冒烟，截图 D:	mp\shots-iter5-deeplink\） |
 
@@ -160,6 +164,8 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-10-29｜测试｜迭代6-05｜**工单 05 完成，转待验收（主体验收通过；R6/R7/R8 三项合同缺陷已登记偏差待裁定，阻塞 E2/E6 完全收口）。** 交付物：① `server/tests/api/iter6-acceptance.test.ts` 7 用例（E1 收款登记/作废行保留+void 审计/viewer 404/export 审计+R6 钉现状；E2 设计器建流程+非法形态 400 拦截+R7 钉现状（publish 对既有 biz_type 500，early-return 留修复后续测）；E3 start/end 不唯一 400；E5 通用申请单全链+approval_result 通知；E6 建客户→事项→立即可立项+停用即失效+R8 钉现状（阈值配置未接入）；E7 改密旧会话 401+旧口令拒登；E8 sysadmin/member/partner 权限矩阵）；② `e2e/specs/jlq-trial.spec.ts` **佳力奇试用 6/6 通过**（P0 /admin UI 建事项实拍、P1 UI 立项直进空间、P4 出差借款会签 UI 双批+完成登记、P5 经费四数+台账勾稽、**P6 收款登记 50 万元入项目收入台账**（UI 元→分换算/列表/总览摘要/DB 三处勾稽）、P11 375px 移动审批中心+汉堡导航）；③ `docs/测试报告/迭代6-验收报告.md` + `佳力奇全周期模拟试用报告.md`（时序 22 步+覆盖矩阵+未覆盖清单+R6–R8 四要素缺陷表）。怎么验证（全实测）：四道门 typecheck✓ build✓ test✓ **235/235**（server 212+app 23；既有 **228 零回归**）migrate✓；试用 JLQ_BASE=dev `npx playwright test jlq-trial.spec.ts` 6/6。**环境注意：prod :8080 为迭代 5 形态（web 镜像 04b 重建不含迭代 6）**，试用改 dev 栈并如实记录，prod 重建后补跑。**运维注意：dev 库 member/quality/liuchang 口令被历棒改动，已恢复 Demo@2026**（UPDATE password_hash 同步 pm 行，试用前验证）。建议架构裁定 R6（receipts 幂等列+先查后插）/R7（publish 非 generic 绑定 500）/R8（阈值配置接入策略 match）修复排期，均为局部改动；修复后翻转三处钉现状断言并补跑佳力奇 P2/P3/P7–P10/P12。提交：`[测试]` 前缀 commit。
+- 2026-10-29｜架构｜迭代6-04c｜**工单 04c 验收通过：四处接线截图核验+配置驱动实弹，解锁工单05**
 - 2026-10-29｜架构｜迭代6-04c｜**工单 04c（四处缺口收口）验收通过。** 截图核验：收款登记项目下拉接 `receipts.projectOptions`（5 项目全可选，含无收款记录项目——①闭合）；/admin 用户表角色列 chip+移除+授予+停用/启用循环实测（②闭合）；申请单类型三处改读 `genericRequest.types` 且配置驱动实弹（改名即时生效+还原，③闭合）。四道门 app 侧全绿（build 最大 chunk 248kB）。迭代 6 全部功能棒完成。**解锁工单 05（测试会话·迭代 6 验收 + 佳力奇全周期模拟试用总收口）。**
 - 2026-10-29｜前端｜迭代6-04c｜**工单 04c（四处缺口前端收口）完成，转待验收。** 三处接线全部落地：① 收款登记项目下拉改接 `receipts.projectOptions`（替换原 summary 源）——参照级全量 5 项目全部可选，含无收款记录的「恒岳建设并购法律尽调」「星澜科技数据合规专项」，表单来源说明同步更新；② /admin 用户表补「角色」列（`userList.roles` 聚合，chip 呈现、× 即 unassignRole；walktest 实显 项目成员+合伙人 双 chip，gapfix2 临时用户完成 授予档案管理员→chip 出现→×移除 闭环；停用行「启用」按钮与 enableUser 实测 disable→revoked→启用→在职 全循环）；③ 通用申请单类型改从 `genericRequest.types` 公开读（列表筛选/发起表单/详情徽章三处统一，本地静态 REQUEST_TYPE_LABEL 移除）——**配置驱动实弹证明**：sysadmin setConfig 改 请假→年假（配置驱动）→ member 端发起表单即时生效（截图 g3-request-types-config）→ 还原配置→恢复 请假（g3-request-types-restored）。质量门 app 侧四道全绿：tsc --noEmit / eslint 0 / build（最大 chunk 248kB）/ vitest 23/23。CDP 走查截图 4 组（`D:\tmp\shots-iter6-gapfix\`：g1-register-project-options/g2-users-roles/g2-disabled-row/g3-request-types-config+g3-request-types-restored）。分支 `iter6/frontend-gapfix`（基于 04b 后端 HEAD c8ca9bf），`[前端]` 前缀 commit。**解锁工单 05（测试会话·迭代 6 验收 + 佳力奇试用总收口）。**
 - 2026-10-29｜架构｜迭代6-04b｜**工单 04b 验收通过。** 实弹复核：finance 经 `receipts.projectOptions` 拿到全部项目参照级清单（{id,code,name} 三键）；member 同形 404；`genericRequest.types` 任意登录可读（leave/procurement/seal/other key+label）；`admin.userList` roles 聚合在位（+mustChangePassword）。四道门 228/228 全绿。看板勘误：04b 状态行曾误落迭代 5 区，已归位。**解锁工单 04c（前端会话·四处缺口收口）。**
