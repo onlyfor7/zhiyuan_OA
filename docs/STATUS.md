@@ -63,7 +63,7 @@
 | 04 生产构建与部署 | 部署 | **通过** | 部署会话 | 2026-10-28 | 架构会话已验收（三服务 healthy、prod 全链冒烟、备份恢复演练复核、交付物齐备） |
 | 05 系统验收 | 测试 | **通过（E2E 主体）** | 测试会话 | 2026-10-28 | 七条总门中 E2E/安全/性能/冷启动全过；P0 生产深链缺陷证实，迭代 5 待 03b→04b→05b 收口链完成后关闭 |
 | 03b 修正 vite base | 前端 | **通过** | 前端会话 | 2026-10-28 | 架构会话已验收（diff 仅一行、产物绝对路径、app 四道门全绿） |
-| 04b 重建 web 镜像复起 | 部署 | 未认领 | | | 已解锁 |
+| 04b 重建 web 镜像复起 | 部署 | 待验收 | 部署会话 | 2026-10-29 | 重建实录见交接记录置顶条；深链资产解析 P0 佐证通过 |
 | 05b 生产栈深链复测 | 测试 | 未认领 | | | 待 04b 通过 |
 
 ## 迭代 4 工单状态
@@ -143,6 +143,7 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-10-29｜部署｜迭代5-04b｜**工单 04b（重建 web 镜像复起）完成，转待验收（重建实录如下）。** 做了什么：① 同步 03b 合入代码（commit `9bc1c67`，`app/vite.config.ts` 确认 `base: '/'`）；② 沿用本机 buildkit 规避方案（compose build 在后台 shell 报 gRPC sharedkey 非 ASCII 错，见工单 04 交接条）`docker build -f app/Dockerfile -t lexflow-prod-web .` 重建——92s、exit 0，vite v7.3.7 真实重跑（非全缓存）；③ `docker compose -f docker-compose.prod.yml --env-file .env.production up -d` 复起：仅 web 容器重建，postgres/server 未动（Up 14h 未重启），**未重灌种子，现有演示数据原样**（projects=5/users=12）。**重建实录：新镜像 `lexflow-prod-web:latest` ID `2f66d21ff62e`（sha256:2f66d21ff62e4e879530cd188bb5632ed42cf3458293f511bd1a33e91f022071，构建于 2026-10-29 10:48:11 +0800）；起栈 2026-10-29T02:48:46Z 发起、8 秒后三服务全 healthy。** 怎么验证（全实测）：⑴ index.html 资产全部绝对路径——`src="/assets/index-DpA4iQBy.js"`、`href="/assets/vendor-{router,data,react}-*.js"`；⑵ 三服务 healthy（lexflow-prod-postgres/server/web）；⑶ 首页 GET / → 200 text/html；⑷ **P0 修复佐证**：深链 `GET /meetings/<随机uuid>` 返回 index.html 且其引用资产 `/assets/index-DpA4iQBy.js` 实测 200 `application/javascript`（原缺陷形态=chunk 返回 text/html 已消除，深链白屏链路断点闭合）；⑸ 登录正常——pm@lexflow.demo 经 nginx :8080 登录成功（Set-Cookie lexflow_session 在位、auth.me 返回陈立）。按工单「不改 compose/配置、不重灌种子」，无任何配置变更，提交仅 STATUS.md。遗留：无。prod 栈保持运行（:8080）供 05b 深链复测直接使用。
 - 2026-10-28｜架构｜迭代5-03b｜**工单 03b（vite base 修复）验收通过。** 独立复核：diff 恰为一行 `base './'→'/'`；app 四道门全绿（typecheck/lint/build 0 警告/test 23）；产物 dist/index.html 资产引用全部绝对路径（`/assets/index-*.js` 等）；dev 深链回归声明采信。**P0 代码侧已修复，等 04b 重建镜像后在 prod 栈复测（05b）确认关闭。解锁工单 04b（部署会话）。** 小备注：该提交作者身份为部署会话属本会话 git 配置问题，不影响审计内容；建议各会话开工核对本地 git user。
 - 2026-10-28｜前端｜迭代5-03b｜**工单 03b（修正 vite base 致生产深链白屏，P0）完成，转待验收。** 修复：`app/vite.config.ts` `base: './'` → `base: '/'`（一行）。验证：① dev 深链无回归——vite 重启后 `/projects/:id/overview`、`/meetings/:id`、`/operations/time`、`/search?q=` 直开 200 且 CDP 实测 SPA 真实渲染（任务总数/全局搜索文案命中，非白屏）；dev HTML 引用 `/src/main.tsx` 绝对路径。② `npm run build` 产物 `dist/index.html` 资产引用全部绝对路径（`src="/assets/index-*.js"`、`href="/assets/vendor-*.js"`）——生产多级路径下浏览器将正确从根解析资产，nginx SPA 回退不再顶替 JS。③ 质量门 app 侧全绿不回归：typecheck✓ lint✓ build✓（含 manualChunks 三分 vendor，0 条 >500kB 警告）test 23/23✓。④ 全仓无其他 base 依赖（截图基线/E2E 均走绝对 URL；`./assets` 引用零残留）。**交接给 04b（部署重建镜像）**：前端侧已就绪，重建 web 镜像后深链白屏应消除，复测路径 `/projects/<uuid>/overview` 与 `/meetings/<uuid>`；本修复随 `iter5/frontend-base-fix` 分支 `[前端]` commit。运维备注：本机 dev 进程（3000/3001）曾出现僵死（登录挂起 100s→500），已清端口重启恢复；另注意到 `lexflow-prod-*` 容器（部署棒产物）已在运行，dev 与 prod 注意区分端口。
 
