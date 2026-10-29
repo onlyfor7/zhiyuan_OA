@@ -19,6 +19,12 @@ export function useReceiptSummary(by: "project" | "client" | "period", enabled =
   return useQuery(trpc.receipts.summary.queryOptions({ by }, { enabled }));
 }
 
+/** 登记表单项目下拉（arch 裁定 04b-①：receipts.projectOptions 参照级清单；finance/partner，其余同形 404） */
+export function useReceiptProjectOptions(enabled = true) {
+  const trpc = useTRPC();
+  return useQuery(trpc.receipts.projectOptions.queryOptions(undefined, { enabled }));
+}
+
 export function useReceiptMutations() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();

@@ -4,6 +4,12 @@ import { useTRPC } from "../lib/trpc";
 
 /** 通用申请单 hooks（arch/09 §3.2：genericRequest.*） */
 
+/** 申请类型清单公开读（arch 裁定 04b-③：任意登录用户；前端不再本地静态） */
+export function useRequestTypes() {
+  const trpc = useTRPC();
+  return useQuery(trpc.genericRequest.types.queryOptions());
+}
+
 type RequestStatus = "draft" | "pending_approval" | "approved" | "rejected" | "withdrawn";
 
 export function useRequestList(input: { mine?: boolean; requestType?: string; status?: RequestStatus }) {

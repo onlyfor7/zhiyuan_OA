@@ -6,6 +6,7 @@ import {
   useReceiptExport,
   useReceiptList,
   useReceiptMutations,
+  useReceiptProjectOptions,
   useReceiptSummary,
 } from "../api/receipts";
 import { useRail } from "../components/shell-rail";
@@ -49,14 +50,9 @@ export default function ReceiptsCenterPage() {
   const listFilter = projectId || managed[0]?.id ? { projectId: projectId || managed[0]!.id } : {};
   const list = useReceiptList(listFilter, canView && view === "list");
   const summary = useReceiptSummary("project", canView && view === "income");
-  const summaryForRegister = useReceiptSummary("project", canWrite && view === "register");
-  // 登记项目源 = 我管理的项目 ∪ 收款汇总（by project）已出现项目（finance 全量口径）；
-  // 契约缺口：无面向 finance 的项目参照端点（project.list 按成员/授权范围过滤），偏差已登记 STATUS
-  const registerProjects = useMemo(() => {
-    const fromSummary = (summaryForRegister.data?.items ?? []).map((i) => ({ id: i.key, name: i.name ?? i.key }));
-    const seen = new Set(managed.map((p) => p.id));
-    return [...managed, ...fromSummary.filter((p) => !seen.has(p.id))];
-  }, [managed, summaryForRegister.data]);
+  // 登记项目源（arch 裁定 04b-①）：receipts.projectOptions 参照级清单（全部项目，无收款记录的新项目可登记）
+  const projectOptions = useReceiptProjectOptions(canWrite && view === "register");
+  const registerProjects = useMemo(() => projectOptions.data ?? [], [projectOptions.data]);
   const exportCsv = useReceiptExport();
   const mutations = useReceiptMutations();
   const [voidTarget, setVoidTarget] = useState<{ id: string; rowVersion: number } | null>(null);
@@ -294,7 +290,7 @@ function ReceiptRegisterForm({
   return (
     <div className="grant-apply-form">
       <p className="context-note">
-        项目清单 = 我管理的项目 ∪ 收款汇总中已出现项目（财务全量口径）；登记后项目即进入下拉。
+        项目清单来自 receipts.projectOptions（参照级，全部项目）；登记后金额不可编辑，更正=作废+新登记。
       </p>
       <div className="owner-line">
         <label className="form-field">

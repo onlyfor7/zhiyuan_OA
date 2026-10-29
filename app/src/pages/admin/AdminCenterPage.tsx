@@ -114,7 +114,7 @@ function UsersTab() {
   return (
     <div className="preview-tab-body">
       <div className="quality-toolbar">
-        <span className="toolbar-hint">角色以 assignRole/unassignRole 操作（当前角色列表后端未返回，见交接记录）</span>
+        <span className="toolbar-hint">角色列展示当前角色（userList.roles，arch 裁定 04b-②）；× 移除该角色，下方选择器授予；停用=全部会话立即失效</span>
         <button className="primary-action" onClick={() => setShowCreate((v) => !v)}>
           <Plus size={15} />
           创建用户
@@ -190,6 +190,7 @@ function UsersTab() {
         <div className="grant-head">
           <span>用户</span>
           <span>部门</span>
+          <span>角色</span>
           <span>角色操作</span>
           <span>状态</span>
           <span />
@@ -204,6 +205,24 @@ function UsersTab() {
               </span>
             </div>
             <span>{u.orgUnitName ?? "—"}</span>
+            <span className="role-chips">
+              {u.roles.length === 0
+                ? "—"
+                : u.roles.map((r) => (
+                    <button
+                      key={r}
+                      className="role-chip"
+                      title={`移除角色：${GLOBAL_ROLE_LABEL[r] ?? r}`}
+                      disabled={mutations.unassignRole.isPending}
+                      onClick={() => {
+                        setError(null);
+                        mutations.unassignRole.mutate({ userId: u.id, roleKey: r }, { onError: (err) => setError(rootErrorMessage(err)) });
+                      }}
+                    >
+                      {GLOBAL_ROLE_LABEL[r] ?? r} ×
+                    </button>
+                  ))}
+            </span>
             <RoleOps userId={u.id} onError={(msg) => setError(msg)} />
             <span className={u.status === "active" ? "grant-status" : "log-denied"}>
               {u.status === "active" ? "在职" : "已停用"}

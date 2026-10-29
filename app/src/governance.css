@@ -1403,5 +1403,17 @@
   :is(.preview-screen, .receipts-center-screen, .admin-screen) .grant-row > * { display: block; margin: 4px 0; overflow-wrap: anywhere; }
 }
 
+.role-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.role-chip {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 1px 8px;
+  font-size: 10px;
+  cursor: pointer;
+}
+.role-chip:hover { border-color: var(--red, #b3261e); color: #b3261e; }
+.role-chip:disabled { opacity: 0.5; cursor: default; }
+
 .designer-props .check-line { grid-template-columns: 18px 1fr; }
 .designer-props .check-line small { grid-column: 2; }

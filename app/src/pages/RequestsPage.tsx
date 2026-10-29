@@ -3,19 +3,13 @@ import { Link, useParams } from "react-router";
 import { ArrowRight, ChevronRight, Plus } from "lucide-react";
 
 import { useApproval } from "../api/approval";
-import { useRequest, useRequestList, useRequestMutations } from "../api/generic-request";
+import { useRequest, useRequestList, useRequestMutations, useRequestTypes } from "../api/generic-request";
 import { useMe } from "../api/auth";
 import { useRail } from "../components/shell-rail";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
 import { formatYuan } from "../api/reference";
 import { FlowProgressGraph } from "../components/FlowProgressGraph";
 
-const REQUEST_TYPE_LABEL: Record<string, string> = {
-  leave: "请假",
-  procurement: "采购",
-  seal: "用章",
-  other: "其他",
-};
 const STATUS_LABEL: Record<string, string> = {
   draft: "草稿",
   pending_approval: "审批中",
@@ -48,6 +42,9 @@ export default function RequestsPage() {
   const [scope, setScope] = useState<"mine" | "all">("mine");
   const [typeFilter, setTypeFilter] = useState("");
   const list = useRequestList(scope === "mine" || !isPrivileged ? { mine: true } : {});
+  const types = useRequestTypes();
+  const typeItems = types.data?.items ?? [];
+  const typeLabel = (key: string) => typeItems.find((i) => i.key === key)?.label ?? key;
   const [createOpen, setCreateOpen] = useState(false);
 
   if (list.isPending) return <p className="list-note">正在加载申请单…</p>;
@@ -80,9 +77,9 @@ export default function RequestsPage() {
         ) : null}
         <select value={typeFilter} aria-label="申请类型" onChange={(e) => setTypeFilter(e.target.value)}>
           <option value="">全部类型</option>
-          {Object.entries(REQUEST_TYPE_LABEL).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
+          {typeItems.map((i) => (
+            <option key={i.key} value={i.key}>
+              {i.label}
             </option>
           ))}
         </select>
@@ -100,7 +97,7 @@ export default function RequestsPage() {
             <Link className="report-row" key={r.id} to={`/requests/${r.id}`}>
               <div>
                 <strong>
-                  <span className="badge badge-minutes-pending_confirm">{REQUEST_TYPE_LABEL[r.requestType] ?? r.requestType}</span>{" "}
+                  <span className="badge badge-minutes-pending_confirm">{typeLabel(r.requestType)}</span>{" "}
                   {r.title}
                 </strong>
                 <small>
@@ -129,6 +126,8 @@ export default function RequestsPage() {
 
 function RequestCreateForm({ onDone }: { onDone: () => void }) {
   const mutations = useRequestMutations();
+  const types = useRequestTypes();
+  const typeItems = types.data?.items ?? [];
   const [requestType, setRequestType] = useState("leave");
   const [title, setTitle] = useState("");
   const [reason, setReason] = useState("");
@@ -152,9 +151,9 @@ function RequestCreateForm({ onDone }: { onDone: () => void }) {
         <label className="form-field">
           <span>申请类型 *</span>
           <select value={requestType} onChange={(e) => setRequestType(e.target.value)}>
-            {Object.entries(REQUEST_TYPE_LABEL).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
+            {typeItems.map((i) => (
+              <option key={i.key} value={i.key}>
+                {i.label}
               </option>
             ))}
           </select>
@@ -227,6 +226,8 @@ export function RequestDetailPage() {
   const request = useRequest(requestId ?? null);
   const approval = useApproval(request.data?.approvalInstanceId ?? null);
   const mutations = useRequestMutations();
+  const types = useRequestTypes();
+  const typeLabel = (key: string) => types.data?.items.find((i) => i.key === key)?.label ?? key;
   const [error, setError] = useState<string | null>(null);
 
   if (request.isPending) return <p className="list-note">正在加载申请单…</p>;
@@ -243,7 +244,7 @@ export function RequestDetailPage() {
             <span>{r.code}</span>
           </div>
           <h1>
-            <span className="badge badge-minutes-pending_confirm">{REQUEST_TYPE_LABEL[r.requestType] ?? r.requestType}</span>{" "}
+            <span className="badge badge-minutes-pending_confirm">{typeLabel(r.requestType)}</span>{" "}
             {r.title}
           </h1>
           <p>
