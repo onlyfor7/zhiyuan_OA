@@ -1,5 +1,4 @@
-import { index, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
-
+import { boolean, index, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { userStatusEnum } from "./enums";
 
 /** 组织树（arch/01 §1） */
@@ -25,6 +24,8 @@ export const users = pgTable(
     passwordHash: text("password_hash").notNull(),
     status: userStatusEnum("status").notNull().default("active"),
     externalId: text("external_id"),
+    /** 首登强制改密标记落到行（arch/09 §4.2 裁定；替代 auth.must_change_password 临时配置键） */
+    mustChangePassword: boolean("must_change_password").notNull().default(false),
     orgUnitId: uuid("org_unit_id").references(() => orgUnits.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),

@@ -20,7 +20,6 @@ import { fileVersions } from "./files";
 import { users } from "./org";
 import { clients, projects } from "./business";
 import { approvalInstances } from "./governance";
-
 /** 通用审计四件套字段（arch/01 §2） */
 const auditFour = {
   createdBy: uuid("created_by").references(() => users.id, { onDelete: "restrict" }),
@@ -78,6 +77,8 @@ export const flowDefinitions = pgTable(
     name: text("name").notNull(),
     scope: flowScopeEnum("scope").notNull().default("global"),
     bizBinding: text("biz_binding").notNull(),
+    /** 项目绑定（02b 裁定）：project scope 流程绑定项目；null = 该 scope 全部项目 */
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "restrict" }),
     versionNo: integer("version_no").notNull(),
     definitionJson: jsonb("definition_json").$type<Record<string, unknown>>().notNull(),
     enabled: boolean("enabled").notNull().default(false),
@@ -86,8 +87,13 @@ export const flowDefinitions = pgTable(
   },
   (t) => [
     unique("flow_definitions_name_version_unique").on(t.name, t.versionNo),
-    // 每 name 恰一个 enabled（arch/09 §3.1）
-    uniqueIndex("flow_definitions_enabled_unique").on(t.name).where(sql`enabled = true`),
+    // 每 (biz_binding, 项目) 组合恰一 enabled（02b：项目绑定优先于 global 的解析归 03b）
+    uniqueIndex("flow_definitions_enabled_unique")
+      .on(
+        t.bizBinding,
+        sql`coalesce(${t.projectId}, '00000000-0000-0000-0000-000000000000')`,
+      )
+      .where(sql`enabled = true`),
     index("flow_definitions_biz_binding_idx").on(t.bizBinding),
   ],
 );

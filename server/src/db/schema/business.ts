@@ -3,12 +3,13 @@ import { index, integer, pgTable, primaryKey, text, timestamp, uuid } from "driz
 import { confidentialityLevelEnum, projectHealthStatusEnum, projectLifecycleStatusEnum } from "./enums";
 import { users } from "./org";
 
-/** 客户（arch/01 §1；虚构数据，arch/00 §8） */
+/** 客户（arch/09 §4.2：停用落到行，status=active/disabled；非删除） */
 export const clients = pgTable("clients", {
   id: uuid("id").primaryKey().defaultRandom(),
   code: text("code").notNull().unique(),
   name: text("name").notNull(),
   confidentialityLevel: confidentialityLevelEnum("confidentiality_level").notNull().default("internal"),
+  status: text("status").notNull().default("active"),
   createdBy: uuid("created_by").references(() => users.id, { onDelete: "restrict" }),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "restrict" }),
@@ -16,7 +17,7 @@ export const clients = pgTable("clients", {
   rowVersion: integer("row_version").notNull().default(0),
 });
 
-/** 事项/案件（arch/01 §1） */
+/** 事项/案件（arch/01 §1；status=active/disabled，停用到行） */
 export const matters = pgTable("matters", {
   id: uuid("id").primaryKey().defaultRandom(),
   code: text("code").notNull().unique(),
@@ -25,6 +26,7 @@ export const matters = pgTable("matters", {
     .references(() => clients.id, { onDelete: "restrict" }),
   name: text("name").notNull(),
   type: text("type").notNull().default(""),
+  status: text("status").notNull().default("active"),
   createdBy: uuid("created_by").references(() => users.id, { onDelete: "restrict" }),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "restrict" }),

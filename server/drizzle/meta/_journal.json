@@ -57,6 +57,13 @@
       "when": 1793258081276,
       "tag": "0007_iter6-extensions",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793268085118,
+      "tag": "0008_iter6-entity-columns",
+      "breakpoints": true
     }
   ]
 }
