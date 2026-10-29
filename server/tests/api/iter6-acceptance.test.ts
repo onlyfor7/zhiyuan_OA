@@ -81,13 +81,18 @@ describe("迭代 6 验收·扩展域（arch/09 §6）", () => {
       cookie: financeCookie,
       input: { projectId: projectBId, amountCents: 88_000, receivedOn: "2027-11-01", referenceNo: "BNK-E1", idempotencyKey: key },
     });
-    // R6 已登记偏差（arch/02 §3.7 要求创建类幂等；payment_receipts 未落 idempotency_key）——钉现状：重放返回新 id（contract 期望同 id；修复后改回 toBe）
-    expect((r2.json as { result: { data: { id: string } } }).result.data.id).not.toBe((r1.json as { result: { data: { id: string } } }).result.data.id);
+    // R6 修复（arch/00 §3.7）：同键重放返回首次登记（同 id、单行），异键正常双记
+    expect((r2.json as { result: { data: { id: string } } }).result.data.id).toBe((r1.json as { result: { data: { id: string } } }).result.data.id);
     const rid = (r1.json as { result: { data: { id: string } } }).result.data.id;
     const rows = await query<{ n: number }>(`SELECT count(*)::int AS n FROM payment_receipts WHERE reference_no='BNK-E1'`);
-    expect(rows[0].n).toBeGreaterThanOrEqual(1);
+    expect(rows[0].n).toBe(1); // 同键双调单行
+    const r3 = await trpc(app, "receipts.create", {
+      cookie: financeCookie,
+      input: { projectId: projectBId, amountCents: 88_000, receivedOn: "2027-11-01", referenceNo: "BNK-E1", idempotencyKey: crypto.randomUUID() },
+    });
+    expect(r3.status).toBe(200);
     const dupCount = await query<{ n: number }>(`SELECT count(*)::int AS n FROM payment_receipts WHERE reference_no='BNK-E1'`);
-    expect(dupCount[0].n).toBe(2); // R6 钉现状：同键双记（contract 期望 1；修复后改回）
+    expect(dupCount[0].n).toBe(2); // 异键双行（幂等键不串）
 
     const voided = await trpc(app, "receipts.void", { cookie: financeCookie, input: { id: rid, reason: "E1 冲正", rowVersion: 0 } });
     expect(voided.status).toBe(200);
@@ -135,9 +140,13 @@ describe("迭代 6 验收·扩展域（arch/09 §6）", () => {
     if (draft.status !== 200) throw new Error("flowDraft: " + JSON.stringify(draft.json).slice(0, 400));
     const flowId = (draft.json as { result: { data: { id: string } } }).result.data.id;
     const pub = await trpc(app, "flow.publish", { cookie: sysadminCookie, input: { id: flowId, idempotencyKey: crypto.randomUUID() } });
-    // R7 已登记偏差：flow.publish 对既有 biz_type（travel）500（generic_request 正常）——钉现状（contract 期望 200；修复后改回）
-    expect(pub.status).toBe(500);
-    if (pub.status !== 200) return; // R7 阻塞后续链路（未发布=走默认流程），修复后删除此行继续断言节点进度/disable 回退
+    // R7 修复：flow.publish 对既有 biz_type（travel）正常 200 并接管（释放同 binding 默认流）
+    expect(pub.status).toBe(200);
+    expect((pub.json as { result: { data: { published: boolean } } }).result.data.published).toBe(true);
+    // publish 幂等重放：已启用再发布 → 200 + published=false
+    const pubReplay = await trpc(app, "flow.publish", { cookie: sysadminCookie, input: { id: flowId, idempotencyKey: crypto.randomUUID() } });
+    expect(pubReplay.status).toBe(200);
+    expect((pubReplay.json as { result: { data: { published: boolean } } }).result.data.published).toBe(false);
 
     // 借款出差走新流程：a1 → 条件 true → a2
     const travel = await trpc(app, "travel.create", {
@@ -163,8 +172,12 @@ describe("迭代 6 验收·扩展域（arch/09 §6）", () => {
     expect(instData.flowProgress?.currentNodeLabel).toBe("负责人审批");
     expect(instData.flowProgress?.nodes.map((n) => n.label)).toEqual(["负责人审批", "财务会签"]);
 
-    // disable 回默认（原策略单步 pm）
-    const disabled = await trpc(app, "flow.disable", { cookie: sysadminCookie, input: { id: flowId } });
+    // disable 回默认（原策略单步 pm）：发布使 rowVersion 自增，先取现值再停用
+    const flowNow = await trpc(app, "flow.getById", { cookie: sysadminCookie, input: { id: flowId }, method: "GET" });
+    const disabled = await trpc(app, "flow.disable", {
+      cookie: sysadminCookie,
+      input: { id: flowId, rowVersion: (flowNow.json as { result: { data: { rowVersion: number } } }).result.data.rowVersion },
+    });
     expect(disabled.status).toBe(200);
     const t2 = await trpc(app, "travel.create", {
       cookie: memberCookie,
@@ -306,8 +319,8 @@ describe("迭代 6 验收·扩展域（arch/09 §6）", () => {
     });
     const inst2 = (sub2.json as { result: { data: { instance: { id: string } } } }).result.data.instance.id;
     const steps2 = await trpc(app, "approval.getById", { cookie: pmCookie, input: { id: inst2 }, method: "GET" });
-    // R8 已登记偏差：approval.amount_thresholds 未接入策略匹配（match_json 硬编码）——钉现状（contract 期望 1 步；修复后改回）
-    expect((steps2.json as { result: { data: { steps: unknown[] } } }).result.data.steps).toHaveLength(2);
+    // R8 修复：approval.amount_thresholds 经 $config 引用编译期求值——阈值上调后同额经费走单步
+    expect((steps2.json as { result: { data: { steps: unknown[] } } }).result.data.steps).toHaveLength(1);
     await trpc(app, "admin.setConfig", { cookie: sysadminCookie, input: { key: "approval.amount_thresholds", value: thresholds } });
 
     // 停用用户 → 会话即失效
@@ -323,6 +336,17 @@ describe("迭代 6 验收·扩展域（arch/09 §6）", () => {
     expect(disabled.status).toBe(200);
     const meAfter = await trpc(app, "auth.me", { cookie: tmpSession.cookie, method: "GET" });
     expect(meAfter.status).toBe(401); // 停用即时失效
+  });
+
+  it("E6 补充（R9）：admin.createMatter 坏 clientId → 400 VALIDATION_FAILED + fieldErrors，不再 500", async () => {
+    const bad = await trpc(app, "admin.createMatter", {
+      cookie: sysadminCookie,
+      input: { clientId: crypto.randomUUID(), name: "坏客户事项" },
+    });
+    expect(bad.status).toBe(400);
+    expect(trpcError(bad).businessCode).toBe("VALIDATION_FAILED");
+    const fieldErrors = trpcError(bad).fieldErrors;
+    expect(fieldErrors?.clientId).toBeTruthy();
   });
 
   it("E7 自助改密：旧会话失效 + 旧口令拒登 + 新口令可登", async () => {

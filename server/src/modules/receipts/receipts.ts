@@ -4,7 +4,7 @@ import { ERROR_CODE } from "@lexflow/shared";
 
 import { clients, paymentReceipts, projects } from "../../db/schema";
 import { nextCode } from "../../db/code";
-import { BusinessError } from "../../lib/errors";
+import { BusinessError, pgErrorCode } from "../../lib/errors";
 import { can, projectScopeFilter } from "../../services/access";
 import { recordAudit } from "../../services/audit";
 import type { DbOrTx } from "../../trpc/context";
@@ -61,26 +61,49 @@ export async function createReceipt(
     .limit(1);
   if (!projRow?.matterClientId) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "项目缺客户归属", { projectId: ["项目缺客户归属"] });
   const clientId: string = projRow.matterClientId;
+  // R6 幂等（arch/00 §3.7）：同键重放返回首次登记（先查后插，唯一约束兜并发）
+  if (input.idempotencyKey) {
+    const [dup] = await db
+      .select()
+      .from(paymentReceipts)
+      .where(eq(paymentReceipts.idempotencyKey, input.idempotencyKey))
+      .limit(1);
+    if (dup) return dup;
+  }
   const code = await nextCode("RCV", db);
-  const [receipt] = await db
-    .insert(paymentReceipts)
-    .values({
-      code,
-      projectId: input.projectId,
-      clientId,
-      amountCents: input.amountCents,
-      receivedOn: input.receivedOn,
-      referenceNo: input.referenceNo.trim(),
-      payerName: input.payerName ?? null,
-      note: input.note ?? null,
-      attachmentFileVersionId: input.attachmentFileVersionId ?? null,
-      status: "registered",
-      createdBy: user.id,
-      updatedBy: user.id,
-    })
-    .returning();
-  if (!receipt) throw new Error("收款插入失败");
-  return receipt;
+  try {
+    const [receipt] = await db
+      .insert(paymentReceipts)
+      .values({
+        code,
+        projectId: input.projectId,
+        clientId,
+        amountCents: input.amountCents,
+        receivedOn: input.receivedOn,
+        referenceNo: input.referenceNo.trim(),
+        payerName: input.payerName ?? null,
+        note: input.note ?? null,
+        attachmentFileVersionId: input.attachmentFileVersionId ?? null,
+        idempotencyKey: input.idempotencyKey,
+        status: "registered",
+        createdBy: user.id,
+        updatedBy: user.id,
+      })
+      .returning();
+    if (!receipt) throw new Error("收款插入失败");
+    return receipt;
+  } catch (error) {
+    // 并发同键兜底：唯一约束命中 → 返回首次登记
+    if (input.idempotencyKey && pgErrorCode(error) === "23505") {
+      const [dup] = await db
+        .select()
+        .from(paymentReceipts)
+        .where(eq(paymentReceipts.idempotencyKey, input.idempotencyKey))
+        .limit(1);
+      if (dup) return dup;
+    }
+    throw error;
+  }
 }
 
 export async function voidReceipt(db: DbOrTx, user: SessionUser, input: { id: string; reason: string; rowVersion: number }) {

@@ -2,12 +2,12 @@ import { and, asc, eq, gt, sql } from "drizzle-orm";
 
 import { ERROR_CODE } from "@lexflow/shared";
 
-import { approvalInstances, approvalPolicies, approvalSteps, projects, userRoles, users } from "../../db/schema";
+import { approvalInstances, approvalPolicies, approvalSteps, projects, systemConfig, userRoles, users } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
 import type { DbOrTx } from "../../trpc/context";
 import { notify } from "../../modules/notify";
-import { compileFlow, findEnabledFlow } from "./flow";
+import { compileFlow, findEnabledFlow, resolveConfigValue } from "./flow";
 
 /**
  * 统一审批引擎（arch/04 §4 接口逐字；arch/03 §6：唯一审批实现，禁止各模块自建）。
@@ -227,7 +227,9 @@ export async function submit(db: DbOrTx, input: SubmitInput): Promise<ApprovalIn
       ...input.formSnapshot,
       amount_cents: input.formSnapshot.amount_cents ?? input.formSnapshot.estimated_cost_cents ?? null,
     };
-    const compiled = compileFlow(flow.definitionJson, evalSnapshot);
+    // R8（§18）：默认流程条件值含 $config 引用（approval.amount_thresholds.*）——编译期从 system_config 求值
+    const configRows = await db.select().from(systemConfig);
+    const compiled = compileFlow(flow.definitionJson, evalSnapshot, false, (key) => resolveConfigValue(configRows, key));
     steps = [];
     for (let i = 0; i < compiled.steps.length; i++) {
       const node = compiled.steps[i];

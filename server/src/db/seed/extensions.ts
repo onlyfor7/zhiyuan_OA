@@ -90,12 +90,12 @@ const DEFAULT_FLOWS: Array<{ name: string; bizBinding: string; spec: FlowSpec; n
   {
     name: "travel 默认流程",
     bizBinding: "travel",
-    note: "borrow=true → pm+finance 会签 all；金额≥5万 → pm→partner 两步；默认 pm（等价原 p10/p20/p100 三条）",
+    note: "borrow=true → pm+finance 会签 all；金额≥阈值($config) → pm→partner 两步；默认 pm（等价原 p10/p20/p100 三条；阈值引用 approval.amount_thresholds.fundingManagementReviewCents）",
     spec: {
       nodes: [
         { id: "start", type: "start" },
         { id: "c1", type: "condition", label: "借款出差", expr: { field: "borrow", op: "==", value: true } },
-        { id: "c2", type: "condition", label: "金额≥5万", expr: { field: "amount_cents", op: ">=", value: 5000000 } },
+        { id: "c2", type: "condition", label: "金额≥阈值", expr: { field: "amount_cents", op: ">=", value: { $config: "approval.amount_thresholds.fundingManagementReviewCents" } } },
         { id: "n1", type: "approval", label: "项目负责人审批", approver: PM },
         { id: "n2", type: "approval", label: "财务会签", approver: role("finance"), countersign: "all" },
         { id: "n3", type: "approval", label: "项目负责人审批", approver: PM },
@@ -120,11 +120,11 @@ const DEFAULT_FLOWS: Array<{ name: string; bizBinding: string; spec: FlowSpec; n
   {
     name: "funding 默认流程",
     bizBinding: "funding",
-    note: "金额≥5万 → pm→partner 两步；默认 pm（等价原 p10/p100 两条）",
+    note: "金额≥阈值($config) → pm→partner 两步；默认 pm（等价原 p10/p100 两条；阈值引用 approval.amount_thresholds.fundingManagementReviewCents）",
     spec: {
       nodes: [
         { id: "start", type: "start" },
-        { id: "c1", type: "condition", label: "金额≥5万", expr: { field: "amount_cents", op: ">=", value: 5000000 } },
+        { id: "c1", type: "condition", label: "金额≥阈值", expr: { field: "amount_cents", op: ">=", value: { $config: "approval.amount_thresholds.fundingManagementReviewCents" } } },
         { id: "n1", type: "approval", label: "项目负责人审批", approver: PM },
         { id: "n2", type: "approval", label: "管理层审批", approver: role("partner") },
         { id: "n3", type: "approval", label: "项目负责人审批", approver: PM },

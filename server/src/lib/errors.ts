@@ -46,6 +46,14 @@ export class BusinessError extends TRPCError {
   }
 }
 
+/** 提取 Postgres 驱动错误码：drizzle 包装后 pg 原生错误在 error.cause 上，部分路径直接抛原生错误在 error.code 上 */
+export function pgErrorCode(error: unknown): string | undefined {
+  const direct = (error as { code?: string } | null)?.code;
+  if (direct) return direct;
+  const cause = (error as { cause?: unknown } | null)?.cause;
+  return (cause as { code?: string } | null)?.code;
+}
+
 export function businessCodeFromTrpcCode(code: TRPCError["code"]): ErrorCode {
   switch (code) {
     case "UNAUTHORIZED":

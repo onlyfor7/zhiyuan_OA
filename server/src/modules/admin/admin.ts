@@ -6,7 +6,7 @@ import { CONFIG_KEY, ERROR_CODE } from "@lexflow/shared";
 import { clients, matters, orgUnits, projectTemplates, sessions, systemConfig, userRoles, users } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { hashPassword, verifyPassword } from "../../lib/password";
-import { BusinessError } from "../../lib/errors";
+import { BusinessError, pgErrorCode } from "../../lib/errors";
 import { can } from "../../services/access";
 import { recordAudit } from "../../services/audit";
 import type { DbOrTx } from "../../trpc/context";
@@ -72,19 +72,34 @@ export async function createUser(
 ) {
   await requireAdminConfig(db, actor);
   const initialPassword = `Lx${randomBytes(4).toString("hex")}!`;
-  const [row] = await db
-    .insert(users)
-    .values({
+  let userRow;
+  try {
+    [userRow] = await db.insert(users).values({
       email: input.email.trim().toLowerCase(),
       name: input.name.trim(),
       passwordHash: hashPassword(initialPassword),
       status: "active",
       mustChangePassword: true, // 02b 列就位：首登强制改密落到行
       orgUnitId: input.orgUnitId ?? null,
-    })
-    .returning({ id: users.id, email: users.email, name: users.name });
+    }).returning({ id: users.id, email: users.email, name: users.name });
+  } catch (error) {
+    // R9：orgUnitId 等 FK 违例映射 4xx，不泄 500
+    if (pgErrorCode(error) === "23503") {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "组织单元不存在或不可引用", { orgUnitId: ["组织单元不存在或不可引用"] });
+    }
+    throw error;
+  }
+  const row = userRow;
   if (!row) throw new Error("用户插入失败");
-  await db.insert(userRoles).values({ userId: row.id, roleKey: input.roleKey }).onConflictDoNothing();
+  try {
+    await db.insert(userRoles).values({ userId: row.id, roleKey: input.roleKey }).onConflictDoNothing();
+  } catch (error) {
+    // R9 同类入口：FK/约束违例映射 4xx
+    if (pgErrorCode(error) === "23503") {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "角色或组织单元不存在", { roleKey: ["角色不存在"] });
+    }
+    throw error;
+  }
   await recordAudit(db, {
     actorId: actor.id,
     sessionId: input.sessionId,
@@ -179,10 +194,20 @@ export async function setClientDisabled(db: DbOrTx, actor: SessionUser, input: {
 export async function createMatter(db: DbOrTx, actor: SessionUser, input: { clientId: string; name: string; type?: string; ip: string | null; sessionId: string | null }) {
   await requireAdminConfig(db, actor);
   const code = await nextCode("MTR", db);
-  const [row] = await db
-    .insert(matters)
-    .values({ code, clientId: input.clientId, name: input.name.trim(), type: input.type ?? "", createdBy: actor.id, updatedBy: actor.id })
-    .returning();
+  let row;
+  try {
+    [row] = await db
+      .insert(matters)
+      .values({ code, clientId: input.clientId, name: input.name.trim(), type: input.type ?? "", createdBy: actor.id, updatedBy: actor.id })
+      .returning();
+  } catch (error) {
+    // R9：FK 违例（clientId 不存在）映射 4xx，不泄 500
+    if (pgErrorCode(error) === "23503") {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "客户不存在或不可引用", { clientId: ["客户不存在或不可引用"] });
+    }
+    throw error;
+  }
+  if (!row) throw new Error("事项插入失败");
   await recordAudit(db, { actorId: actor.id, sessionId: input.sessionId, action: "admin.createMatter", targetType: "matter", targetId: row.id, result: "success", afterJson: { code, name: input.name }, ip: input.ip });
   return row;
 }

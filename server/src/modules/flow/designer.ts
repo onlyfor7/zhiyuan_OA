@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { ERROR_CODE } from "@lexflow/shared";
 
@@ -113,11 +113,19 @@ export async function publishFlow(db: DbOrTx, user: SessionUser, input: { id: st
   };
   await assertFlowPublishable(globalDb, row.definitionJson, resolveKind);
 
-  // 每 name 恰一个 enabled：先释放同 name 旧版本（部分唯一索引）
+  // R7 修复：每 (biz_binding, 项目) 恰一 enabled（部分唯一索引）——发布先释放同 binding 同 scope
+  // 的全部启用流程（含「xxx 默认流程」，否则唯一索引 23505 → 500）；按 name 释放会让
+  // 新名自定义流与默认流双启用冲突。停用自定义流后无启用流程 → 引擎回退 approval_policies（默认语义）。
   await db
     .update(flowDefinitions)
     .set({ enabled: false, updatedAt: new Date().toISOString() })
-    .where(and(eq(flowDefinitions.name, row.name), eq(flowDefinitions.enabled, true)));
+    .where(
+      and(
+        eq(flowDefinitions.bizBinding, row.bizBinding),
+        eq(flowDefinitions.enabled, true),
+        row.projectId ? eq(flowDefinitions.projectId, row.projectId) : isNull(flowDefinitions.projectId),
+      ),
+    );
   const [published] = await db
     .update(flowDefinitions)
     .set({ enabled: true, updatedBy: user.id, updatedAt: new Date().toISOString(), rowVersion: sql`${flowDefinitions.rowVersion} + 1` })

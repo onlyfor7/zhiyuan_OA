@@ -69,6 +69,13 @@ export function validateFlowStructure(raw: unknown): FlowDefinition {
         throw invalid(`条件节点 ${node.id} 字段须在白名单：${FLOW_CONDITION_FIELDS.join("/")}`);
       }
       if (!OPS.includes(expr.op as never)) throw invalid(`条件节点 ${node.id} 操作符非法：${expr.op}`);
+      // R8：条件值允许字面量或 {"$config":键} 引用形态
+      if (expr.value !== null && typeof expr.value === "object" && !isConfigRef(expr.value)) {
+        throw invalid(`条件节点 ${node.id} 的值对象仅允许 {"$config":键} 引用形态`);
+      }
+      if (isConfigRef(expr.value) && !expr.value.$config.trim()) {
+        throw invalid(`条件节点 ${node.id} 的 $config 键为空`);
+      }
     }
   }
   const starts = def.nodes.filter((n) => n.type === "start");
@@ -136,10 +143,57 @@ export function validateFlowStructure(raw: unknown): FlowDefinition {
 
 /* ===== 条件求值与编译 ===== */
 
-function evalCondition(expr: FlowNode["expr"], snapshot: Record<string, unknown>): boolean {
+/**
+ * R8（§18 可配置兑现）：system_config 行集合中按引用键解析——先精确键，
+ * 再最长前缀键 + 剩余点路径深入 valueJson。未命中返回 undefined。
+ */
+export function resolveConfigValue(
+  rows: Array<{ key: string; valueJson: Record<string, unknown> }>,
+  ref: string,
+): unknown {
+  const exact = rows.find((r) => r.key === ref);
+  if (exact) return exact.valueJson;
+  const prefixes = rows
+    .filter((r) => ref.startsWith(r.key + "."))
+    .sort((a, b) => b.key.length - a.key.length);
+  for (const row of prefixes) {
+    let cur: unknown = row.valueJson;
+    for (const part of ref.slice(row.key.length + 1).split(".")) {
+      if (cur === null || typeof cur !== "object") return undefined;
+      cur = (cur as Record<string, unknown>)[part];
+    }
+    return cur;
+  }
+  return undefined;
+}
+
+/** 条件值中的配置引用形态（R8）：{"$config":"approval.amount_thresholds.fundingManagementReviewCents"} */
+function isConfigRef(value: unknown): value is { $config: string } {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    typeof (value as { $config?: unknown }).$config === "string"
+  );
+}
+
+/** 编译期求值：$config 引用经 resolveConfig 解析；缺键回退字面量 5000000（冻结默认） */
+function resolveExpected(value: unknown, resolveConfig?: (key: string) => unknown): unknown {
+  if (isConfigRef(value)) {
+    const resolved = resolveConfig?.(value.$config);
+    return resolved === undefined ? 5000000 : resolved;
+  }
+  return value;
+}
+
+function evalCondition(
+  expr: FlowNode["expr"],
+  snapshot: Record<string, unknown>,
+  resolveConfig?: (key: string) => unknown,
+): boolean {
   if (!expr) return false;
   const actual = snapshot[expr.field];
-  const expected = expr.value;
+  const expected = resolveExpected(expr.value, resolveConfig);
   if (typeof expected === "number") {
     const a = Number(actual);
     if (!Number.isFinite(a)) return false;
@@ -176,12 +230,14 @@ export interface CompileResult {
 
 /**
  * 编译：从 start 沿边推进；条件节点按表单快照求值选 when 分支；
- * exploreBoth=true（发布校验）时对条件取双分支收集全部可达审批节点。
+ * exploreBoth=true（发布校验）时对条件取双分支收集全部可达审批节点；
+ * resolveConfig（R8）对条件值 $config 引用编译期求值（缺键回退字面量 5000000）。
  */
 export function compileFlow(
   raw: unknown,
   formSnapshot: Record<string, unknown>,
   exploreBoth = false,
+  resolveConfig?: (key: string) => unknown,
 ): CompileResult {
   const def = validateFlowStructure(raw);
   const nodeById = new Map(def.nodes.map((n) => [n.id, n]));
@@ -208,10 +264,10 @@ export function compileFlow(
     }
     const outs = def.edges.filter((e) => e.from === nodeId);
     if (node.type === "condition") {
-      const result = evalCondition(node.expr, formSnapshot);
+      const result = evalCondition(node.expr, formSnapshot, resolveConfig);
       const nextTrace = [
         ...trace,
-        { nodeId: node.id, field: node.expr!.field, op: node.expr!.op, value: node.expr!.value, result },
+        { nodeId: node.id, field: node.expr!.field, op: node.expr!.op, value: resolveExpected(node.expr!.value, resolveConfig), result },
       ];
       for (const edge of outs) {
         if (edge.when === result || exploreBoth) visit(edge.to, nextTrace);

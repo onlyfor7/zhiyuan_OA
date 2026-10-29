@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { runSeed } from "../../src/db/seed";
 import * as schema from "../../src/db/schema";
 import { clients, flowDefinitions, genericRequests, matters, paymentReceipts, projects, users } from "../../src/db/schema";
+import { resolveConfigValue } from "../../src/services/approval/flow";
 import { ALL_TABLES, migrateFresh, TEST_DATABASE_URL } from "./helpers";
 
 const YEAR = new Date().getFullYear();
@@ -62,6 +63,8 @@ interface FlowRow {
   definitionJson: { nodes: Array<Record<string, unknown>>; edges: Array<Record<string, unknown>> };
 }
 
+type ConfigRow = { key: string; valueJson: Record<string, unknown> };
+
 function matchPolicy(matchJson: Record<string, unknown>, form: Form): boolean {
   return Object.entries(matchJson).every(([key, value]) =>
     key === "min_amount_cents" || key === "min_estimated_cost_cents"
@@ -84,13 +87,19 @@ function resolvePolicy(policies: PolicyRow[], bizType: string, form: Form): Step
   }));
 }
 
-function evalExpr(expr: Record<string, unknown>, form: Form): boolean {
+function evalExpr(expr: Record<string, unknown>, form: Form, configRows: ConfigRow[]): boolean {
   const value = form[expr.field as string];
-  return expr.op === ">=" ? Number(value ?? 0) >= Number(expr.value) : value === expr.value;
+  // R8：与生产同语义——$config 引用按 system_config 求值（缺键回退字面量 5000000）
+  const raw = expr.value;
+  const expected =
+    raw !== null && typeof raw === "object" && typeof (raw as { $config?: unknown }).$config === "string"
+      ? (resolveConfigValue(configRows, (raw as { $config: string }).$config) ?? 5000000)
+      : raw;
+  return expr.op === ">=" ? Number(value ?? 0) >= Number(expected) : value === expected;
 }
 
 /** 新语义：从 start 沿 edges 走，条件节点按 when 求值，收集 approval 节点 */
-function resolveFlow(flow: FlowRow, form: Form): StepSpec[] {
+function resolveFlow(flow: FlowRow, form: Form, configRows: ConfigRow[]): StepSpec[] {
   const { nodes, edges } = flow.definitionJson;
   let nodeId = "start";
   const steps: StepSpec[] = [];
@@ -109,7 +118,7 @@ function resolveFlow(flow: FlowRow, form: Form): StepSpec[] {
     const outs = edges.filter((e) => e.from === nodeId);
     const next =
       node.type === "condition"
-        ? outs.find((e) => e.when === evalExpr(node.expr as Record<string, unknown>, form))
+        ? outs.find((e) => e.when === evalExpr(node.expr as Record<string, unknown>, form, configRows))
         : outs[0];
     if (!next) throw new Error(`dangling node ${nodeId}`);
     nodeId = next.to as string;
@@ -274,6 +283,7 @@ describe("扩展域种子与约束（arch/09）", () => {
     try {
       const policies = (await db.select().from(schema.approvalPolicies)) as unknown as PolicyRow[];
       const flows = (await db.select().from(flowDefinitions)) as unknown as FlowRow[];
+      const configRows = (await db.select().from(schema.systemConfig)) as unknown as ConfigRow[];
 
       const scenarios: Array<[string, Form]> = [
         ["change_request", { level: "key" }],
@@ -292,7 +302,7 @@ describe("扩展域种子与约束（arch/09）", () => {
         const fromPolicy = resolvePolicy(policies, bizType, form);
         const flow = flows.find((f) => f.bizBinding === bizType && f.enabled);
         expect(flow, `${bizType} 应有唯一 enabled 默认流程`).toBeTruthy();
-        const fromFlow = resolveFlow(flow!, form);
+        const fromFlow = resolveFlow(flow!, form, configRows);
         expect(fromFlow, `${bizType} ${JSON.stringify(form)}`).toEqual(fromPolicy);
       }
 

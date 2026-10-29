@@ -51,6 +51,8 @@ export const paymentReceipts = pgTable(
     payerName: text("payer_name"),
     note: text("note"),
     attachmentFileVersionId: uuid("attachment_file_version_id").references(() => fileVersions.id, { onDelete: "restrict" }),
+    /** R6（arch/00 §3.7）：创建类幂等——同键重放返回首次登记，列可空（历史行/外部登记无键） */
+    idempotencyKey: text("idempotency_key"),
     status: receiptStatusEnum("status").notNull().default("registered"),
     voidReason: text("void_reason"),
     voidedBy: uuid("voided_by").references(() => users.id, { onDelete: "restrict" }),
@@ -60,6 +62,7 @@ export const paymentReceipts = pgTable(
   },
   (t) => [
     check("payment_receipts_amount_positive", sql`"amount_cents" > 0`),
+    uniqueIndex("payment_receipts_idempotency_key_unique").on(t.idempotencyKey),
     index("payment_receipts_project_id_idx").on(t.projectId),
     index("payment_receipts_client_id_idx").on(t.clientId),
     index("payment_receipts_received_on_idx").on(t.receivedOn),
