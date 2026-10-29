@@ -12,9 +12,9 @@ import { clients, matters, orgUnits, projectMembers, projects, roles, systemConf
 import { SYSTEM_CONFIG_DEFAULTS } from "./config-defaults";
 import { seedClosure } from "./closure";
 import { seedCollab } from "./collab";
-import { seedExtensions } from "./extensions";
+import { seedDefaultFlows, seedExtensions } from "./extensions";
 import { seedFinance } from "./finance";
-import { seedGovernance } from "./governance";
+import { seedGovernance, seedTemplates } from "./governance";
 import { seedTime } from "./time";
 
 type DbOrTx =
@@ -63,20 +63,20 @@ const USER_SEED: UserSeed[] = [
   { email: "mayue@lexflow.demo", name: "马悦", roleKey: "member", org: "综合管理部" },
 ];
 
-/** 2 客户（虚构，arch/00 §8） */
+/** 2 客户（虚构，arch/00 §8；仅 full 档） */
 const CLIENT_SEED = [
   { code: `CLT-${YEAR}-00001`, name: "华宸贸易有限公司", level: "internal" as const },
   { code: `CLT-${YEAR}-00002`, name: "星澜科技有限公司", level: "confidential" as const },
 ];
 
-/** 2 事项 */
+/** 2 事项（仅 full 档） */
 const MATTER_SEED = [
   { code: `MTR-${YEAR}-00001`, clientCode: `CLT-${YEAR}-00001`, name: "华宸贸易合同纠纷", type: "诉讼" },
   { code: `MTR-${YEAR}-00002`, clientCode: `CLT-${YEAR}-00002`, name: "星澜科技常年法律顾问", type: "非诉" },
 ];
 
 /**
- * 3 项目（验收场景布局，工单 00 §迭代验收场景 1/2）：
+ * 3 项目（验收场景布局，工单 00 §迭代验收场景 1/2；仅 full 档）：
  * pm 是 A/B 负责人；member 仅是 A 成员；C 对二者均不可见（负责人为 partner）。
  */
 const PROJECT_SEED = [
@@ -158,129 +158,186 @@ async function idByCode<T extends { id: string }>(
   return existing[0].id;
 }
 
-async function seedSchema(databaseUrl: string): Promise<void> {
+export type SeedProfile = "full" | "minimal";
+
+/** 全部编号前缀水位（minimal 档亦建全表，full 档经 GREATEST 上移不冲突） */
+const WATER_FLOORS: Array<[string, number]> = [
+  ["CLT", 4],
+  ["MTR", 4],
+  ["PRJ", 6],
+  ["STG", 11],
+  ["MLS", 4],
+  ["TSK", 17],
+  ["DLV", 4],
+  ["QLT", 3],
+  ["DEC", 2],
+  ["RPT", 2],
+  ["MTG", 4],
+  ["TRV", 3],
+  ["BUD", 3],
+  ["FND", 4],
+  ["EXP", 3],
+  ["LED", 8],
+  ["TS", 4],
+  ["RCV", 4],
+  ["REQ", 1],
+];
+
+async function seedWaterLevels(tx: DbOrTx): Promise<void> {
+  for (const [prefix, next] of WATER_FLOORS) {
+    await tx.execute(
+      sql.raw(
+        `INSERT INTO code_sequences (prefix, year, next_value) VALUES ('${prefix}', ${YEAR}, ${next}) ` +
+          `ON CONFLICT (prefix, year) DO UPDATE SET next_value = GREATEST(code_sequences.next_value, ${next})`,
+      ),
+    );
+  }
+}
+
+/** 基础件：组织树 + 8 角色 + 12 用户 + system_config 全量默认配置（两档共用） */
+async function seedFoundation(tx: DbOrTx): Promise<void> {
+  // 组织树
+  const firmId = await ensureOrgUnit(tx, ORG_FIRM, null);
+  const deptIds = new Map<string, string>();
+  for (const dept of ORG_DEPARTMENTS) {
+    deptIds.set(dept, await ensureOrgUnit(tx, dept, firmId));
+  }
+
+  // 角色
+  for (const role of ROLE_SEED) {
+    await tx
+      .insert(roles)
+      .values({ key: role.key, name: role.name, description: role.description })
+      .onConflictDoNothing();
+  }
+
+  // 用户 + 全局角色分配（二次执行不重复建行、不重算口令散列）
+  const passwordHash = hashPassword(DEMO_PASSWORD);
+  const userIds = new Map<string, string>();
+  for (const userSeed of USER_SEED) {
+    const orgId = userSeed.org ? deptIds.get(userSeed.org) : undefined;
+    const userId = await ensureUser(tx, userSeed, orgId, passwordHash);
+    userIds.set(userSeed.email, userId);
+    await tx.insert(userRoles).values({ userId, roleKey: userSeed.roleKey }).onConflictDoNothing();
+  }
+  if (!userIds.get("pm@lexflow.demo")) throw new Error("种子用户 pm@lexflow.demo 缺失");
+  const pmId = userIds.get("pm@lexflow.demo")!;
+
+  // system_config 默认配置（需求基线 §18 全量 + 迭代 4/6 增补键）
+  for (const config of SYSTEM_CONFIG_DEFAULTS) {
+    await tx
+      .insert(systemConfig)
+      .values({ key: config.key, valueJson: config.value, updatedBy: pmId })
+      .onConflictDoUpdate({
+        target: systemConfig.key,
+        set: { valueJson: config.value, updatedBy: pmId, updatedAt: new Date().toISOString() },
+      });
+  }
+}
+
+/** 演示基座：2 客户 + 2 事项 + 3 项目验收布局（仅 full 档） */
+async function seedDemoFoundation(tx: DbOrTx): Promise<void> {
+  const userIds = new Map<string, string>();
+  for (const userSeed of USER_SEED) {
+    const row = await tx.select({ id: users.id }).from(users).where(eq(users.email, userSeed.email));
+    if (row[0]) userIds.set(userSeed.email, row[0].id);
+  }
+  const pmId = userIds.get("pm@lexflow.demo")!;
+  const clientIds = new Map<string, string>();
+  for (const client of CLIENT_SEED) {
+    const id = await idByCode(
+      tx,
+      tx.select({ id: clients.id }).from(clients).where(eq(clients.code, client.code)),
+      () =>
+        tx
+          .insert(clients)
+          .values({
+            code: client.code,
+            name: client.name,
+            confidentialityLevel: client.level,
+            createdBy: pmId,
+            updatedBy: pmId,
+          })
+          .onConflictDoNothing(),
+    );
+    clientIds.set(client.code, id);
+  }
+
+  const matterIds = new Map<string, string>();
+  for (const matter of MATTER_SEED) {
+    const clientId = clientIds.get(matter.clientCode);
+    if (!clientId) throw new Error(`种子客户 ${matter.clientCode} 缺失`);
+    const id = await idByCode(
+      tx,
+      tx.select({ id: matters.id }).from(matters).where(eq(matters.code, matter.code)),
+      () =>
+        tx
+          .insert(matters)
+          .values({
+            code: matter.code,
+            clientId,
+            name: matter.name,
+            type: matter.type,
+            createdBy: pmId,
+            updatedBy: pmId,
+          })
+          .onConflictDoNothing(),
+    );
+    matterIds.set(matter.code, id);
+  }
+
+  for (const project of PROJECT_SEED) {
+    const matterId = matterIds.get(project.matterCode);
+    const managerId = userIds.get(project.managerEmail);
+    if (!matterId || !managerId) throw new Error(`种子项目 ${project.code} 依赖缺失`);
+    const projectId = await idByCode(
+      tx,
+      tx.select({ id: projects.id }).from(projects).where(eq(projects.code, project.code)),
+      () =>
+        tx
+          .insert(projects)
+          .values({
+            code: project.code,
+            matterId,
+            name: project.name,
+            type: project.type,
+            managerId,
+            confidentialityLevel: project.level,
+            lifecycleStatus: project.lifecycle,
+            healthStatus: project.health,
+            createdBy: managerId,
+            updatedBy: managerId,
+          })
+          .onConflictDoNothing(),
+    );
+    for (const member of project.members) {
+      const memberId = userIds.get(member.email);
+      if (!memberId) throw new Error(`种子成员 ${member.email} 缺失`);
+      await tx
+        .insert(projectMembers)
+        .values({ projectId, userId: memberId, projectRole: member.projectRole })
+        .onConflictDoNothing();
+    }
+  }
+}
+
+async function seedSchema(databaseUrl: string, profile: SeedProfile): Promise<void> {
   const pool = new pg.Pool({ connectionString: databaseUrl });
   const db = drizzle(pool, { schema });
 
   try {
     await db.transaction(async (tx) => {
-      // 组织树
-      const firmId = await ensureOrgUnit(tx, ORG_FIRM, null);
-      const deptIds = new Map<string, string>();
-      for (const dept of ORG_DEPARTMENTS) {
-        deptIds.set(dept, await ensureOrgUnit(tx, dept, firmId));
+      await seedFoundation(tx);
+
+      if (profile === "minimal") {
+        // 清库档：只留基础件 + 模板 + 默认审批流 + 编号水位，零演示业务数据（工单 07）
+        await seedTemplates(tx);
+        await seedDefaultFlows(tx);
+        await seedWaterLevels(tx);
+        return;
       }
 
-      // 角色
-      for (const role of ROLE_SEED) {
-        await tx
-          .insert(roles)
-          .values({ key: role.key, name: role.name, description: role.description })
-          .onConflictDoNothing();
-      }
-
-      // 用户 + 全局角色分配（二次执行不重复建行、不重算口令散列）
-      const passwordHash = hashPassword(DEMO_PASSWORD);
-      const userIds = new Map<string, string>();
-      for (const userSeed of USER_SEED) {
-        const orgId = userSeed.org ? deptIds.get(userSeed.org) : undefined;
-        const userId = await ensureUser(tx, userSeed, orgId, passwordHash);
-        userIds.set(userSeed.email, userId);
-        await tx.insert(userRoles).values({ userId, roleKey: userSeed.roleKey }).onConflictDoNothing();
-      }
-      const pmId = userIds.get("pm@lexflow.demo");
-      if (!pmId) throw new Error("种子用户 pm@lexflow.demo 缺失");
-
-      // 客户（按 code 幂等）
-      const clientIds = new Map<string, string>();
-      for (const client of CLIENT_SEED) {
-        const id = await idByCode(
-          tx,
-          tx.select({ id: clients.id }).from(clients).where(eq(clients.code, client.code)),
-          () =>
-            tx
-              .insert(clients)
-              .values({
-                code: client.code,
-                name: client.name,
-                confidentialityLevel: client.level,
-                createdBy: pmId,
-                updatedBy: pmId,
-              })
-              .onConflictDoNothing(),
-        );
-        clientIds.set(client.code, id);
-      }
-
-      // 事项
-      const matterIds = new Map<string, string>();
-      for (const matter of MATTER_SEED) {
-        const clientId = clientIds.get(matter.clientCode);
-        if (!clientId) throw new Error(`种子客户 ${matter.clientCode} 缺失`);
-        const id = await idByCode(
-          tx,
-          tx.select({ id: matters.id }).from(matters).where(eq(matters.code, matter.code)),
-          () =>
-            tx
-              .insert(matters)
-              .values({
-                code: matter.code,
-                clientId,
-                name: matter.name,
-                type: matter.type,
-                createdBy: pmId,
-                updatedBy: pmId,
-              })
-              .onConflictDoNothing(),
-        );
-        matterIds.set(matter.code, id);
-      }
-
-      // 项目 + 成员
-      for (const project of PROJECT_SEED) {
-        const matterId = matterIds.get(project.matterCode);
-        const managerId = userIds.get(project.managerEmail);
-        if (!matterId || !managerId) throw new Error(`种子项目 ${project.code} 依赖缺失`);
-        const projectId = await idByCode(
-          tx,
-          tx.select({ id: projects.id }).from(projects).where(eq(projects.code, project.code)),
-          () =>
-            tx
-              .insert(projects)
-              .values({
-                code: project.code,
-                matterId,
-                name: project.name,
-                type: project.type,
-                managerId,
-                confidentialityLevel: project.level,
-                lifecycleStatus: project.lifecycle,
-                healthStatus: project.health,
-                createdBy: managerId,
-                updatedBy: managerId,
-              })
-              .onConflictDoNothing(),
-        );
-        for (const member of project.members) {
-          const memberId = userIds.get(member.email);
-          if (!memberId) throw new Error(`种子成员 ${member.email} 缺失`);
-          await tx
-            .insert(projectMembers)
-            .values({ projectId, userId: memberId, projectRole: member.projectRole })
-            .onConflictDoNothing();
-        }
-      }
-
-      // system_config 默认配置（需求基线 §18 全量）
-      for (const config of SYSTEM_CONFIG_DEFAULTS) {
-        await tx
-          .insert(systemConfig)
-          .values({ key: config.key, valueJson: config.value, updatedBy: pmId })
-          .onConflictDoUpdate({
-            target: systemConfig.key,
-            set: { valueJson: config.value, updatedBy: pmId, updatedAt: new Date().toISOString() },
-          });
-      }
+      await seedDemoFoundation(tx);
 
       // 迭代 1 治理域种子（模板/审批策略/计划基线/阶段/任务/质量/决策/周报/档案目录，全幂等）
       await seedGovernance(tx);
@@ -300,22 +357,18 @@ async function seedSchema(databaseUrl: string): Promise<void> {
       // 迭代 6 扩展域种子（默认流程等价迁移/演示流程/佳力奇主数据/收款演示）
       await seedExtensions(tx);
 
-      // 编号序列水位对齐到种子最大序号，避免后续 next_code 撞号
-      await tx.execute(
-        sql.raw(
-          `INSERT INTO code_sequences (prefix, year, next_value) VALUES ('CLT', ${YEAR}, 4), ('MTR', ${YEAR}, 4), ('PRJ', ${YEAR}, 4) ` +
-            `ON CONFLICT (prefix, year) DO UPDATE SET next_value = GREATEST(code_sequences.next_value, 4)`,
-        ),
-      );
+      // 编号序列水位对齐（全前缀）
+      await seedWaterLevels(tx);
     });
   } finally {
     await pool.end();
   }
 }
 
-export async function runSeed(databaseUrl?: string): Promise<void> {
+export async function runSeed(databaseUrl?: string, profile: SeedProfile = "full"): Promise<void> {
   loadEnvFile();
-  await seedSchema(databaseUrl ?? requireDatabaseUrl());
+  const effective = (process.env.SEED_PROFILE as SeedProfile | undefined) ?? profile;
+  await seedSchema(databaseUrl ?? requireDatabaseUrl(), effective);
 }
 
 const invokedDirectly =
@@ -324,7 +377,8 @@ const invokedDirectly =
 if (invokedDirectly) {
   runSeed()
     .then(() => {
-      console.log("[db:seed] 种子完成（幂等）");
+      const profile = process.env.SEED_PROFILE ?? "full";
+      console.log(`[db:seed] 种子完成（profile=${profile}，幂等）`);
     })
     .catch((error) => {
       console.error("[db:seed] 种子失败：", error);

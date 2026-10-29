@@ -134,17 +134,9 @@ async function projectIdByCode(tx: SeedTx, code: string): Promise<string> {
   return row[0].id;
 }
 
-export async function seedGovernance(tx: SeedTx): Promise<void> {
+/** 项目模板（按 name upsert：冲突时更新 structure_json——02c 架构特批；重跑种子使模板新结构生效）。minimal 档亦调用。 */
+export async function seedTemplates(tx: SeedTx): Promise<void> {
   const pmId = await userIdByEmail(tx, "pm@lexflow.demo");
-  const memberId = await userIdByEmail(tx, "member@lexflow.demo");
-  const liuchangId = await userIdByEmail(tx, "liuchang@lexflow.demo");
-  const huangleiId = await userIdByEmail(tx, "huanglei@lexflow.demo");
-  const xubinId = await userIdByEmail(tx, "xubin@lexflow.demo");
-
-  const projectAId = await projectIdByCode(tx, `PRJ-${YEAR}-00001`);
-  const projectBId = await projectIdByCode(tx, `PRJ-${YEAR}-00002`);
-
-  // 项目模板（按 name upsert：冲突时更新 structure_json——02c 架构特批；重跑种子使模板新结构生效）
   for (const tpl of PROJECT_TEMPLATES) {
     const existing = await tx
       .select({ id: projectTemplates.id })
@@ -165,6 +157,19 @@ export async function seedGovernance(tx: SeedTx): Promise<void> {
         .where(eq(projectTemplates.id, existing[0].id));
     }
   }
+}
+
+export async function seedGovernance(tx: SeedTx): Promise<void> {
+  const pmId = await userIdByEmail(tx, "pm@lexflow.demo");
+  const memberId = await userIdByEmail(tx, "member@lexflow.demo");
+  const liuchangId = await userIdByEmail(tx, "liuchang@lexflow.demo");
+  const huangleiId = await userIdByEmail(tx, "huanglei@lexflow.demo");
+  const xubinId = await userIdByEmail(tx, "xubin@lexflow.demo");
+
+  const projectAId = await projectIdByCode(tx, `PRJ-${YEAR}-00001`);
+  const projectBId = await projectIdByCode(tx, `PRJ-${YEAR}-00002`);
+
+  await seedTemplates(tx);
 
   // 审批策略（按 biz_type + priority 幂等，arch/04 §2.9 三条）
   for (const policy of APPROVAL_POLICY_SEED) {

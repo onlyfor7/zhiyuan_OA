@@ -229,15 +229,21 @@ async function ensureFlow(
   }
 }
 
+/** 八条默认流程（策略等价迁移）。minimal 档亦调用（仅默认流程，不含演示流程）。 */
+export async function seedDefaultFlows(tx: SeedTx): Promise<void> {
+  const pmId = await userIdByEmail(tx, "pm@lexflow.demo");
+  for (const flow of DEFAULT_FLOWS) {
+    await ensureFlow(tx, flow, pmId);
+  }
+}
+
 export async function seedExtensions(tx: SeedTx): Promise<void> {
   const pmId = await userIdByEmail(tx, "pm@lexflow.demo");
   const memberId = await userIdByEmail(tx, "member@lexflow.demo");
   const financeId = await userIdByEmail(tx, "finance@lexflow.demo");
 
   // 1) 八条默认流程（策略等价迁移）+ 一条演示流程
-  for (const flow of DEFAULT_FLOWS) {
-    await ensureFlow(tx, flow, pmId);
-  }
+  await seedDefaultFlows(tx);
   await ensureFlow(tx, { ...FUNDING_DEMO_FLOW, enabled: false }, pmId);
 
   // 2) 佳力奇客户/事项（承工单 06 试用单；主数据无 UI 属已知缺口，种子提供）
