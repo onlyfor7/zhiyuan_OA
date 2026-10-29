@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { RequestDetailPage } from "./pages/preview/RequestsPage";
 import { Navigate, Route, Routes } from "react-router";
 
 import AppShell from "./components/AppShell";
@@ -13,6 +14,12 @@ const MeetingDetailPage = lazy(() => import("./pages/MeetingDetailPage"));
 const MeetingNewPage = lazy(() => import("./pages/MeetingNewPage"));
 const MeetingsPage = lazy(() => import("./pages/MeetingsPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
+const PreviewShell = lazy(() => import("./pages/preview/PreviewShell"));
+const AdminCenterPage = lazy(() => import("./pages/preview/admin/AdminCenterPage"));
+const FlowDesignerPage = lazy(() => import("./pages/preview/admin/FlowDesignerPage"));
+const RequestsPage = lazy(() => import("./pages/preview/RequestsPage"));
+const ReceiptsPage = lazy(() => import("./pages/preview/ReceiptsPage"));
+const SettingsPage = lazy(() => import("./pages/preview/SettingsPage"));
 const ApprovalsPage = lazy(() => import("./pages/ApprovalsPage"));
 const ProjectCreatePage = lazy(() => import("./pages/ProjectCreatePage"));
 const ProjectsPage = lazy(() => import("./pages/ProjectsPage"));
@@ -53,6 +60,15 @@ export default function App() {
     <Suspense fallback={<div className="page-loader" role="status">正在加载…</div>}>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/preview" element={<Navigate to="/preview/admin" replace />} />
+      <Route element={<PreviewShell />}>
+        <Route path="/preview/admin" element={<AdminCenterPage />} />
+        <Route path="/preview/admin/flows/:flowId" element={<FlowDesignerPage />} />
+        <Route path="/preview/requests" element={<RequestsPage />} />
+        <Route path="/preview/requests/:requestId" element={<RequestDetailPage />} />
+        <Route path="/preview/receipts" element={<ReceiptsPage />} />
+        <Route path="/preview/settings" element={<SettingsPage />} />
+      </Route>
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="/cockpit" replace />} />
         <Route path="/cockpit" element={<CockpitPage />} />
