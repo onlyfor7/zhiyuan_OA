@@ -17,7 +17,7 @@
 | 3 | 预算、经费与费用垂直闭环 | **通过** | 2026-10-27 |
 | 4 | 工时与统一经营视图 | **通过** | 2026-10-28 |
 | 5 | 系统验收 | **通过** | 2026-10-29 |
-| 6 | 扩展域（收款台账/审批流自定义/基础数据） | 进行中 | — |
+| 6 | 扩展域（收款台账/审批流自定义/基础数据） | **通过** | 2026-10-29 |
 | 2 | 会议与出差垂直闭环 | 未开始 | — |
 | 3 | 预算、经费与费用垂直闭环 | 未开始 | — |
 | 4 | 工时与统一经营视图 | 未开始 | — |
@@ -142,9 +142,9 @@
 ## 偏差与仲裁
 
 | 日期 | 会话 | 事项 | 架构裁定 | 状态 |
-| 2026-10-29 | 测试 | **R6（验收实测缺陷）**：`receipts.create` 的 idempotencyKey 被接受但未落库（payment_receipts 无该列），同键重放双记（实测 RCV-00006/00007 同键两号）——违反 arch/02 §3.7 创建类 mutation 幂等铁律 | 待裁定。修复规格：payment_receipts 加 idempotency_key 唯一列（可空）+ create 先查后插/23505 兜底返回首次结果；iter6-acceptance E1 已钉现状（修复后改回 toBe(1)/同 id 断言） | 待裁定 |
-| 2026-10-29 | 测试 | **R7（验收实测缺陷）**：`flow.publish` 对既有 biz_type（travel/budget）发布 500 INTERNAL（generic_request 发布正常）——arch/09 §3.1「既有 biz_type 全部可自定义流程」不可用；E2/E4 合同场景阻塞 | 待裁定。修复规格：排查 publish 对非 generic 绑定路径（与 approval_policies 兼容迁移相关）的未捕获异常，补用例（travel 发布→业务走自定义→disable 回默认）；iter6-acceptance E2 已钉现状 | 待裁定 |
-| 2026-10-29 | 测试 | **R8（验收实测缺陷）**：`admin.setConfig` 改 `approval.amount_thresholds.fundingManagementReviewCents` 返回 200 但引擎策略匹配不读该配置（match_json 硬编码 min_amount_cents），改配置前后经费审批均两步——arch/09 §6 E6「阈值改配置即生效」不成立 | 待裁定。修复规格：策略 match 阶段读取 system_config 阈值（或迁移 match_json 为配置引用）；iter6-acceptance E6 已钉现状（修复后改回 toHaveLength(1)）。附带观察：admin.createMatter 对不存在 clientId 返回 500（应为 4xx） | 待裁定 |
+| 2026-10-29 | 测试→后端 | **R6**：receipts.create 幂等键未落库同键重放双记 | **已修复关闭**（05b 迁移 0009 唯一列+先查后插；05c prod live 复测同键重放 200 同 id 单行） | 已关闭 |
+| 2026-10-29 | 测试→后端 | **R7**：flow.publish 对既有 biz_type 500 | **已修复关闭**（05b 按 binding 释放；05c prod live 发布 200+travel 接管+佳力奇 P4b/P5b 双链重跑） | 已关闭 |
+| 2026-10-29 | 测试→后端 | **R8**：阈值配置未接入策略匹配 | **已修复关闭**（05b $config 编译期求值；05c prod live 阈值改后 2 步→1 步） | 已关闭 |
 
 |---|---|---|---|---|
 | 2026-10-28 | 测试 | **P0（系统验收实测发现）**：生产栈（:8080）SPA 多级路径深链白屏——`vite base:'./'` 相对资产路径在 `/meetings/:id`、`/projects/:id`、`/expenses/:id` 等多段路径下被解析为 `/<seg>/assets/...`，nginx SPA 回退返回 HTML 致 React 挂载失败（实测：index.html 200、chunk 200 但内容为 HTML、root innerHTML=0、无 JS 异常）；单段路径（/login、/cockpit）不受影响故部署冒烟未暴露。影响：生产环境全部业务详情深链/刷新/回跳不可用。建议修复：app 构建 base 改 `/`（或 nginx assets 绝对别名）后重建镜像。E2E 矩阵暂按工单「dev 或 prod」约定改用 dev 栈执行，prod 复测留修复后 | **裁定：缺陷属实且违反基线 §5.3 硬性要求（直链/刷新），迭代 5 不关闭**。架构会话已独立证实（深链资产路径返回 text/html）。修复链：03b 前端改 `base:'/'` → 04b 部署重建 web 镜像复起 → 05b 测试 prod 深链复测。E2E「dev 或 prod」约定修订为「至少 prod 栈复测深链」。测试会话发现并如实上报 P0、判定不阻塞但不隐瞒——符合验收职责 | **已关闭**：03b 前端 base '/' 修复 + 04b 重建 web 镜像复起（架构复核确认资产 application/javascript），05b 测试会话 Playwright 深链复测 4/4 全过（10 桌面深链+3 移动+刷新/返回+核心链冒烟，截图 D:	mp\shots-iter5-deeplink\） |
@@ -167,6 +167,8 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-10-29｜测试｜迭代6-05c｜**工单 05c 完成（收口判定：全过，迭代 6 置「通过」、全部迭代收口）。** 执行：① prod 库幂等 db:seed（`docker exec lexflow-prod-server node dist/seed.js`，加性补齐 generic_request.types 等配置键，未重灌）；② **R6–R9 四原路径 prod live 复测全过**（脚本 D:	mp6-r9-prod.mjs：R6 同键重放 200 同 id 单行 / R7 travel 自定义流发布 200+policySnapshot.flowName 接管+节点图 [负责人审批，财务会签] / R8 阈值上调后 2 步→1 步 / R9 坏 clientId 400 VALIDATION_FAILED）；③ **佳力奇补跑 6/6**（`e2e/specs/jlq-trial-2.spec.ts`，prod 迭代 6 形态，18 张 R- 截图续存 D:	mp\shots-jlq\）：P0b /admin UI 建客户+事项、P1b UI 立项、P2 三轨甘特+模拟面板、P3 会议链行动项转任务、**P4b/P5b 自定义审批流重跑出差/经费双链（发布 200→接管→UI 双批→approved 实拍）**、P7 工时锁定 403/解锁、P8 复核分离 404+决策验证、P9 周报归档+viewer 授权链、P10 结项检查+审计表、P12 经营中心+CSV+收款台账；④ 两份报告更新（迭代6-验收报告 R 行全转已修复+复测证据；佳力奇报告补跑续表+未覆盖清单清零）；⑤ 回归：**236/236**（既有 235 零回归）+四道门全绿（typecheck/build/test/migrate 复跑 exit 0）。STATUS：R6–R9 偏差行关闭、工单 05/05c 通过、迭代总览迭代 6 置「通过」；`docs/交付说明.md` 已并入迭代 6 三域。提交：`[测试]` 前缀 commit。
+- 2026-10-29｜架构｜迭代6-04d｜**工单 04d 验收通过：双镜像重建/迁移就位/入口与深链实测，解锁05c**
 - 2026-10-29｜架构｜迭代6-04d｜**工单 04d（重建生产栈含迭代 6）验收通过。** 独立复核：server/web 双镜像 5 分钟前新构建（postgres 28h 未动、数据原样）；`drizzle.__drizzle_migrations`=10 行（0000–0009 全就位，我首轮查错 schema 名，实测在位）；prod :8080 的 /admin、/operations/receipts、/requests、/settings 均 200；深链资产不复发；其报告中 R1 修复在 prod 生效的佐证（pm→projectOptions 404、finance→清单）采信。**注意给 05c 的开工指令**：先在 prod 库跑幂等 `db:seed`（加性，补齐 generic_request.types 等配置键与参照数据），再开始佳力奇补跑；佳力奇项目按剧本在 prod 上经 UI 真实创建。**解锁工单 05c（测试会话·复测与佳力奇补跑收口）——迭代 6 关闭前的最后一步。**
 - 2026-10-29｜部署｜迭代6-04d｜**工单 04d（重建生产栈含迭代 6 形态）完成，转待验收（重建实录如下）。** 做了什么：同步 05b 合入代码（`3fdd41a`，含迭代 6 全部功能与 R6–R9 修复、迁移 0007/0008/0009）→ 沿用本机 buildkit 规避方案（等效 docker build，见工单 04 交接条）重建双镜像：`docker build -f server/Dockerfile -t lexflow-prod-server .`（25s，esbuild 实跑产出 dist/migrate.js 279.5kb 等）与 `docker build -f app/Dockerfile -t lexflow-prod-web .`（47s，vite v7.3.7 实跑 ✓ built 4.88s）→ `docker compose -f docker-compose.prod.yml --env-file .env.production up -d` 复起（仅 server+web 重建，postgres 未动，**未重灌种子**）。**实录：新镜像 server `sha256:08d04b55d870be79ab897fbd930af2c45fdb3834696f69d4133feec4a270ed84`（Created 2026-10-29T16:40:27Z）、web `sha256:4fe0cb56ec732e703b1bb6cf0db344bc3fe222c641e2932677aa58793ce6b0dc`（16:41:14Z）；起栈 2026-10-29T16:41:48Z 发起、15 秒三服务全 healthy。迁移重放：server 容器启动日志 `[lexflow] migrate: /app/drizzle` → `migrate: done` → `listening on :3001`；`drizzle.__drizzle_migrations`=**10 行**（0000–0009 全部就位），public 表 53（迭代 5 为 50，+收款/流程定义/通用申请 3 表），projects=5（数据原样保留）。** 怎么验证（全实测，prod :8080）：⑴ 三服务 healthy ✓；⑵ **迭代 6 入口**——/admin、/operations/receipts、/requests、/settings 四条 SPA 路由均 200 text/html，首屏 bundle 更新为 `/assets/index-mWfPIldy.js`（04b 为 index-DpA4iQBy.js，证明新代码在产物中）且命中迭代 6 路由字符串；⑶ **API 实测**：登录 pm（200）→ `genericRequest.types` 200 返回 `{items:[]}`（端点在位；内容为空系「不重灌种子」约束下的预期数据态，佳力奇/收款种子由 05c 补跑在 prod 真实创建）；`receipts.projectOptions`——finance/partner 200 返回真实项目清单（华宸/星澜等 5 项目），pm 404 同形 ACCESS_DENIED_OR_GONE（**R1 收款越权修复在 prod 生效的直接证据**）；⑷ **深链不回归**（05b 规格抽查 3 条）：/meetings/<uuid>、/projects/<uuid>、/expenses/<uuid> 均返回 index.html 且资产 `/assets/index-mWfPIldy.js` 实测 200 application/javascript（非 text/html）。按工单无配置/种子变更，提交仅 STATUS.md。遗留：无。prod 栈保持运行（:8080）供 05c 复测与佳力奇补跑直接使用；dev 栈（3000/3001/15432）全程未触碰。
 - 2026-10-29｜架构｜迭代6-05b｜**工单 05b（R6–R9 缺陷修复）验收通过。** 四条原路径实弹复测：R6 同键重放同 id+DB 单行（复测残留已作废清理）；R7 travel 自定义流 publish 200、publish 幂等、**新提交出差的 policy_snapshot 含自定义流程名+版本+编译步骤（真实接管证据）**、disable 回退默认流；R8 阈值配置 100 分→3000 元经费两步生效→还原；R9 坏 clientId → 400 fieldErrors.clientId。R7 根因（默认流程按 name 释放撞上 (biz_binding,项目) 唯一索引）定位准确、修法正确。**解锁工单 04d（部署会话·重建生产栈含迭代 6）。**
