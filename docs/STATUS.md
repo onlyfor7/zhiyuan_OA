@@ -85,8 +85,8 @@
 | 04d 重建生产栈含迭代 6 | 部署 | **通过** | 部署会话 | 2026-10-29 | 架构会话已验收（双镜像重建/10 迁移就位/迭代6入口 200/深链不复发/R1 修复在 prod 生效佐证） |
 | 05c 复测与佳力奇补跑收口 | 测试 | **通过** | 测试会话 | 2026-10-29 | 架构会话终审收口（迭代 6 关闭）；R6–R9 复测+佳力奇补跑 6/6 |
 | 07 清库种子模式 | 数据 | **通过** | 数据会话 | 2026-10-29 | 架构会话已验收（minimal 档 dev 实测 projects/clients/台账全 0、基础件齐备、双档幂等） |
-| 08 生产栈清空重置 | 部署 | 待验收 | 部署会话 | 2026-10-29 | 重置实录见交接记录置顶条；三服务 healthy、零业务数据、登录可用 |
-| 09 蓝海项目穷尽覆盖测试 | 测试 | 未认领 | | | 待 08 通过；覆盖基准=代码枚举（路由×过程×按钮×角色） |
+| 08 生产栈清空重置 | 部署 | **通过** | 部署会话 | 2026-10-29 | 架构会话已验收（0 项目/0 客户/12 用户/14 配置/8 流程，pm 登录空列表） |
+| 09 蓝海项目穷尽覆盖测试 | 测试 | 未认领 | | | 已解锁（穷尽覆盖总验收） |
 
 ## 迭代 4 工单状态
 
@@ -169,6 +169,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-10-29｜架构｜迭代6-08｜**工单 08（prod 清空重置）验收通过。** 独立复核：三服务 healthy（5 分钟新栈）、projects/clients/matters=0、users=12/config=14/flows=8、审计 1 行（我的登录——顺带证明审计工作）、pm 登录空列表。其报告的工单矛盾处置（镜像内 seed.js 为 04d 旧版不含 minimal 支持→一次性容器挂载新 dist 执行，镜像保持不动）为正确处置，接受；遗留观察项：prod server 镜像内嵌 seed.js 仍是 full 档，下次重建镜像即消除，记入观察。**解锁工单 09（蓝海 CRM 项目穷尽覆盖测试）。**
 
 - 2026-10-29｜部署｜迭代6-08｜**工单 08（生产栈清空重置）完成，转待验收（重置实录如下）。** 做了什么：`docker compose -f docker-compose.prod.yml --env-file .env.production down -v`（容器×3+网络+**两数据卷全删**：lexflow-prod_pgdata / lexflow-prod_storage，`docker volume ls` 确认 0 残留；prod 原有 13 个项目等开发期业务数据按用户指令清除）→ `up -d` 复起（**19s 三服务全 healthy**；server 启动自动迁移：`[lexflow] migrate: /app/drizzle` → `migrate: done`，`drizzle.__drizzle_migrations`=**10 行，0000–0009 全重放**）→ minimal 种子。**环境变量注入方式（自决并文档化）**：`SEED_PROFILE` 由种子脚本直接读 `process.env`（不经 env.ts zod 校验），以 `docker run -e SEED_PROFILE=minimal -e DATABASE_URL=postgres://<user>:<password>@postgres:5432/<db>` 注入；`<user>/<password>/<db>` 取自本地 `.env.production`（shell 内 source，不落盘不打印）。**⚠️ 工单内矛盾与处置（如实记录，未擅自绕过）**：工单要求容器内 `node dist/seed.js` 且「不改镜像内容（不重建）」，但现行 server 镜像构建于 04d（16:40，07 合入 `1e1a6e9` 之前），其 `dist/seed.js` **不含 minimal 档**（实测 grep SEED_PROFILE/minimal = 0/0，exec 执行必跑 full 种子，重置目标将失败）。处置：镜像保持不动（**前后 hash 一致**：`sha256:08d04b55d870…270ed84` BEFORE==AFTER），改为一次性容器执行——`docker run --rm --network lexflow-prod_default -v <工作区新构建 server/dist>:/app/dist:ro -e SEED_PROFILE=minimal -e DATABASE_URL=… lexflow-prod-server node dist/seed.js`（工作区 dist 经 `npm run build -w @lexflow/server` 产出，含 07 的 minimal 支持，grep SEED_PROFILE=2）；输出 `[db:seed] 种子完成（profile=minimal，幂等）`，耗时 1s。怎么验证（全实测）：三服务 healthy ✓；**projects=0 / clients=0 / matters=0 / meetings=0 / payment_receipts=0 / generic_requests=0 / budget_ledger=0 / audit_events=0 / file_versions=0**（零业务数据）；**users=12 / roles=8 / system_config=14 / project_templates=2 / flow_definitions=8**（与 07 在 dev 库的验收计数逐项一致）；pm@lexflow.demo 登录 200 ✓ 且 `project.list` 返回 `{items:[],nextCursor:null}`（空列表无残留）✓；GET / 200 ✓。dev 栈（3000/3001/15432）与 dev 库全程未触碰 ✓。提交：仅 STATUS.md（`[部署]` 前缀）。**遗留（建议后续工单消化，不阻塞 09）**：prod server 镜像内的 `dist/seed.js` 仍为 04d 旧版——将来若在 server 容器内直接 `exec … node dist/seed.js` 会跑 **full** 种子（minimal 需用上文一次性容器方式）；建议择机重建 server 镜像消除该陷阱（本次按工单约束不重建）。
 
