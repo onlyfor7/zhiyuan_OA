@@ -167,6 +167,8 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-10-29｜架构｜迭代6收口｜**工单 05c 通过，迭代 6 正式关闭；迭代 0–6 全部收口，项目（含扩展域）交付。** 终审复核：四道门 236/236 实测全绿（typecheck/build/test/migrate）；prod 终态抽查——佳力奇咨询项目在库、`generic_request.types` 配置补齐、**13 条审批实例带自定义流程快照（R7 真实接管的规模化证据）**、收款 registered 3 笔；两份报告完整（未覆盖清单清零、R6–R9 转「已修复关闭+复测证据」）。`docs/交付说明.md` 已并入迭代 6 三域。**全项目状态：可交付、可试用、可部署。**
+
 - 2026-10-29｜测试｜迭代6-05c｜**工单 05c 完成（收口判定：全过，迭代 6 置「通过」、全部迭代收口）。** 执行：① prod 库幂等 db:seed（`docker exec lexflow-prod-server node dist/seed.js`，加性补齐 generic_request.types 等配置键，未重灌）；② **R6–R9 四原路径 prod live 复测全过**（脚本 D:	mp6-r9-prod.mjs：R6 同键重放 200 同 id 单行 / R7 travel 自定义流发布 200+policySnapshot.flowName 接管+节点图 [负责人审批，财务会签] / R8 阈值上调后 2 步→1 步 / R9 坏 clientId 400 VALIDATION_FAILED）；③ **佳力奇补跑 6/6**（`e2e/specs/jlq-trial-2.spec.ts`，prod 迭代 6 形态，18 张 R- 截图续存 D:	mp\shots-jlq\）：P0b /admin UI 建客户+事项、P1b UI 立项、P2 三轨甘特+模拟面板、P3 会议链行动项转任务、**P4b/P5b 自定义审批流重跑出差/经费双链（发布 200→接管→UI 双批→approved 实拍）**、P7 工时锁定 403/解锁、P8 复核分离 404+决策验证、P9 周报归档+viewer 授权链、P10 结项检查+审计表、P12 经营中心+CSV+收款台账；④ 两份报告更新（迭代6-验收报告 R 行全转已修复+复测证据；佳力奇报告补跑续表+未覆盖清单清零）；⑤ 回归：**236/236**（既有 235 零回归）+四道门全绿（typecheck/build/test/migrate 复跑 exit 0）。STATUS：R6–R9 偏差行关闭、工单 05/05c 通过、迭代总览迭代 6 置「通过」；`docs/交付说明.md` 已并入迭代 6 三域。提交：`[测试]` 前缀 commit。
 - 2026-10-29｜架构｜迭代6-04d｜**工单 04d 验收通过：双镜像重建/迁移就位/入口与深链实测，解锁05c**
 - 2026-10-29｜架构｜迭代6-04d｜**工单 04d（重建生产栈含迭代 6）验收通过。** 独立复核：server/web 双镜像 5 分钟前新构建（postgres 28h 未动、数据原样）；`drizzle.__drizzle_migrations`=10 行（0000–0009 全就位，我首轮查错 schema 名，实测在位）；prod :8080 的 /admin、/operations/receipts、/requests、/settings 均 200；深链资产不复发；其报告中 R1 修复在 prod 生效的佐证（pm→projectOptions 404、finance→清单）采信。**注意给 05c 的开工指令**：先在 prod 库跑幂等 `db:seed`（加性，补齐 generic_request.types 等配置键与参照数据），再开始佳力奇补跑；佳力奇项目按剧本在 prod 上经 UI 真实创建。**解锁工单 05c（测试会话·复测与佳力奇补跑收口）——迭代 6 关闭前的最后一步。**
