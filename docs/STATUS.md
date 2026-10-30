@@ -90,6 +90,7 @@
 | 09b 补 travel_change 默认流 | 数据 | **通过** | 数据会话 | 2026-10-29 | 打回修复复测通过（请假提交→partner 审批）；218/218 |
 | 09c 负责人变更+搜索分组+createTemplate | 后端 | **通过** | 后端会话 | 2026-10-29 | 打回闭合：立项 managerId 两表一致+transfer 双向可还原（架构实弹复核）；249/249 |
 | 09d 模板新建+变更负责人入口+搜索分组展示 | 前端 | **通过** | 前端会话 | 2026-10-30 | 架构会话已验收（高危确认模态+搜索分组截图核验、四道门全绿） |
+| 09e 四项修复复测 | 测试 | **待验收** | 测试会话 | 2026-10-30 | D1-D3/O1 dev/prod 双栈复测全过（fix-retest-09e 4/4×2）；249/249 零回归；E2E-01~16 dev 16/16；prod 双镜像已重建（legacy builder 绕开 buildx 非 ASCII 路径 bug） |
 | 09e 四项修复复测 | 测试 | 未认领 | | | 已解锁（本链收口） |
 
 ## 迭代 4 工单状态
@@ -158,10 +159,10 @@
 
 | 日期 | 会话 | 事项 | 架构裁定 | 状态 |
 |---|---|---|---|---|
-| 2026-10-29 | 测试 | 工单 09 穷尽测试登记缺陷 D1：/admin 项目模板仅「编辑」无「新建」入口（AppRouter 无 admin.crea… | **裁定：接受**。修：09c 后端补 `admin.createTemplate` + 09d 前端新建按钮 | 修复中（09c/09d） |
-| 2026-10-29 | 测试 | 工单 09 穷尽测试登记缺陷 D2：干净系统缺 travel_change 默认审批流 → 412（策略迁移漏该 biz_type） | **裁定：接受为数据缺陷**（策略迁移等价性用例未覆盖 travel_change）。修：09b 双档种子补默认流 + 等价用例补强（逐 biz_type 断言 ≥1 条 enabled 默认流） | 修复中（09b） |
-| 2026-10-29 | 测试 | 工单 09 穷尽测试登记缺陷 D3：项目负责人不可变更——projects.manager_id=创建人即冻结，审批步永远解析立项人 | **裁定：接受为真实设计缺口**。修：09c `project.transferManager`（partner/sysadmin、同事务换 manager_id+成员角色迁移+审计+通知）+ 09d 成员页签「变更负责人」入口（理由必填+二次确认） | 修复中（09c/09d） |
-| 2026-10-29 | 测试 | 工单 09 穷尽测试登记观察项 O1：搜索全局上限 8 条且跨类型按 code 排序挤占 | **裁定：接受为增强项**。修：09c 后端 search 按类型分组（每类 ≤5+totalByType 精确计数）+ 09d 前端分组展示 | 修复中（09c/09d） |
+| 2026-10-29 | 测试 | 工单 09 穷尽测试登记缺陷 D1：/admin 项目模板仅「编辑」无「新建」入口（AppRouter 无 admin.crea… | **裁定：接受**。修：09c 后端补 `admin.createTemplate` + 09d 前端新建按钮｜**已修复复测通过**（09e RT3：dev/prod 各 1 轮全过，UI 新建模板→立项→自动物就位，截图 RT3-01..04） | **已关闭** |
+| 2026-10-29 | 测试 | 工单 09 穷尽测试登记缺陷 D2：干净系统缺 travel_change 默认审批流 → 412（策略迁移漏该 biz_type） | **裁定：接受为数据缺陷**（策略迁移等价性用例未覆盖 travel_change）。修：09b 双档种子补默认流 + 等价用例补强（逐 biz_type 断言 ≥1 条 enabled 默认流）｜**已修复复测通过**（09e RT1：submitChange 200 走「travel_change 默认流程」全链，dev/prod 各 1 轮；prod 经镜像重建+minimal 种子自愈落默认流） | **已关闭** |
+| 2026-10-29 | 测试 | 工单 09 穷尽测试登记缺陷 D3：项目负责人不可变更——projects.manager_id=创建人即冻结，审批步永远解析立项人 | **裁定：接受为真实设计缺口**。修：09c `project.transferManager`（partner/sysadmin、同事务换 manager_id+成员角色迁移+审计+通知）+ 09d 成员页签「变更负责人」入口（理由必填+二次确认）｜**已修复复测通过**（09e RT2：高危模态→managerName 切换/新旧角色迁移/双通知/审计行/后续 travel 首步解析=新负责人/旧负责人项目内管理权 404——dev/prod 各 1 轮） | **已关闭** |
+| 2026-10-29 | 测试 | 工单 09 穷尽测试登记观察项 O1：搜索全局上限 8 条且跨类型按 code 排序挤占 | **裁定：接受为增强项**。修：09c 后端 search 按类型分组（每类 ≤5+totalByType 精确计数）+ 09d 前端分组展示｜**已修复复测通过**（09e RT4：6 任务+1 会议多组并存，task 组 total=6/items=5/totalByType 精确/拍平不截断——dev/prod 各 1 轮，截图 RT4-01） | **已关闭** |
 | 2026-10-27 | 前端 | arch/04 §5 无 `matter.list`/`user.list` 只读契约，但工单 03 要求：项目创建选事项（create 必填 matterId）、成员新增 userId、授权申请 granteeId、审批转交 transferTo、审计 actor 筛选——五处人选/事项选择无数据源 | **裁定：契约缺口属实（责任在架构），补齐方案已冻结**：arch/02 §4.1（v1.2）增补 `user.list/client.list/matter.list` 参照数据只读端点（登录可用、最小字段、不审计）+ `project.create` 权限门（project.manage=partner/sysadmin）。实现排微工单 02b（后端），五处选择器接入排 03b（前端） | 已关闭 |
 | 2026-10-27 | 前端 | `plan.current/versionGet` 的 items 与 `plan.simulate` 输出均无名称字段（plan_items 按 §2.3 只有 type/refId/日期/seq），且 stage/milestone 的 live actual_* 无任何读取入口（contract 无 stage/milestone list）→ 甘特三轨的阶段/里程碑行无法显示名称、实际轨只能覆盖任务 | **裁定：以快照名修正为准（不 join live，避免改名回填历史版本）**：arch/04 §2.3 v1.1 增补 `plan_items.name`（版本时点快照，迁移回填存量）+ §5 v1.1 `plan.current` 输出 stages/milestones 含 actual_*、versionGet/simulate 带 name。迭代 1 期间「类型+seq」降级呈现可接受。实现同排微工单 02b | 已关闭 |
 | 2026-10-27 | 数据 | arch/04 §2.11/§4 增补 `SELF_REVIEW_BLOCKED`、`POLICY_NOT_FOUND` 两个业务错误码但未指定 tRPC code 映射。数据会话落地：`SELF_REVIEW_BLOCKED→FORBIDDEN`（与 `SELF_APPROVAL_BLOCKED` 同形）、`POLICY_NOT_FOUND→PRECONDITION_FAILED`（策略无命中=操作前提不满足，显式失败） | **裁定：两个映射均接受**，已增补进 arch/02 §6 表（v1.1）。附带规则澄清：错误码→tRPC code 映射表属契约管道，新增冻结错误码时允许同次交付补映射行（arch/02 §6 已注明）。对 `server/src/lib/errors.ts` 的两行越界改动认定为本规则下的合规最小改动，不追责 | 已关闭 |
@@ -177,6 +178,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-10-30｜测试｜迭代6-09e｜**工单 09e（四项修复复测）完成，转待验收，09 系收口。** ① **四点复测全过**（`e2e/specs/fix-retest-09e.spec.ts`，LX_BASE 切换双栈）：**D2** travel_change——submitChange 200 且 flowName=「travel_change 默认流程」→ 变更审批 → destination 更新（RT1，dev 32.3s/prod 29.2s 各 4/4 全绿）；**D3** transferManager——UI 高危模态（红条+双方姓名理由回显+不可一键撤销提示）→ managerName 切换陈立→成员表 pm=manager/partner=member 降级→pm 收通知→审计行 project.transferManager 在位→后续 travel 首步审批人解析=pm（manager_id 运行时解析实证）→降级 partner addMember/close 同形 404（RT2）；**D1** admin.createTemplate——UI 新建「复测开发模板」→listTemplates 命中→新模板立项→计划阶段/任务+档案目录自动物就位（RT3）；**O1** 搜索分组——6 任务+1 会议多组并存：task 组 total=6/items=5/totalByType.task=6/拍平 7 条不全局截断（RT4）。截图 13 张 `D:	mp\shots-09e\`。② **回归**：根测试套件 **249/249**（server 226+app 23）零回归；e2e 核心链 E2E-01~16 dev 栈 **16/16**（BASE_URL=3000）。③ **prod 环境动作（本Session代部署执行，用户已授权 dev 先行/prod 排最后）**：prod 双镜像按 04d 流程重建——buildx 遇「x-docker-expose-session-sharedkey 非打印 ASCII」bug（重试+ASCII junction 均无效），改 `DOCKER_BUILDKIT=0` legacy builder 直构 server(af56909f0dfe)/web(f30213a65a49) 成功；`up -d` 复起（pgdata 卷保留，09 测试业务数据未动）；**full 档种子在 prod 现网库因 09 残留工时周期撞 timesheet_periods 唯一约束整体回滚**（flow 自愈同事务被回滚——教训：现网库补配置须用 `SEED_PROFILE=minimal`），改 minimal 档成功但共存守卫因 09 残留「蓝海变更重审流」enabled 跳过默认流；按守卫设计停用该残留流后再 minimal 种子，**travel_change 默认流程 enabled 落库**，复测环境还原为干净库形态。④ **报告**：蓝海穷尽测试报告缺陷表 D1-D3/O1 四行转「已修复+复测证据」。⑤ **遗留/留坑**：prod 库 09 系业务残留未清（测试数据，下次重置随 down -v 消除）；buildx 非 ASCII 路径 bug 建议记入部署手册（workaround：legacy builder 或重启 Docker Desktop 后再试）。
 
 - 2026-10-30｜架构｜迭代6-09d｜**工单 09d（前端三处收口）验收通过。** 截图核验：变更负责人高危确认模态（红条/双方姓名与理由回显/「立即生效、写入审计且不可一键撤销」提示——高危 UX 教科书）；搜索分组（组头 totalByType 徽标「任务·6 条」+5 条预览+「查看全部该类型」）；模板新建表单（合法骨架预填）。四道门 app 侧全绿（build 最大 chunk 248kB）。D1/D3/O1 前端侧闭合。**解锁工单 09e（测试会话·四项修复复测，本链收口）。**
 
