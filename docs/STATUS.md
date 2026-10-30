@@ -88,7 +88,7 @@
 | 08 生产栈清空重置 | 部署 | **通过** | 部署会话 | 2026-10-29 | 架构会话已验收（0 项目/0 客户/12 用户/14 配置/8 流程，pm 登录空列表） |
 | 09 蓝海项目穷尽覆盖测试 | 测试 | **通过** | 测试会话 | 2026-10-29 | 架构会话已验收（18/18 时序全绿、三交付物齐备、覆盖矩阵完整）；D1–D3/O1 裁定出修复链 |
 | 09b 补 travel_change 默认流 | 数据 | **通过** | 数据会话 | 2026-10-29 | 打回修复复测通过（请假提交→partner 审批）；218/218 |
-| 09c 负责人变更+搜索分组+createTemplate | 后端 | **打回→进行中** | 后端会话 | 2026-10-29 | 主体通过（transferManager 全链实测/搜索分组/createTemplate 全过）；打回一项：project.create 的 managerId 与 project_members 不一致（创建人恒为 manager 成员、managerId 不落成员行）——修复规格见交接记录置顶条 |
+| 09c 负责人变更+搜索分组+createTemplate | 后端 | **待验收** | 后端会话 | 2026-10-29 | 打回修复完成：create 支持指定 managerId 且成员表同事务对齐（恰一 manager 行、创建人降级 member），transfer 双向可还原用例在位；四道门 249/249 |
 | 09d 模板新建+变更负责人入口+搜索分组展示 | 前端 | 未认领 | | | 微工单，待 09c 通过 |
 | 09e 四项修复复测 | 测试 | 未认领 | | | 微工单，待 09d 通过 |
 
@@ -178,6 +178,7 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-10-29｜后端｜迭代6-09c｜**打回项修复完成，转待验收（project.create 的 managerId 与 project_members 脱节）。** 修复：`project.create` 增可选 `managerId` 入参——缺省仍=创建人（既有行为零变化，全量回归证实）；指定时先校验在职用户（不存在/停用 → 400 VALIDATION_FAILED + fieldErrors.managerId，不泄 500），创建事务内成员表同事务对齐：`managerId` 落 project_members 唯一 manager 行，创建人≠负责人时创建人落 member——与 transferManager 保持「一个项目恰一个 manager 成员」同一事务语义，架构实测的「transfer 降级落空/还原被必须是项目成员拦」两条断链闭合。**补用例**（transfer-search-template.test.ts +2）：①partner 指定 liuchang 立项 → projects.manager_id 与成员表两表一致（恰一条 manager 行=liuchang、创建人 partner=member）→ transferManager liuchang→partner→liuchang 双向可还原逐步断言；②坏 managerId（随机 UUID）→ 400+fieldErrors。**四道门逐条真实跑**：server vitest **226/226**（43 文件）✓；根 typecheck exit 0✓；根 build exit 0✓；根 test **249/249**（226+23）✓。无 schema 变更。分支 `iter6/server-pm-transfer`。**复测路径**：partner 带 managerId=liuchang 立项 → 两表一致 → transfer 双向还原不拦。
 - 2026-10-29｜架构｜迭代6-09c｜**工单 09c 验收：主体通过，一项打回（立项时负责人与成员表不一致）。** 已通过（实弹+四道门 247/247）：transferManager 全链（partner 调、同事务换 manager_id+角色迁移、审计前后值、双通知、非授权同形 404、非成员 400+fieldErrors）；**变更后审批解析到新负责人**（member 提差旅首步=liuchang，D3 核心目标达成）；搜索 groups+totalByType 形状在位；createTemplate 成功+列表可见。**打回项（探针逼出）**：`project.create` 恒把**创建人**写为 manager 成员（project.ts:131），`managerId` 入参落 projects.manager_id 却**不进 project_members**——两者脱节；后续 transferManager 对旧负责人降级落空、新负责人还原被「必须是项目成员」拦（实测复现）。**修复规格**：create 事务内保证 managerId 恰为 project_members 中 manager 角色行（创建人≠managerId 时创建人降为 member），与 transferManager 保持「一个项目恰一个 manager 成员」同一事务语义；补用例（managerId≠创建人时两表一致、后续 transfer 双向可还原）。修完转待验收，我复测该路径。（探针在 dev minimal 库留 PRJ-2026-00007 探测项目，验收后无妨。）
 
 - 2026-10-29｜架构｜迭代6-09b复审｜**工单 09b 验收通过（打回修复闭合）。** 复测：218/218 绿；原被拦请假单 REQ-2026-00002 提交成功、审批步骤解析为 partner@lexflow.demo（[partner] 兜底生效）；种子自愈机制（同名默认流 UPDATE 修正）设计正确且带用例。**解锁工单 09c（后端会话：负责人变更+搜索分组+createTemplate）。**

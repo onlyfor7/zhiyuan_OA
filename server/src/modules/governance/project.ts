@@ -16,6 +16,7 @@ import {
   qualityIssues,
   stages,
   tasks,
+  users,
   weeklyReports,
 } from "../../db/schema";
 import { nextCode } from "../../db/code";
@@ -79,6 +80,8 @@ export interface CreateProjectInput {
   type?: string;
   confidentialityLevel?: "public" | "internal" | "confidential" | "secret";
   startDate: string; // YYYY-MM-DD，模板阶段按 2 周/阶段顺排
+  /** 指定负责人（09c 打回修复）：缺省=创建人；指定时成员表同事务对齐——managerId 恰为唯一 manager 行，创建人降为 member */
+  managerId?: string;
 }
 
 export async function createProject(
@@ -109,6 +112,21 @@ export async function createProject(
     tasks?: TemplateTask[];
   };
 
+  // 指定负责人须为在职用户（成员表同事务对齐的前提；不存在/停用 → 4xx 不泄 500）
+  const managerId = input.managerId ?? user.id;
+  if (input.managerId) {
+    const [mgr] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.id, input.managerId), eq(users.status, "active")))
+      .limit(1);
+    if (!mgr) {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "负责人不存在或已停用", {
+        managerId: ["负责人不存在或已停用"],
+      });
+    }
+  }
+
   const projectCode = await nextCode("PRJ", db);
   const [project] = await db
     .insert(projects)
@@ -117,7 +135,7 @@ export async function createProject(
       matterId: input.matterId,
       name: input.name,
       type: input.type ?? "",
-      managerId: user.id,
+      managerId,
       confidentialityLevel: input.confidentialityLevel ?? "internal",
       lifecycleStatus: "preparing",
       healthStatus: "normal",
@@ -127,8 +145,18 @@ export async function createProject(
     .returning({ id: projects.id, code: projects.code });
   if (!project) throw new Error("项目插入失败");
 
-  // 创建人自动成为项目负责人（成员关系）
-  await db.insert(projectMembers).values({ projectId: project.id, userId: user.id, projectRole: "manager" });
+  // 成员表与 manager_id 同事务对齐（09c 打回修复：两表不再脱节；与 transferManager 同一语义——恰一条 manager 行）。
+  // 创建人≠负责人时创建人落 member（降级语义），保证后续 transferManager 双向可还原。
+  await db
+    .insert(projectMembers)
+    .values({ projectId: project.id, userId: managerId, projectRole: "manager" })
+    .onConflictDoNothing();
+  if (managerId !== user.id) {
+    await db
+      .insert(projectMembers)
+      .values({ projectId: project.id, userId: user.id, projectRole: "member" })
+      .onConflictDoNothing();
+  }
 
   // 模板阶段（days 累计排期，默认 14 天/阶段）+ 基线 v1 及 items
   const [v1] = await db

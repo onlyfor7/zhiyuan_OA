@@ -39,6 +39,7 @@ describe("迭代6-09c：负责人变更 + 搜索分组 + createTemplate", () => 
   let pmUserId: string;
   let liuchangUserId: string;
   let viewerUserId: string;
+  let partnerUserId: string;
 
   beforeAll(async () => {
     await setupDatabase();
@@ -52,11 +53,12 @@ describe("迭代6-09c：负责人变更 + 搜索分组 + createTemplate", () => 
     const items = (list.json as { result: { data: { items: { id: string; code: string }[] } } }).result.data.items;
     projectAId = items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;
     const users = await query<{ id: string; email: string }>(
-      `SELECT id, email FROM users WHERE email IN ('pm@lexflow.demo','liuchang@lexflow.demo','viewer@lexflow.demo')`,
+      `SELECT id, email FROM users WHERE email IN ('pm@lexflow.demo','liuchang@lexflow.demo','viewer@lexflow.demo','partner@lexflow.demo')`,
     );
     pmUserId = users.find((u) => u.email === "pm@lexflow.demo")!.id;
     liuchangUserId = users.find((u) => u.email === "liuchang@lexflow.demo")!.id;
     viewerUserId = users.find((u) => u.email === "viewer@lexflow.demo")!.id;
+    partnerUserId = users.find((u) => u.email === "partner@lexflow.demo")!.id;
   });
 
   afterAll(async () => {
@@ -142,6 +144,77 @@ describe("迭代6-09c：负责人变更 + 搜索分组 + createTemplate", () => 
     expect(bad.status).toBe(400);
     expect(trpcError(bad).businessCode).toBe("VALIDATION_FAILED");
     expect(trpcError(bad).fieldErrors?.newManagerId).toBeTruthy();
+  });
+
+  it("D3 打回修复：project.create 指定 managerId≠创建人——两表同事务一致（恰一条 manager 行），transfer 双向可还原", async () => {
+    // partner 立项、指定 liuchang 为负责人（创建人≠负责人）
+    const templates = await trpc(app, "project.listTemplates", { cookie: partnerCookie, method: "GET" });
+    const templateId = (templates.json as { result: { data: Array<{ id: string }> } }).result.data[0].id;
+    const [matter] = await query<{ id: string }>(`SELECT id FROM matters LIMIT 1`);
+    const created = await trpc(app, "project.create", {
+      cookie: partnerCookie,
+      input: {
+        templateId, matterId: matter.id, name: "09c打回修复·指定负责人立项",
+        startDate: "2027-12-01", managerId: liuchangUserId,
+      },
+    });
+    expect(created.status).toBe(200);
+    const projId = (created.json as { result: { data: { id: string } } }).result.data.id;
+
+    // 两表一致：projects.manager_id=liuchang；成员表恰一条 manager 行=liuchang；创建人 partner 落 member
+    const proj = await query<{ manager_id: string }>(`SELECT manager_id FROM projects WHERE id=$1`, [projId]);
+    expect(proj[0].manager_id).toBe(liuchangUserId);
+    const members = await query<{ user_id: string; project_role: string }>(
+      `SELECT user_id, project_role FROM project_members WHERE project_id=$1`,
+      [projId],
+    );
+    const managers = members.filter((m) => m.project_role === "manager");
+    expect(managers).toHaveLength(1);
+    expect(managers[0].user_id).toBe(liuchangUserId);
+    expect(members.find((m) => m.user_id === partnerUserId)?.project_role).toBe("member");
+
+    // transfer 双向可还原：liuchang→partner（partner 是成员，不被「必须是项目成员」拦）→ 再转回 liuchang
+    const t1 = await trpc(app, "project.transferManager", {
+      cookie: partnerCookie,
+      input: { projectId: projId, newManagerId: partnerUserId, reason: "09c 双向还原第一步" },
+    });
+    expect(t1.status).toBe(200);
+    let m1 = await query<{ user_id: string; project_role: string }>(
+      `SELECT user_id, project_role FROM project_members WHERE project_id=$1`,
+      [projId],
+    );
+    expect(m1.filter((m) => m.project_role === "manager").map((m) => m.user_id)).toEqual([partnerUserId]);
+    expect(m1.find((m) => m.user_id === liuchangUserId)?.project_role).toBe("member");
+
+    const t2 = await trpc(app, "project.transferManager", {
+      cookie: partnerCookie,
+      input: { projectId: projId, newManagerId: liuchangUserId, reason: "09c 双向还原第二步" },
+    });
+    expect(t2.status).toBe(200);
+    m1 = await query<{ user_id: string; project_role: string }>(
+      `SELECT user_id, project_role FROM project_members WHERE project_id=$1`,
+      [projId],
+    );
+    expect(m1.filter((m) => m.project_role === "manager").map((m) => m.user_id)).toEqual([liuchangUserId]);
+    expect(m1.find((m) => m.user_id === partnerUserId)?.project_role).toBe("member");
+    const projAfter = await query<{ manager_id: string }>(`SELECT manager_id FROM projects WHERE id=$1`, [projId]);
+    expect(projAfter[0].manager_id).toBe(liuchangUserId);
+  });
+
+  it("D3 打回修复：指定负责人不存在/停用 → 400 VALIDATION_FAILED + fieldErrors（不泄 500）", async () => {
+    const templates = await trpc(app, "project.listTemplates", { cookie: partnerCookie, method: "GET" });
+    const templateId = (templates.json as { result: { data: Array<{ id: string }> } }).result.data[0].id;
+    const [matter] = await query<{ id: string }>(`SELECT id FROM matters LIMIT 1`);
+    const bad = await trpc(app, "project.create", {
+      cookie: partnerCookie,
+      input: {
+        templateId, matterId: matter.id, name: "09c坏负责人立项",
+        startDate: "2027-12-01", managerId: crypto.randomUUID(),
+      },
+    });
+    expect(bad.status).toBe(400);
+    expect(trpcError(bad).businessCode).toBe("VALIDATION_FAILED");
+    expect(trpcError(bad).fieldErrors?.managerId).toBeTruthy();
   });
 
   it("O1 搜索分组：两类各超上限时各自 ≤5 条齐全 + totalByType 精确计数（无跨类型挤占）", async () => {

@@ -176,6 +176,8 @@ export const projectRouter = router({
         type: z.string().max(50).optional(),
         confidentialityLevel: z.enum(CONFIDENTIALITY_LEVEL).optional(),
         startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "开始日须为 YYYY-MM-DD"),
+        /** 指定负责人（缺省=创建人）；指定时成员表同事务对齐（09c 打回修复） */
+        managerId: z.uuid().optional(),
       }),
     )
     .mutation(({ ctx, input }) => service.createProject(ctx.db, ctx.user, input, ctx.ip, ctx.session.id)),
