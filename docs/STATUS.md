@@ -88,7 +88,7 @@
 | 08 生产栈清空重置 | 部署 | **通过** | 部署会话 | 2026-10-29 | 架构会话已验收（0 项目/0 客户/12 用户/14 配置/8 流程，pm 登录空列表） |
 | 09 蓝海项目穷尽覆盖测试 | 测试 | **通过** | 测试会话 | 2026-10-29 | 架构会话已验收（18/18 时序全绿、三交付物齐备、覆盖矩阵完整）；D1–D3/O1 裁定出修复链 |
 | 09b 补 travel_change 默认流 | 数据 | **通过** | 数据会话 | 2026-10-29 | 打回修复复测通过（请假提交→partner 审批）；218/218 |
-| 09c 负责人变更+搜索分组+createTemplate | 后端 | **待验收** | 后端会话 | 2026-10-29 | 分支 iter6/server-pm-transfer；D3 transferManager 同事务迁移+审计+通知/O1 分组 ≤5+totalByType/admin.createTemplate；四道门 247/247 |
+| 09c 负责人变更+搜索分组+createTemplate | 后端 | **打回→进行中** | 后端会话 | 2026-10-29 | 主体通过（transferManager 全链实测/搜索分组/createTemplate 全过）；打回一项：project.create 的 managerId 与 project_members 不一致（创建人恒为 manager 成员、managerId 不落成员行）——修复规格见交接记录置顶条 |
 | 09d 模板新建+变更负责人入口+搜索分组展示 | 前端 | 未认领 | | | 微工单，待 09c 通过 |
 | 09e 四项修复复测 | 测试 | 未认领 | | | 微工单，待 09d 通过 |
 
@@ -177,6 +177,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-10-29｜架构｜迭代6-09c｜**工单 09c 验收：主体通过，一项打回（立项时负责人与成员表不一致）。** 已通过（实弹+四道门 247/247）：transferManager 全链（partner 调、同事务换 manager_id+角色迁移、审计前后值、双通知、非授权同形 404、非成员 400+fieldErrors）；**变更后审批解析到新负责人**（member 提差旅首步=liuchang，D3 核心目标达成）；搜索 groups+totalByType 形状在位；createTemplate 成功+列表可见。**打回项（探针逼出）**：`project.create` 恒把**创建人**写为 manager 成员（project.ts:131），`managerId` 入参落 projects.manager_id 却**不进 project_members**——两者脱节；后续 transferManager 对旧负责人降级落空、新负责人还原被「必须是项目成员」拦（实测复现）。**修复规格**：create 事务内保证 managerId 恰为 project_members 中 manager 角色行（创建人≠managerId 时创建人降为 member），与 transferManager 保持「一个项目恰一个 manager 成员」同一事务语义；补用例（managerId≠创建人时两表一致、后续 transfer 双向可还原）。修完转待验收，我复测该路径。（探针在 dev minimal 库留 PRJ-2026-00007 探测项目，验收后无妨。）
 
 - 2026-10-29｜架构｜迭代6-09b复审｜**工单 09b 验收通过（打回修复闭合）。** 复测：218/218 绿；原被拦请假单 REQ-2026-00002 提交成功、审批步骤解析为 partner@lexflow.demo（[partner] 兜底生效）；种子自愈机制（同名默认流 UPDATE 修正）设计正确且带用例。**解锁工单 09c（后端会话：负责人变更+搜索分组+createTemplate）。**
 
