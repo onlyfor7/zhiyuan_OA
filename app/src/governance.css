@@ -448,7 +448,18 @@
 }
 .revoke-inline {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
+}
+
+/* —— 迭代7·工单01 重影根因修复 ——
+   /admin 用户表六列原共用档案授权模板（…90px 65px 34px）：「角色操作」列仅 90px，
+   其内 选择器+授予+移除（≈210px）溢出（overflow 默认 visible）向右绘印，与「停用」叠合成「移除用/授疑」。
+   给用户表独立列模板（角色操作列 ≥235px），并对 .revoke-inline 加 wrap 兜底。 */
+.users-table .grant-head,
+.users-table .grant-row {
+  grid-template-columns: minmax(150px, 1.4fr) minmax(100px, 0.9fr) minmax(140px, 1.1fr) minmax(235px, auto) 60px 46px;
 }
 .revoke-inline input {
   height: 28px;

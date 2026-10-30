@@ -186,7 +186,7 @@ function UsersTab() {
           </div>
         </div>
       ) : null}
-      <div className="grant-table">
+      <div className="grant-table users-table">
         <div className="grant-head">
           <span>用户</span>
           <span>部门</span>
