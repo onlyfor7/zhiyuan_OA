@@ -77,10 +77,13 @@ export function useCloseProject() {
 export function useMemberMutations() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const invalidate = () =>
+  const invalidate = () => {
     void queryClient.invalidateQueries(trpc.user.listProjectMembers.pathFilter());
+    void queryClient.invalidateQueries(trpc.project.pathFilter());
+  };
   const add = useMutation(trpc.project.addMember.mutationOptions({ onSuccess: invalidate }));
   const update = useMutation(trpc.project.updateMember.mutationOptions({ onSuccess: invalidate }));
   const remove = useMutation(trpc.project.removeMember.mutationOptions({ onSuccess: invalidate }));
-  return { add, update, remove };
+  const transfer = useMutation(trpc.project.transferManager.mutationOptions({ onSuccess: invalidate }));
+  return { add, update, remove, transfer };
 }

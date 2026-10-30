@@ -433,12 +433,26 @@ function ClientsTab() {
   );
 }
 
+const TEMPLATE_SKELETON = {
+  stages: [
+    { seq: 1, name: "阶段一：启动" },
+    { seq: 2, name: "阶段二：执行" },
+  ],
+  tasks: [{ name: "示例任务", stageSeq: 1, offsetDays: 0, durationDays: 5 }],
+  checkItems: [{ name: "示例检查项", required: true, stageSeq: 2 }],
+};
+
 function TemplatesTab() {
   const templates = useProjectTemplates();
   const mutations = useAdminMutations();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [structureText, setStructureText] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [cName, setCName] = useState("");
+  const [cDesc, setCDesc] = useState("");
+  const [cStructure, setCStructure] = useState(() => JSON.stringify(TEMPLATE_SKELETON, null, 2));
 
   if (templates.isPending) return <p className="list-note">正在加载模板…</p>;
   if (templates.isError) throw templates.error;
@@ -446,6 +460,82 @@ function TemplatesTab() {
 
   return (
     <div className="preview-tab-body">
+      <div className="quality-toolbar">
+        <span className="toolbar-hint">模板 structure_json 保存时服务端校验（stages 为 name+seq 数组且必填；tasks/checkItems 同族）</span>
+        <button className="primary-action" onClick={() => setCreateOpen((v) => !v)}>
+          <Plus size={15} />
+          新建模板
+        </button>
+      </div>
+      {createOpen ? (
+        <section className="grant-apply-form" style={{ marginTop: 12 }}>
+          <div className="section-heading">
+            <div>
+              <span className="section-label">NEW TEMPLATE</span>
+              <h2>新建模板（创建后可在下方继续编辑结构）</h2>
+            </div>
+          </div>
+          <div className="owner-line">
+            <label className="form-field">
+              <span>模板名称 *</span>
+              <input value={cName} onChange={(e) => setCName(e.target.value)} />
+            </label>
+            <label className="form-field span-2">
+              <span>描述</span>
+              <input value={cDesc} onChange={(e) => setCDesc(e.target.value)} />
+            </label>
+          </div>
+          <textarea
+            className="template-json"
+            rows={10}
+            value={cStructure}
+            onChange={(e) => setCStructure(e.target.value)}
+            aria-label="新建模板 structure"
+          />
+          <div className="drawer-actions">
+            <button className="secondary-action" onClick={() => setCreateOpen(false)}>
+              取消
+            </button>
+            <button
+              className="primary-action"
+              disabled={!cName.trim() || mutations.createTemplate.isPending}
+              onClick={() => {
+                setError(null);
+                setNotice(null);
+                let parsed: unknown;
+                try {
+                  parsed = JSON.parse(cStructure);
+                } catch {
+                  setError("JSON 解析失败，请检查格式。");
+                  return;
+                }
+                mutations.createTemplate.mutate(
+                  { name: cName.trim(), description: cDesc.trim() || undefined, structure: parsed as never },
+                  {
+                    onSuccess: (row) => {
+                      setNotice(`模板「${row.name}」已创建。`);
+                      setCreateOpen(false);
+                      setCName("");
+                      setCDesc("");
+                      setCStructure(JSON.stringify(TEMPLATE_SKELETON, null, 2));
+                      setSelectedId(row.id);
+                      setStructureText(JSON.stringify(row.structureJson, null, 2));
+                    },
+                    onError: (err) => setError(rootErrorMessage(err)),
+                  },
+                );
+              }}
+            >
+              创建模板（服务端校验）
+            </button>
+          </div>
+        </section>
+      ) : null}
+      {notice ? (
+        <p className="context-note" role="status">
+          {notice}
+        </p>
+      ) : null}
       <div className="template-grid">
         {templates.data.map((t) => (
           <button

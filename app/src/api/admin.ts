@@ -18,6 +18,7 @@ export function useAdminMutations() {
     void queryClient.invalidateQueries(trpc.user.pathFilter());
     void queryClient.invalidateQueries(trpc.client.pathFilter());
     void queryClient.invalidateQueries(trpc.matter.pathFilter());
+    void queryClient.invalidateQueries(trpc.project.pathFilter());
   };
   const createUser = useMutation(trpc.admin.createUser.mutationOptions({ onSuccess: invalidate }));
   const disableUser = useMutation(trpc.admin.disableUser.mutationOptions({ onSuccess: invalidate }));
@@ -28,6 +29,7 @@ export function useAdminMutations() {
   const setClientDisabled = useMutation(trpc.admin.setClientDisabled.mutationOptions({ onSuccess: invalidate }));
   const createMatter = useMutation(trpc.admin.createMatter.mutationOptions({ onSuccess: invalidate }));
   const setMatterDisabled = useMutation(trpc.admin.setMatterDisabled.mutationOptions({ onSuccess: invalidate }));
+  const createTemplate = useMutation(trpc.admin.createTemplate.mutationOptions({ onSuccess: invalidate }));
   const updateTemplate = useMutation(trpc.admin.updateTemplate.mutationOptions({ onSuccess: invalidate }));
   const setConfig = useMutation(trpc.admin.setConfig.mutationOptions({ onSuccess: invalidate }));
   return {
@@ -40,6 +42,7 @@ export function useAdminMutations() {
     setClientDisabled,
     createMatter,
     setMatterDisabled,
+    createTemplate,
     updateTemplate,
     setConfig,
   };

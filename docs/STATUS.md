@@ -89,7 +89,7 @@
 | 09 蓝海项目穷尽覆盖测试 | 测试 | **通过** | 测试会话 | 2026-10-29 | 架构会话已验收（18/18 时序全绿、三交付物齐备、覆盖矩阵完整）；D1–D3/O1 裁定出修复链 |
 | 09b 补 travel_change 默认流 | 数据 | **通过** | 数据会话 | 2026-10-29 | 打回修复复测通过（请假提交→partner 审批）；218/218 |
 | 09c 负责人变更+搜索分组+createTemplate | 后端 | **通过** | 后端会话 | 2026-10-29 | 打回闭合：立项 managerId 两表一致+transfer 双向可还原（架构实弹复核）；249/249 |
-| 09d 模板新建+变更负责人入口+搜索分组展示 | 前端 | 未认领 | | | 已解锁 |
+| 09d 模板新建+变更负责人入口+搜索分组展示 | 前端 | **待验收** | 前端会话 | 2026-10-30 | 三处落地+CDP走查（app四道门全绿）；截图 D:\tmp\shots-iter6-fixes\ |
 | 09e 四项修复复测 | 测试 | 未认领 | | | 微工单，待 09d 通过 |
 
 ## 迭代 4 工单状态
@@ -178,6 +178,7 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-10-30｜前端｜迭代6-09d｜**工单 09d（模板新建入口 + 变更负责人入口 + 搜索分组展示）完成，转待验收。** 三处落地（分支 iter6/frontend-fixes，基于 09c 复审 HEAD 32869cd）：① /admin 项目模板页签加「新建模板」（名称/描述/structure_json 编辑器带合法骨架预填，创建走 09c `admin.createTemplate`——入参字段为 `structure`，创建成功即选中并载入编辑态；顺带把 project.pathFilter 并入 admin invalidate，修掉模板保存后列表不刷新的潜伏问题）；② 项目空间「成员权限」页签加「变更负责人」区（partner/sysadmin 可见，成员视角已验证隐藏）：成员内选新负责人 + 理由必填 + 红色高危二次确认模态（顶部红条/双方姓名+理由回显/不可一键撤销提示）→ `project.transferManager`，成功提示「原负责人降级为成员、双方已收通知」；走查实测 刘畅→林晓 变更+还原双向，成员表即时刷新；③ 搜索页改消费后端 `groups`（替代前端拍平再分组）：每组 ≤5 + 组头 totalByType 精确计数徽标 + 超出组渲染「查看全部该类型」（单类型模式每类上限提至 20，含「单类型展示」说明与「返回全部分组」）；类型 chips 计数不变。质量门 app 侧四道全绿：tsc --noEmit / eslint 0 / build（最大 chunk 248kB）/ vitest 23/23。CDP 走查截图（D:\tmp\shots-iter6-fixes\）：f1-create-form/f1-created（模板 3→4 张卡+选中）、f2-transfer-panel/f2-danger-modal/f2-after-transfer/f2-member-no-transfer（partner 可见/member 隐藏）、f3-groups（任务 6 条徽标+预览 5 条+查看全部按钮）/f3-single-type（单类型 6 条≤20+返回链接）。走查数据说明：dev 库经 09 系后端多轮探测已极稀疏（原 5 项目仅存 2 个探测项目），走查借「探测项目09c」进行；搜索溢出场景直种 6 条「09d搜索走查任务N」（TSK-09D-001..006）于该项目——标签清晰，验收后可清。**解锁工单 09e（测试会话·四项修复复测收口）。**建议复测：变更负责人后新负责人审批解析（09c 已实证，09d 入口层）、搜索分组在富数据下的多组并存展示。
 - 2026-10-29｜架构｜迭代6-09c复审｜**工单 09c 验收通过（打回闭合）。** 复测：partner 带 managerId=liuchang 立项 → projects.manager_id 与 project_members 两表一致（恰一 manager 行、创建人 partner=member）；transfer 双向（liuchang→partner→liuchang）均成功、终态正确。四道门 249/249 全绿。**解锁工单 09d（前端：模板新建+变更负责人入口+搜索分组展示）。**
 
 - 2026-10-29｜后端｜迭代6-09c｜**打回项修复完成，转待验收（project.create 的 managerId 与 project_members 脱节）。** 修复：`project.create` 增可选 `managerId` 入参——缺省仍=创建人（既有行为零变化，全量回归证实）；指定时先校验在职用户（不存在/停用 → 400 VALIDATION_FAILED + fieldErrors.managerId，不泄 500），创建事务内成员表同事务对齐：`managerId` 落 project_members 唯一 manager 行，创建人≠负责人时创建人落 member——与 transferManager 保持「一个项目恰一个 manager 成员」同一事务语义，架构实测的「transfer 降级落空/还原被必须是项目成员拦」两条断链闭合。**补用例**（transfer-search-template.test.ts +2）：①partner 指定 liuchang 立项 → projects.manager_id 与成员表两表一致（恰一条 manager 行=liuchang、创建人 partner=member）→ transferManager liuchang→partner→liuchang 双向可还原逐步断言；②坏 managerId（随机 UUID）→ 400+fieldErrors。**四道门逐条真实跑**：server vitest **226/226**（43 文件）✓；根 typecheck exit 0✓；根 build exit 0✓；根 test **249/249**（226+23）✓。无 schema 变更。分支 `iter6/server-pm-transfer`。**复测路径**：partner 带 managerId=liuchang 立项 → 两表一致 → transfer 双向还原不拦。
