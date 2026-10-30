@@ -7,8 +7,12 @@ import { useRequest, useRequestList, useRequestMutations, useRequestTypes } from
 import { useMe } from "../api/auth";
 import { useRail } from "../components/shell-rail";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
+import { ListSkeleton } from "../components/feedback";
+import { toast } from "sonner";
+import "../lib/form";
 import { formatYuan } from "../api/reference";
 import { FlowProgressGraph } from "../components/FlowProgressGraph";
+import { FormDialog } from "../components/FormDialog";
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "草稿",
@@ -47,7 +51,7 @@ export default function RequestsPage() {
   const typeLabel = (key: string) => typeItems.find((i) => i.key === key)?.label ?? key;
   const [createOpen, setCreateOpen] = useState(false);
 
-  if (list.isPending) return <p className="list-note">正在加载申请单…</p>;
+  if (list.isPending) return <ListSkeleton rows={5} />;
   if (list.isError) throw list.error;
   const items = list.data.items.filter((r) => !typeFilter || r.requestType === typeFilter);
 
@@ -85,7 +89,11 @@ export default function RequestsPage() {
         </select>
         <span>{items.length} 单</span>
       </div>
-      {createOpen ? <RequestCreateForm onDone={() => setCreateOpen(false)} /> : null}
+      {createOpen ? (
+        <FormDialog title="发起申请单" eyebrow="GENERIC REQUEST · 创建走弹窗" onClose={() => setCreateOpen(false)}>
+          <RequestCreateForm onDone={() => setCreateOpen(false)} />
+        </FormDialog>
+      ) : null}
       <div className="report-list">
         {items.length === 0 ? (
           <div className="empty-state">
@@ -269,7 +277,13 @@ export function RequestDetailPage() {
                 setError(null);
                 mutations.submit.mutate(
                   { id: r.id, rowVersion: r.rowVersion, idempotencyKey: newIdempotencyKey() },
-                  { onError: (err) => setError(rootErrorMessage(err)) },
+                  {
+                    onSuccess: () => toast.success("申请单已提交，进入审批流程"),
+                    onError: (err) => {
+                      setError(rootErrorMessage(err));
+                      toast.error("提交失败", { description: rootErrorMessage(err) });
+                    },
+                  },
                 );
               }}
             >
@@ -285,7 +299,13 @@ export function RequestDetailPage() {
                 setError(null);
                 mutations.withdraw.mutate(
                   { id: r.id, rowVersion: r.rowVersion },
-                  { onError: (err) => setError(rootErrorMessage(err)) },
+                  {
+                    onSuccess: () => toast.success("申请单已撤回，可重新编辑后提交"),
+                    onError: (err) => {
+                      setError(rootErrorMessage(err));
+                      toast.error("撤回失败", { description: rootErrorMessage(err) });
+                    },
+                  },
                 );
               }}
             >

@@ -10,6 +10,10 @@ import {
   useReceiptSummary,
 } from "../api/receipts";
 import { useRail } from "../components/shell-rail";
+import { FormDialog } from "../components/FormDialog";
+import { DensitySwitch } from "../components/density";
+import { useTableDensity } from "../lib/tableDensity";
+import { toast } from "sonner";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
 import { formatYuan, parseYuanToCents } from "../api/reference";
 
@@ -45,15 +49,17 @@ export default function ReceiptsCenterPage() {
   const canView = isFinance || isPartner || managed.length > 0;
   const canWrite = isFinance;
 
-  const [view, setView] = useState<"list" | "income" | "register">("list");
+  const [view, setView] = useState<"list" | "income">("list");
+  const [registerOpen, setRegisterOpen] = useState(false);
   const [projectId, setProjectId] = useState("");
   const listFilter = projectId || managed[0]?.id ? { projectId: projectId || managed[0]!.id } : {};
   const list = useReceiptList(listFilter, canView && view === "list");
   const summary = useReceiptSummary("project", canView && view === "income");
   // 登记项目源（arch 裁定 04b-①）：receipts.projectOptions 参照级清单（全部项目，无收款记录的新项目可登记）
-  const projectOptions = useReceiptProjectOptions(canWrite && view === "register");
+  const projectOptions = useReceiptProjectOptions(canWrite && registerOpen);
   const registerProjects = useMemo(() => projectOptions.data ?? [], [projectOptions.data]);
   const exportCsv = useReceiptExport();
+  const { density, setDensity } = useTableDensity();
   const mutations = useReceiptMutations();
   const [voidTarget, setVoidTarget] = useState<{ id: string; rowVersion: number } | null>(null);
   const [voidReason, setVoidReason] = useState("");
@@ -100,7 +106,7 @@ export default function ReceiptsCenterPage() {
             项目收入视图
           </button>
           {canWrite ? (
-            <button className={view === "register" ? "primary-action" : "secondary-action"} onClick={() => setView("register")}>
+            <button className="secondary-action" onClick={() => setRegisterOpen(true)}>
               <Plus size={15} />
               登记收款
             </button>
@@ -134,6 +140,7 @@ export default function ReceiptsCenterPage() {
 
       {view === "list" ? (
         <>
+          <DensitySwitch density={density} onChange={setDensity} />
           <div className="quality-toolbar">
             {managed.length > 0 ? (
               <select value={projectId || managed[0]?.id || ""} aria-label="项目筛选" onChange={(e) => setProjectId(e.target.value)}>
@@ -157,7 +164,7 @@ export default function ReceiptsCenterPage() {
           ) : list.isError ? (
             <p className="form-error">收款列表加载失败或无权限。</p>
           ) : (
-            <div className="grant-table">
+            <div className={`grant-table density-${density}`}>
               <div className="grant-head">
                 <span>收款单</span>
                 <span>项目</span>
@@ -217,17 +224,25 @@ export default function ReceiptsCenterPage() {
         )
       ) : null}
 
-      {view === "register" && canWrite ? (
-        <ReceiptRegisterForm
-          projects={registerProjects}
-          onDone={() => setView("list")}
-          onError={(msg) => setError(msg)}
-        />
+      {registerOpen && canWrite ? (
+        <FormDialog title="登记收款" eyebrow="PAYMENT RECEIPTS · 创建走弹窗" onClose={() => setRegisterOpen(false)} wide>
+          <ReceiptRegisterForm
+            projects={registerProjects}
+            onDone={() => {
+              setRegisterOpen(false);
+              toast.success("收款已登记", { description: "金额登记后不可编辑；更正=作废+新登记。" });
+            }}
+            onError={(msg) => {
+              setError(msg);
+              toast.error("登记失败", { description: msg });
+            }}
+          />
+        </FormDialog>
       ) : null}
 
       {voidTarget ? (
         <div className="overlay centered" onMouseDown={(e) => e.target === e.currentTarget && setVoidTarget(null)}>
-          <section className="decision-modal compact-modal" role="dialog" aria-modal="true" aria-label="作废收款">
+          <section className="decision-modal compact-modal danger-modal" role="dialog" aria-modal="true" aria-label="作废收款">
             <div className="drawer-head">
               <div>
                 <span className="section-label">VOID RECEIPT</span>
@@ -253,6 +268,7 @@ export default function ReceiptsCenterPage() {
                     onSuccess: () => {
                       setVoidTarget(null);
                       setVoidReason("");
+                      toast.success("收款已作废冲正", { description: "原行保留留痕，口径自动冲减。" });
                     },
                     onError: (err) => setError(rootErrorMessage(err)),
                   },

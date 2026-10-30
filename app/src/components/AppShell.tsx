@@ -1,19 +1,14 @@
 import type { ReactNode } from "react";
 import { Component, lazy, Suspense, useEffect, useState } from "react";
-import {
-  Link,
-  Navigate,
-  Outlet,
-  NavLink,
-  useLocation,
-  useNavigate,
-} from "react-router";
-import { ArrowRight, Bell, LogOut, Menu, Network, Search, Settings, SlidersHorizontal } from "lucide-react";
+import { Link, Navigate, Outlet, useLocation, useNavigate } from "react-router";
+import { ArrowRight, Bell, Menu, Network, Search } from "lucide-react";
+import { Toaster } from "sonner";
 
 import { useLogout, useMe } from "../api/auth";
 import { useUnreadCount } from "../api/notification";
 import { SearchPalette } from "./SearchPalette";
 import { MobileNavDrawer } from "./MobileNavDrawer";
+import { AvatarMenu, GroupNav } from "./TopNav";
 import type { ShellContextValue } from "./shell-rail";
 import { isAccessDeniedOrGone, isAuthRequired, queryClient } from "../lib/trpc";
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
@@ -27,17 +22,6 @@ function BrandMark() {
     </div>
   );
 }
-
-const NAV_ITEMS: { to: string; label: string; index: string }[] = [
-  { to: "/cockpit", label: "驾驶舱", index: "01" },
-  { to: "/workbench", label: "我的工作台", index: "02" },
-  { to: "/projects", label: "项目全周期", index: "03" },
-  { to: "__gantt__", label: "甘特计划", index: "04" },
-  { to: "/quality", label: "质量中心", index: "05" },
-  { to: "/decisions", label: "决策中心", index: "06" },
-  { to: "/archive", label: "档案中心", index: "07" },
-  { to: "/audit", label: "权限审计", index: "08" },
-];
 
 interface BoundaryProps {
   children: ReactNode;
@@ -92,6 +76,7 @@ class AccessErrorBoundary extends Component<BoundaryProps, BoundaryState> {
   }
 }
 
+/** 应用壳：迭代 7 新 IA——顶栏五组下拉 + 头像菜单收口系统级功能（arch/10 §1.1） */
 export default function AppShell() {
   const me = useMe();
   const location = useLocation();
@@ -158,19 +143,7 @@ export default function AppShell() {
             <span>律所项目治理平台</span>
           </div>
         </Link>
-        <nav className="concept-nav" aria-label="主导航">
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.index}
-              to={item.to === "__gantt__" ? ganttTo : item.to}
-              className={({ isActive }) => (isActive ? "active" : "")}
-              end={item.to === "/projects"}
-            >
-              <span>{item.index}</span>
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
+        <GroupNav ganttTo={ganttTo} globalRoles={data.globalRoles} />
         <div className="top-actions">
           <button className="search-trigger" onClick={() => setSearchOpen(true)}>
             <Search size={16} />
@@ -183,29 +156,17 @@ export default function AppShell() {
               <i className="bell-badge">{unread.data.count > 99 ? "99+" : unread.data.count}</i>
             ) : null}
           </Link>
-          <div className="avatar" title={`${data.user.name} · ${data.user.email}`}>
-            {data.user.name.slice(0, 1)}
-          </div>
-          {data.globalRoles.includes("sysadmin") ? (
-            <Link to="/admin" className="icon-button dark admin-entry" aria-label="系统配置中心">
-              <SlidersHorizontal size={17} />
-            </Link>
-          ) : null}
-          <Link to="/settings" className="icon-button dark settings-link" aria-label="账号设置与改密">
-            <Settings size={17} />
-          </Link>
-          <button
-            className="icon-button dark"
-            aria-label="登出"
-            disabled={logout.isPending}
-            onClick={() => {
+          <AvatarMenu
+            name={data.user.name}
+            email={data.user.email}
+            globalRoles={data.globalRoles}
+            logoutPending={logout.isPending}
+            onLogout={() => {
               logout.mutate(undefined, {
                 onSettled: () => navigate("/login", { replace: true }),
               });
             }}
-          >
-            <LogOut size={17} />
-          </button>
+          />
           <button
             className="icon-button dark nav-menu-trigger"
             aria-label="打开主导航"
@@ -225,6 +186,7 @@ export default function AppShell() {
         </div>
       </header>
       {searchOpen ? <SearchPalette onClose={() => setSearchOpen(false)} /> : null}
+      <Toaster position="bottom-right" richColors closeButton />
       <MobileNavDrawer open={navOpen} ganttTo={ganttTo} globalRoles={data.globalRoles} onClose={() => setNavOpen(false)} />
       <div className="app-body">
         <aside className={`project-rail ${mobileRail ? "mobile-open" : ""}`}>

@@ -5,6 +5,8 @@ import { CalendarDays, ChevronRight, Plus } from "lucide-react";
 import { useMeetingList } from "../api/meeting";
 import { useRail } from "../components/shell-rail";
 import { formatDateTime } from "../lib/trpc";
+import { ListSkeleton } from "../components/feedback";
+import "../lib/trpc";
 import { MEETING_STATUS_LABEL, MEETING_TYPE_LABEL, MINUTES_STATUS_LABEL } from "../lib/labels";
 import type { RouterOutputs } from "../lib/trpc";
 
@@ -42,7 +44,7 @@ export default function MeetingsPage() {
   const list = useMeetingList(projectId ? { projectId } : mine ? { mine: true } : {});
   const filtered = list.data?.items.filter((m) => !status || m.status === status);
 
-  if (list.isPending) return <p className="list-note">正在加载会议…</p>;
+  if (list.isPending) return <ListSkeleton rows={5} />;
   if (list.isError) throw list.error;
 
   return (

@@ -8,6 +8,9 @@ import { useClientList, useMatterList } from "../../api/reference";
 import { useProjectTemplates } from "../../api/project";
 import { useFlowList } from "../../api/flow";
 import { useRail } from "../../components/shell-rail";
+import { FormDialog } from "../../components/FormDialog";
+import { DensitySwitch } from "../../components/density";
+import { useTableDensity } from "../../lib/tableDensity";
 import { rootErrorMessage } from "../../lib/form";
 import { CONFIDENTIALITY_LABEL, GLOBAL_ROLE_LABEL } from "../../lib/labels";
 import { CONFIG_KEY } from "@lexflow/shared";
@@ -101,6 +104,7 @@ export default function AdminCenterPage() {
 function UsersTab() {
   const users = useAdminUsers(true);
   const mutations = useAdminMutations();
+  const { density, setDensity } = useTableDensity();
   const [showCreate, setShowCreate] = useState(false);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -132,8 +136,8 @@ function UsersTab() {
         </div>
       ) : null}
       {showCreate ? (
-        <div className="grant-apply-form">
-          <div className="owner-line">
+        <FormDialog title="创建用户" eyebrow="ADMIN · 创建走弹窗" onClose={() => setShowCreate(false)}>
+        <div className="owner-line">
             <label className="form-field">
               <span>姓名 *</span>
               <input value={name} onChange={(e) => setName(e.target.value)} />
@@ -184,9 +188,10 @@ function UsersTab() {
               创建（初始随机口令）
             </button>
           </div>
-        </div>
+        </FormDialog>
       ) : null}
-      <div className="grant-table users-table">
+      <DensitySwitch density={density} onChange={setDensity} />
+      <div className={`grant-table users-table density-${density}`}>
         <div className="grant-head">
           <span>用户</span>
           <span>部门</span>
@@ -293,6 +298,8 @@ function ClientsTab() {
   const [matterClient, setMatterClient] = useState("");
   const [matterName, setMatterName] = useState("");
   const [matterType, setMatterType] = useState("");
+  const [clientOpen, setClientOpen] = useState(false);
+  const [matterOpen, setMatterOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (clients.isPending || matters.isPending) return <p className="list-note">正在加载…</p>;
@@ -303,40 +310,55 @@ function ClientsTab() {
     <div className="preview-tab-body">
       <div className="quality-toolbar">
         <span className="toolbar-hint">客户/事项（元数据管理；停用后从参照端点消失）</span>
-      </div>
-      <div className="owner-line">
-        <label className="form-field">
-          <span>新建客户名 *</span>
-          <input value={clientName} onChange={(e) => setClientName(e.target.value)} />
-        </label>
-        <label className="form-field">
-          <span>密级</span>
-          <select value={level} onChange={(e) => setLevel(e.target.value)}>
-            {Object.entries(CONFIDENTIALITY_LABEL).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          className="primary-action"
-          style={{ alignSelf: "end" }}
-          disabled={!clientName.trim() || mutations.createClient.isPending}
-          onClick={() => {
-            setError(null);
-            mutations.createClient.mutate(
-              { name: clientName.trim(), confidentialityLevel: level as never },
-              {
-                onSuccess: () => setClientName(""),
-                onError: (err) => setError(rootErrorMessage(err)),
-              },
-            );
-          }}
-        >
+        <button className="primary-action" onClick={() => setClientOpen(true)}>
+          <Plus size={15} />
           创建客户
         </button>
+        <button className="primary-action" onClick={() => setMatterOpen(true)}>
+          <Plus size={15} />
+          创建事项
+        </button>
       </div>
+      {clientOpen ? (
+        <FormDialog title="创建客户" eyebrow="ADMIN · 创建走弹窗" onClose={() => setClientOpen(false)}>
+          <div className="owner-line">
+            <label className="form-field">
+              <span>新建客户名 *</span>
+              <input value={clientName} onChange={(e) => setClientName(e.target.value)} />
+            </label>
+            <label className="form-field">
+              <span>密级</span>
+              <select value={level} onChange={(e) => setLevel(e.target.value)}>
+                {Object.entries(CONFIDENTIALITY_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="primary-action"
+              style={{ alignSelf: "end" }}
+              disabled={!clientName.trim() || mutations.createClient.isPending}
+              onClick={() => {
+                setError(null);
+                mutations.createClient.mutate(
+                  { name: clientName.trim(), confidentialityLevel: level as never },
+                  {
+                    onSuccess: () => {
+                      setClientName("");
+                      setClientOpen(false);
+                    },
+                    onError: (err) => setError(rootErrorMessage(err)),
+                  },
+                );
+              }}
+            >
+              创建客户
+            </button>
+          </div>
+        </FormDialog>
+      ) : null}
       {error ? (
         <p className="form-error" role="alert">
           {error}
@@ -364,47 +386,52 @@ function ClientsTab() {
           </div>
         ))}
       </div>
-      <div className="owner-line" style={{ marginTop: 22 }}>
-        <label className="form-field">
-          <span>所属客户 *</span>
-          <select value={matterClient} onChange={(e) => setMatterClient(e.target.value)}>
-            <option value="">选择客户</option>
-            {clients.data.items.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="form-field">
-          <span>事项名 *</span>
-          <input value={matterName} onChange={(e) => setMatterName(e.target.value)} />
-        </label>
-        <label className="form-field">
-          <span>类型</span>
-          <input value={matterType} onChange={(e) => setMatterType(e.target.value)} placeholder="诉讼/非诉/常法" />
-        </label>
-        <button
-          className="primary-action"
-          style={{ alignSelf: "end" }}
-          disabled={!matterClient || !matterName.trim() || mutations.createMatter.isPending}
-          onClick={() => {
-            setError(null);
-            mutations.createMatter.mutate(
-              { clientId: matterClient, name: matterName.trim(), type: matterType.trim() || undefined },
-              {
-                onSuccess: () => {
-                  setMatterName("");
-                  setMatterType("");
-                },
-                onError: (err) => setError(rootErrorMessage(err)),
-              },
-            );
-          }}
-        >
-          创建事项
-        </button>
-      </div>
+      {matterOpen ? (
+        <FormDialog title="创建事项" eyebrow="ADMIN · 创建走弹窗" onClose={() => setMatterOpen(false)}>
+          <div className="owner-line">
+            <label className="form-field">
+              <span>所属客户 *</span>
+              <select value={matterClient} onChange={(e) => setMatterClient(e.target.value)}>
+                <option value="">选择客户</option>
+                {clients.data.items.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="form-field">
+              <span>事项名 *</span>
+              <input value={matterName} onChange={(e) => setMatterName(e.target.value)} />
+            </label>
+            <label className="form-field">
+              <span>类型</span>
+              <input value={matterType} onChange={(e) => setMatterType(e.target.value)} placeholder="诉讼/非诉/常法" />
+            </label>
+            <button
+              className="primary-action"
+              style={{ alignSelf: "end" }}
+              disabled={!matterClient || !matterName.trim() || mutations.createMatter.isPending}
+              onClick={() => {
+                setError(null);
+                mutations.createMatter.mutate(
+                  { clientId: matterClient, name: matterName.trim(), type: matterType.trim() || undefined },
+                  {
+                    onSuccess: () => {
+                      setMatterName("");
+                      setMatterType("");
+                      setMatterOpen(false);
+                    },
+                    onError: (err) => setError(rootErrorMessage(err)),
+                  },
+                );
+              }}
+            >
+              创建事项
+            </button>
+          </div>
+        </FormDialog>
+      ) : null}
       <div className="grant-table">
         <div className="grant-head">
           <span>事项</span>
@@ -468,13 +495,8 @@ function TemplatesTab() {
         </button>
       </div>
       {createOpen ? (
-        <section className="grant-apply-form" style={{ marginTop: 12 }}>
-          <div className="section-heading">
-            <div>
-              <span className="section-label">NEW TEMPLATE</span>
-              <h2>新建模板（创建后可在下方继续编辑结构）</h2>
-            </div>
-          </div>
+        <FormDialog title="新建模板" eyebrow="PROJECT TEMPLATE · 创建走弹窗" onClose={() => setCreateOpen(false)} wide>
+          <p className="context-note">创建后可在下方编辑 structure（服务端校验 stages 为 name+seq 数组）。</p>
           <div className="owner-line">
             <label className="form-field">
               <span>模板名称 *</span>
@@ -529,7 +551,7 @@ function TemplatesTab() {
               创建模板（服务端校验）
             </button>
           </div>
-        </section>
+        </FormDialog>
       ) : null}
       {notice ? (
         <p className="context-note" role="status">

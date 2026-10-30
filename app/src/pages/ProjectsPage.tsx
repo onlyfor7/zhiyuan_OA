@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { EmptyGuide, EmptyStep, ListSkeleton } from "../components/feedback";
 import { Link, useNavigate } from "react-router";
 import { ChevronRight, ShieldCheck } from "lucide-react";
 import { PROJECT_HEALTH_STATUS, PROJECT_LIFECYCLE_STATUS } from "@lexflow/shared";
@@ -123,7 +124,7 @@ export default function ProjectsPage() {
           <span />
         </div>
         {list.isPending ? (
-          <p className="list-note">正在加载…</p>
+          <ListSkeleton rows={5} />
         ) : list.isError ? (
           <div className="error-state inline" role="alert">
             <p>项目列表加载失败，请重试。</p>
@@ -132,10 +133,11 @@ export default function ProjectsPage() {
             </button>
           </div>
         ) : items.length === 0 ? (
-          <div className="empty-state">
-            <strong>没有匹配的项目</strong>
-            <p>调整筛选条件，或联系项目负责人将你加入项目。</p>
-          </div>
+          <EmptyGuide title="暂无可见项目">
+            <EmptyStep index={1} text="联系合伙人/负责人在「系统配置中心」确认你已被加入项目成员。" />
+            <EmptyStep index={2} text="有立项权限的用户可从「项目全周期 → 新建项目」发起立项（partner/sysadmin）。" />
+            <EmptyStep index={3} text="加入项目后，驾驶舱与项目索引将自动出现项目脉搏。" />
+          </EmptyGuide>
         ) : (
           items.map((project) => (
             <button

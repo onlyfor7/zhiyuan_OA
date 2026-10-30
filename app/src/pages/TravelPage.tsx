@@ -5,6 +5,8 @@ import { ChevronRight, MapPin, Plus } from "lucide-react";
 import { useTravelList } from "../api/travel";
 import { useRail } from "../components/shell-rail";
 import { TRAVEL_STATUS_LABEL } from "../lib/labels";
+import { ListSkeleton } from "../components/feedback";
+import "../lib/labels";
 import type { RouterOutputs } from "../lib/trpc";
 
 type TravelItem = RouterOutputs["travel"]["list"]["items"][number];
@@ -41,7 +43,7 @@ export default function TravelPage() {
   const list = useTravelList(projectId ? { projectId } : mine ? { mine: true } : {});
   const filtered = list.data?.items.filter((t) => !status || t.status === status);
 
-  if (list.isPending) return <p className="list-note">正在加载出差单…</p>;
+  if (list.isPending) return <ListSkeleton rows={5} />;
   if (list.isError) throw list.error;
 
   return (

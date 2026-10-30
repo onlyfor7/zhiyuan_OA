@@ -19,7 +19,6 @@ const RequestsPage = lazy(() => import("./pages/RequestsPage"));
 const RequestDetailPage = lazy(() =>
   import("./pages/RequestsPage").then((m) => ({ default: m.RequestDetailPage })),
 );
-const UxPreviewApp = lazy(() => import("./pages/preview-ux/UxPreviewApp"));
 const ReceiptsPage = lazy(() => import("./pages/ReceiptsCenterPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const ApprovalsPage = lazy(() => import("./pages/ApprovalsPage"));
@@ -62,7 +61,6 @@ export default function App() {
     <Suspense fallback={<div className="page-loader" role="status">正在加载…</div>}>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/preview-ux" element={<UxPreviewApp />} />
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="/cockpit" replace />} />
         <Route path="/cockpit" element={<CockpitPage />} />

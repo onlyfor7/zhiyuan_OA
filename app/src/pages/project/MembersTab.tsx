@@ -6,6 +6,8 @@ import { useMemberMutations, useProjectMembers } from "../../api/project";
 import { PROJECT_ROLE_LABEL } from "../../lib/labels";
 import { rootErrorMessage } from "../../lib/form";
 import { UserPicker } from "../../components/UserPicker";
+import { DangerConfirm } from "../../components/FormDialog";
+import { toast } from "sonner";
 import { useSpaceParams } from "./space-context";
 
 const ROLE_OPTIONS = ["manager", "member", "key_member"];
@@ -23,6 +25,7 @@ export default function MembersTab() {
   const [newManagerId, setNewManagerId] = useState("");
   const [transferReason, setTransferReason] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<{ userId: string; name: string } | null>(null);
   const existingIds = new Set((members.data ?? []).map((m) => m.userId));
   const canTransfer =
     (me.data?.globalRoles ?? []).includes("partner") || (me.data?.globalRoles ?? []).includes("sysadmin");
@@ -75,14 +78,7 @@ export default function MembersTab() {
               <button
                 className="icon-button"
                 aria-label={`移除${m.name}`}
-                onClick={() => {
-                  if (!window.confirm(`确认将 ${m.name} 移出项目？其项目内权限将立即失效。`)) return;
-                  setError(null);
-                  mutations.remove.mutate(
-                    { projectId, userId: m.userId },
-                    { onError: (err) => setError(rootErrorMessage(err)) },
-                  );
-                }}
+                onClick={() => setRemoveTarget(m)}
               >
                 <UserMinus size={16} />
               </button>
@@ -169,6 +165,37 @@ export default function MembersTab() {
         <p className="context-note" role="status">
           {notice}
         </p>
+      ) : null}
+      {removeTarget ? (
+        <DangerConfirm
+          title={`将 ${removeTarget.name} 移出项目？`}
+          consequence={
+            <>
+              <strong>{removeTarget.name} 的项目内权限将立即失效。</strong>
+              <p>该操作写入审计；如需恢复需重新添加成员。删除成员属高危操作，请确认已交接其进行中的任务。</p>
+            </>
+          }
+          confirmLabel="确认移除"
+          pending={mutations.remove.isPending}
+          onCancel={() => setRemoveTarget(null)}
+          onConfirm={() => {
+            setError(null);
+            mutations.remove.mutate(
+              { projectId, userId: removeTarget.userId },
+              {
+                onSuccess: () => {
+                  setRemoveTarget(null);
+                  setNotice(`已将 ${removeTarget.name} 移出项目。`);
+                  toast.success(`已将 ${removeTarget.name} 移出项目`);
+                },
+                onError: (err) => {
+                  setRemoveTarget(null);
+                  setError(rootErrorMessage(err));
+                },
+              },
+            );
+          }}
+        />
       ) : null}
       {confirmOpen ? (
         <div className="overlay centered" onMouseDown={(e) => e.target === e.currentTarget && setConfirmOpen(false)}>

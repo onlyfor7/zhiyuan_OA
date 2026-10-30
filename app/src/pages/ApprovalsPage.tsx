@@ -3,6 +3,8 @@ import { Check, ChevronRight, Send, ShieldCheck, X } from "lucide-react";
 
 import { useApproval, useApprovalAct, useApprovalsApplied, useApprovalsMine } from "../api/approval";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
+import { ListSkeleton } from "../components/feedback";
+import "../lib/form";
 import {
   APPROVAL_BIZ_LABEL,
   APPROVAL_STEP_STATUS_LABEL,
@@ -256,7 +258,7 @@ export default function ApprovalsPage() {
   const [tab, setTab] = useState<"mine" | "applied">("mine");
   const [appliedDetail, setAppliedDetail] = useState<string | null>(null);
 
-  if (mine.isPending || applied.isPending) return <p className="list-note">正在加载审批…</p>;
+  if (mine.isPending || applied.isPending) return <ListSkeleton rows={5} />;
   if (mine.isError) throw mine.error;
   if (applied.isError) throw applied.error;
 
