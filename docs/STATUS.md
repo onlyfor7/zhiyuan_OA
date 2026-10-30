@@ -91,7 +91,7 @@
 | 09c 负责人变更+搜索分组+createTemplate | 后端 | **通过** | 后端会话 | 2026-10-29 | 打回闭合：立项 managerId 两表一致+transfer 双向可还原（架构实弹复核）；249/249 |
 | 09d 模板新建+变更负责人入口+搜索分组展示 | 前端 | **通过** | 前端会话 | 2026-10-30 | 架构会话已验收（高危确认模态+搜索分组截图核验、四道门全绿） |
 | 09e 四项修复复测 | 测试 | **待验收** | 测试会话 | 2026-10-30 | D1-D3/O1 dev/prod 双栈复测全过（fix-retest-09e 4/4×2）；249/249 零回归；E2E-01~16 dev 16/16；prod 双镜像已重建（legacy builder 绕开 buildx 非 ASCII 路径 bug） |
-| 09e 四项修复复测 | 测试 | 未认领 | | | 已解锁（本链收口） |
+| 09e 四项修复复测 | 测试 | **通过** | 测试会话 | 2026-10-30 | 架构会话已验收（D1–D3/O1 双栈复测闭合、249 零回归、prod 重建与种子处置正确）——09 系全链收口 |
 
 ## 迭代 4 工单状态
 
@@ -178,6 +178,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-10-30｜架构｜迭代6-09e收口｜**工单 09e 通过，09 系全链收口。** 复核：四道门 249/249 实测全绿；prod 栈三服务 healthy（双镜像 14 分钟前重建，含全部修复）；travel_change 默认流恰一 enabled 在位（历史禁用行不影响）；D1–D3/O1 四项经 dev/prod 双栈复测闭合（其报告的变更重审不 412、负责人变更全链+降级后管理权同形 404、新建模板可立项、搜索分组精确——证据链完整）；其处置的两条教训正确入库：buildx 中文路径 bug 用 legacy builder 规避（建议写入部署手册）、现网补配置必须用 minimal 种子档（full 档撞唯一约束整体回滚的教训）。**当前系统状态：干净基线、穷尽覆盖验证、缺陷全闭合。** prod 库 09 系测试残留（68 项目实例）按测试会话留坑待下次重置清除。
 
 - 2026-10-30｜测试｜迭代6-09e｜**工单 09e（四项修复复测）完成，转待验收，09 系收口。** ① **四点复测全过**（`e2e/specs/fix-retest-09e.spec.ts`，LX_BASE 切换双栈）：**D2** travel_change——submitChange 200 且 flowName=「travel_change 默认流程」→ 变更审批 → destination 更新（RT1，dev 32.3s/prod 29.2s 各 4/4 全绿）；**D3** transferManager——UI 高危模态（红条+双方姓名理由回显+不可一键撤销提示）→ managerName 切换陈立→成员表 pm=manager/partner=member 降级→pm 收通知→审计行 project.transferManager 在位→后续 travel 首步审批人解析=pm（manager_id 运行时解析实证）→降级 partner addMember/close 同形 404（RT2）；**D1** admin.createTemplate——UI 新建「复测开发模板」→listTemplates 命中→新模板立项→计划阶段/任务+档案目录自动物就位（RT3）；**O1** 搜索分组——6 任务+1 会议多组并存：task 组 total=6/items=5/totalByType.task=6/拍平 7 条不全局截断（RT4）。截图 13 张 `D:	mp\shots-09e\`。② **回归**：根测试套件 **249/249**（server 226+app 23）零回归；e2e 核心链 E2E-01~16 dev 栈 **16/16**（BASE_URL=3000）。③ **prod 环境动作（本Session代部署执行，用户已授权 dev 先行/prod 排最后）**：prod 双镜像按 04d 流程重建——buildx 遇「x-docker-expose-session-sharedkey 非打印 ASCII」bug（重试+ASCII junction 均无效），改 `DOCKER_BUILDKIT=0` legacy builder 直构 server(af56909f0dfe)/web(f30213a65a49) 成功；`up -d` 复起（pgdata 卷保留，09 测试业务数据未动）；**full 档种子在 prod 现网库因 09 残留工时周期撞 timesheet_periods 唯一约束整体回滚**（flow 自愈同事务被回滚——教训：现网库补配置须用 `SEED_PROFILE=minimal`），改 minimal 档成功但共存守卫因 09 残留「蓝海变更重审流」enabled 跳过默认流；按守卫设计停用该残留流后再 minimal 种子，**travel_change 默认流程 enabled 落库**，复测环境还原为干净库形态。④ **报告**：蓝海穷尽测试报告缺陷表 D1-D3/O1 四行转「已修复+复测证据」。⑤ **遗留/留坑**：prod 库 09 系业务残留未清（测试数据，下次重置随 down -v 消除）；buildx 非 ASCII 路径 bug 建议记入部署手册（workaround：legacy builder 或重启 Docker Desktop 后再试）。
 
