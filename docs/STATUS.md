@@ -182,6 +182,8 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-10-30｜架构｜迭代6-11｜**工单 11 验收通过并已上 prod。** 复核：app 四道门全绿；截图核验——sysadmin 顶栏新增 SlidersHorizontal「系统配置中心」入口（与 /settings 齿轮区分）、member 不渲染、桌面字号 13→14 上调、375 零回归；其走查发现的衍生回归（新入口致 1440 顶栏越界→≤1500 搜索收图标钮修复）复核到位。架构会话按 04d 流程重建 prod web 镜像（legacy builder）并复起：:8080 现为修复后形态（新 bundle index-BYyoh7PW.js），用户刷新即见。#2 IA 分组维持裁定（纳入后续迭代，不打断手册测试）。
+
 - 2026-10-30｜前端｜迭代6-11｜**工单 11（配置中心入口 + PC 字号上调）完成，转待验收。** 分支 iter6/frontend-admin-entry-font。① **/admin 入口（反馈#1）**：AppShell 顶栏新增 sysadmin 专属入口——SlidersHorizontal 图标 + aria-label「系统配置中心」，与齿轮（`/settings` 账号设置与改密，全角色）并列且图标/语义可区分；非 sysadmin 渲染不存在（member 走查隐藏取证）；≤820px 同设置齿轮一并隐藏（入口由抽屉 OPERATIONS·配置中心承载，04 已做）。② **PC 字号上调一档（反馈#3）**：机械变换生成桌面覆盖层追加于 governance.css 末尾（该文件最后加载，层叠必胜）——`@media (min-width: 821px)` 内 302 条 `font-size +1px` 覆盖，源=App.css/shell.css/governance.css 全部顶层规则；**调整值：内容尺度 8→9、9→10、10→11、11→12、12→13、13→14px（主文本 13→14、表格/列表同步）；≥15px 标题层级不动（比例不变）；!important/clamp/max-width 媒体块内规则跳过（375px 布局与字号零改动，实测 nav 11px、正文 12px 保持）；配色/间距 token 未动**；525–1500px 每档媒体查询语义保持原样。③ **走查发现并已修复衍生回归**：admin 入口占位致 1440 顶栏越界 117px（`.top-actions` right=1542）——新增 `@media (max-width: 1500px)` 搜索框收为图标钮（复用 ≤1180 既有形态），复测 1440 零越界、>1500 不变。质量门 app 侧四道逐条真实执行全绿（tsc/eslint/build 248.89kB/vitest 23/23）。CDP 走查截图（D:\tmp\shots-iter611\）：sysadmin-cockpit-desktop（入口+加大字号）、sysadmin-admin-page（点击落 /admin）、member-cockpit-no-admin-entry、sysadmin-375-cockpit（字号不动+入口 display:none+零越界）。桌面实测：导航 13→14、正文 12→13px。
 - 2026-10-30｜架构｜用户反馈处置｜用户实测三反馈：#1 sysadmin 无 /admin 入口（齿轮实为 /settings，配置中心只能打 URL——缺陷成立）与 #3 PC 文字偏小→工单 11（前端：sysadmin 专属配置中心入口与齿轮区分+桌面字号上调一档+375 不动）；#2 IA 分组（系统级 vs 项目内功能区分）——**评估结论：合理且与基线 §5.1 分组导航（总览/项目/协同/经营/治理/配置）一致，裁定纳入 UI 优化迭代（不动当前手册章节结构、不打断用户测试）**，记入跟踪项待迭代 7 评估。
 
