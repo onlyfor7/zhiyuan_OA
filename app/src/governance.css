@@ -1226,7 +1226,7 @@
   .topbar .brand { border-right: 0; }
   .nav-menu-trigger { display: inline-flex; }
   /* 窄屏顶栏让位：设置入口已在汉堡抽屉（OPERATIONS·账号设置） */
-  .top-actions .settings-link { display: none; }
+  .top-actions :is(.settings-link, .admin-entry) { display: none; }
 }
 
 @media (max-width: 820px) {
@@ -1249,6 +1249,12 @@
 
 @media (min-width: 1181px) {
   .concept-nav a { padding: 0 10px; font-size: 12px; }
+}
+
+/* —— 工单11：顶栏新增 sysadmin 配置中心入口占位；≤1500 搜索框收为图标钮（与 ≤1180 同形态），>1500 桌面不变 —— */
+@media (max-width: 1500px) {
+  .search-trigger { width: 40px; justify-content: center; padding: 0; }
+  .search-trigger span, .search-trigger kbd { display: none; }
 }
 
 /* —— 迭代 6 /preview/* 高保真原型 —— */
@@ -1428,3 +1434,327 @@
 
 .designer-props .check-line { grid-template-columns: 18px 1fr; }
 .designer-props .check-line small { grid-column: 2; }
+
+/* —— 工单11：PC 基础字号上调一档（+1px，8–14px 内容尺度；≥15px 标题层级不动；仅桌面 ≥821px，≤820 含 375px 不动；配色/间距 token 未动） —— */
+@media (min-width: 821px) {
+  .brand span { font-size: 11px; }
+  .concept-nav button { font-size: 14px; }
+  .concept-nav button span { font-size: 10px; }
+  .search-trigger { font-size: 13px; }
+  kbd { font-size: 11px; }
+  .avatar { font-size: 13px; }
+  .notification-popover p { font-size: 13px; }
+  .rail-heading { font-size: 12px; }
+  .rail-list strong { font-size: 13px; }
+  .rail-list small { font-size: 10px; }
+  .rail-progress { font-size: 11px; }
+  .all-projects { font-size: 12px; }
+  .rail-bottom { font-size: 12px; }
+  .rail-bottom small { font-size: 9px; }
+  .eyebrow, .section-label { font-size: 10px; }
+  .screen-heading p, .project-title-row p { font-size: 13px; }
+  .primary-action, .secondary-action { font-size: 13px; }
+  .text-action { font-size: 12px; }
+  .orb-copy span { font-size: 9px; }
+  .orb-copy small { font-size: 11px; }
+  .hero-notes strong span { font-size: 13px; }
+  .hero-notes p { font-size: 12px; }
+  .metric-strip span { font-size: 11px; }
+  .metric-strip small { font-size: 10px; }
+  .focus-name strong { font-size: 13px; }
+  .focus-name small { font-size: 10px; }
+  .focus-value { font-size: 11px; }
+  .week-signal p { font-size: 12px; }
+  .signal-line { font-size: 11px; }
+  .count-badge { font-size: 11px; }
+  .decision-card > span { font-size: 10px; }
+  .decision-card > strong { font-size: 14px; }
+  .decision-card p { font-size: 12px; }
+  .decision-card small { font-size: 10px; }
+  .agenda-item { font-size: 11px; }
+  .assurance { font-size: 11px; }
+  .breadcrumb { font-size: 11px; }
+  .lifecycle-stage > span { font-size: 9px; }
+  .lifecycle-stage strong { font-size: 12px; }
+  .lifecycle-stage small { font-size: 9px; }
+  .milestone-date span { font-size: 10px; }
+  .next-milestone > p { font-size: 11px; }
+  .gate-line { font-size: 11px; }
+  .big-number span { font-size: 14px; }
+  .progress-legend { font-size: 10px; }
+  .baseline-note { font-size: 11px; }
+  .muted-label { font-size: 10px; }
+  .workstream-row strong { font-size: 12px; }
+  .workstream-row small { font-size: 10px; }
+  .workstream-progress { font-size: 11px; }
+  .quality-ring span { font-size: 9px; }
+  .quality-stats span { font-size: 10px; }
+  .quality-insight p { font-size: 10px; }
+  .client-block span, .client-block small { font-size: 10px; }
+  .client-block strong { font-size: 15px; }
+  .attention-item strong { font-size: 12px; }
+  .attention-item p { font-size: 10px; }
+  .archive-progress span { font-size: 10px; }
+  .context-note { font-size: 11px; }
+  .activity-feed { font-size: 10px; }
+  .tool-toggle { font-size: 11px; }
+  .scale-switch button { font-size: 11px; }
+  .simulation-banner { font-size: 11px; }
+  .gantt-head { font-size: 9px; }
+  .task-label strong { font-size: 11px; }
+  .task-label small { font-size: 9px; }
+  .delay-flag { font-size: 9px; }
+  .gantt-foot { font-size: 9px; }
+  .change-entry > span { font-size: 11px; }
+  .change-entry strong { font-size: 11px; }
+  .change-entry small { font-size: 9px; }
+  .change-entry time { font-size: 9px; }
+  .impact-summary p { font-size: 11px; }
+  .plan-score span, .plan-score small { font-size: 10px; }
+  .dependency-chain { font-size: 11px; }
+  .context-link { font-size: 11px; }
+  .delay-dates span { font-size: 10px; }
+  .delay-dates strong { font-size: 14px; }
+  .impact-box h3 { font-size: 13px; }
+  .impact-box > div { font-size: 11px; }
+  .impact-box > div strong { font-size: 10px; }
+  .impact-box p { font-size: 10px; }
+  .form-field > span { font-size: 11px; }
+  .form-field b { font-size: 9px; }
+  .form-field textarea, .form-field input { font-size: 12px; }
+  .owner-line span { font-size: 10px; }
+  .owner-line strong { font-size: 12px; }
+  .form-error { font-size: 11px; }
+  .drawer-note { font-size: 10px; }
+  .modal-intro { font-size: 12px; }
+  .option-grid span { font-size: 10px; }
+  .option-grid strong { font-size: 15px; }
+  .option-grid p { font-size: 11px; }
+  .command-input input { font-size: 14px; }
+  .command-results strong { font-size: 13px; }
+  .command-results small { font-size: 10px; }
+  .command-results > p { font-size: 13px; }
+  .weekly-preview p { font-size: 12px; }
+  .toast strong { font-size: 12px; }
+  .toast p { font-size: 10px; }
+  .workbench-summary span, .quality-metrics span { font-size: 11px; }
+  .workbench-summary small, .quality-metrics small { font-size: 10px; }
+  .todo-row strong { font-size: 12px; }
+  .todo-row small { font-size: 10px; }
+  .todo-row > span { font-size: 10px; }
+  .quick-actions-panel strong { font-size: 12px; }
+  .quick-actions-panel small { font-size: 10px; }
+  .weekly-story p { font-size: 11px; }
+  .weekly-numbers span { font-size: 10px; }
+  .inline-search input { font-size: 11px; }
+  .quality-toolbar select, .form-field select { font-size: 11px; }
+  .quality-toolbar > span, .file-toolbar > span, .log-toolbar > span { font-size: 10px; }
+  .quality-table-head { font-size: 9px; }
+  .quality-row > div strong { font-size: 11px; }
+  .quality-row > div small { font-size: 9px; }
+  .severity { font-size: 9px; }
+  .issue-status { font-size: 10px; }
+  .quality-row > span:not(.severity):not(.issue-status) { font-size: 10px; }
+  .cause-row { font-size: 10px; }
+  .quality-principle p { font-size: 11px; }
+  .issue-meta-grid span { font-size: 10px; }
+  .issue-meta-grid strong { font-size: 12px; }
+  .issue-section > span { font-size: 10px; }
+  .issue-section p { font-size: 12px; }
+  .resolution-timeline span { font-size: 12px; }
+  .resolution-timeline small { font-size: 10px; }
+  .linked-evidence strong { font-size: 11px; }
+  .linked-evidence small { font-size: 9px; }
+  .empty-state strong { font-size: 14px; }
+  .empty-state p { font-size: 11px; }
+  .decision-count { font-size: 11px; }
+  .decision-queue > button > div > span { font-size: 9px; }
+  .decision-queue strong { font-size: 12px; }
+  .decision-queue p { font-size: 10px; }
+  .decision-queue small { font-size: 9px; }
+  .conflict-summary p { font-size: 11px; }
+  .decision-facts span { font-size: 9px; }
+  .decision-facts strong { font-size: 15px; }
+  .decision-detail h3 { font-size: 14px; }
+  .decision-options span { font-size: 9px; }
+  .decision-options strong { font-size: 12px; }
+  .decision-options p { font-size: 10px; }
+  .decision-options small { font-size: 9px; }
+  .decision-submit p { font-size: 10px; }
+  .decision-executing strong { font-size: 12px; }
+  .decision-executing p { font-size: 10px; }
+  .decision-principles span { font-size: 11px; }
+  .decision-principles p { font-size: 10px; }
+  .decision-principles strong { font-size: 12px; }
+  .archive-integrity span { font-size: 10px; }
+  .folder-tree button { font-size: 10px; }
+  .folder-tree small { font-size: 9px; }
+  .file-list-head { font-size: 9px; }
+  .file-row strong { font-size: 11px; }
+  .file-row small { font-size: 9px; }
+  .file-row time, .file-row > span { font-size: 9px; }
+  .document-preview h3 { font-size: 14px; }
+  .document-preview p { font-size: 10px; }
+  .file-metadata span { font-size: 9px; }
+  .file-metadata strong { font-size: 10px; }
+  .empty-context p { font-size: 11px; }
+  .check-field { font-size: 11px; }
+  .security-banner strong { font-size: 12px; }
+  .security-banner p { font-size: 10px; }
+  .security-banner > span { font-size: 9px; }
+  .audit-tabs button { font-size: 11px; }
+  .grant-summary span { font-size: 10px; }
+  .grant-head { font-size: 9px; }
+  .mini-avatar { font-size: 10px; }
+  .grant-row strong { font-size: 11px; }
+  .grant-row small { font-size: 9px; }
+  .grant-row > span { font-size: 10px; }
+  .log-head { font-size: 9px; }
+  .log-row { font-size: 10px; }
+  .log-row time { font-size: 9px; }
+  .security-score span { font-size: 10px; }
+  .wall-row { font-size: 11px; }
+  .gate-score > span { font-size: 10px; }
+  .gate-score > small { font-size: 10px; }
+  .blocked-gate strong { font-size: 12px; }
+  .blocked-gate p { font-size: 10px; }
+  .blocked-gate span { font-size: 9px; }
+  /* —— 深色顶部导航 / 左侧项目索引：App.css 原为 button 选择器，路由化后补 a 同形 —— */
+.concept-nav a { font-size: 14px; }
+  .concept-nav a span { font-size: 10px; }
+  .rail-empty { font-size: 11px; }
+  .not-connected .nc-label,
+.nc-label { font-size: 9px; }
+  .not-connected strong { font-size: 13px; }
+  .not-connected p { font-size: 10px; }
+  .list-note { font-size: 12px; }
+  /* —— 加载与错误态 —— */
+.page-loader { font-size: 13px; }
+  .error-state p { font-size: 12px; }
+  .login-card-top span { font-size: 11px; }
+  .login-intro { font-size: 12px; }
+  .field-error { font-size: 10px; }
+  .login-note { font-size: 10px; }
+  .notfound-screen p { font-size: 13px; }
+  .project-table-head { font-size: 9px; }
+  .project-row > div strong { font-size: 12px; }
+  .project-row > div small { font-size: 9px; }
+  .project-row > span:not(.badge) { font-size: 10px; }
+  /* —— 徽标（真实状态字段） —— */
+.badge { font-size: 9px; }
+  .detail-facts span { font-size: 10px; }
+  .detail-facts strong { font-size: 12px; }
+  .detail-list dt { font-size: 10px; }
+  .detail-list dd { font-size: 12px; }
+  .focus-meta { font-size: 11px; }
+  /* —— 响应式：沿用 App.css 断点 —— */
+@media (max-width: 1180px) { font-size: 12px; }
+  .space-tabs a { font-size: 13px; }
+  .archive-banner { font-size: 12px; }
+  .blocking-banner strong { font-size: 13px; }
+  .blocking-banner p { font-size: 11px; }
+  .governance-notes li { font-size: 12px; }
+  .mark-overdue,
+.mark-duesoon { font-size: 9px; }
+  .row-actions button { font-size: 10px; }
+  .toolbar-hint { font-size: 11px; }
+  .target-origin { font-size: 10px; }
+  .sim-result { font-size: 12px; }
+  .sim-result ul { font-size: 11px; }
+  .change-entry.as-button > span { font-size: 10px; }
+  .change-entry.as-button time { font-size: 10px; }
+  .assign-select { font-size: 10px; }
+  .check-row strong { font-size: 12px; }
+  .check-row small { font-size: 10px; }
+  .opinion-grid span { font-size: 10px; }
+  .opinion-grid p { font-size: 12px; }
+  /* —— 周报 —— */
+.range-field { font-size: 11px; }
+  .range-field input { font-size: 11px; }
+  .report-row strong { font-size: 13px; }
+  .report-row small { font-size: 10px; }
+  .revoke-inline input { font-size: 11px; }
+  .todo-card strong { font-size: 13px; }
+  .todo-card small { font-size: 10px; }
+  .todo-kind { font-size: 9px; }
+  .notification-row strong { font-size: 12px; }
+  .notification-row small { font-size: 10px; }
+  .check-field.compact { font-size: 11px; }
+  .approval-card > p { font-size: 11px; }
+  .act-form textarea { font-size: 12px; }
+  .template-card strong { font-size: 14px; }
+  .template-card p { font-size: 11px; }
+  .template-card small { font-size: 10px; }
+  .pending-contract .pending-box,
+.pending-box { font-size: 11px; }
+  .member-row select { font-size: 11px; }
+  .bell-badge { font-size: 10px; }
+  .edit-block input,
+.edit-block textarea { font-size: 12px; }
+  .user-picker select { font-size: 11px; }
+  .picker-note { font-size: 10px; }
+  .member-add-row select { font-size: 11px; }
+  .version-chip { font-size: 10px; }
+  .unconfirmed-badge { font-size: 11px; }
+  .confirmed-badge { font-size: 11px; }
+  .action-row strong { font-size: 12px; }
+  .action-row small { font-size: 10px; }
+  .action-add input { font-size: 11px; }
+  .participant-line strong { font-size: 12px; }
+  .participant-line small { font-size: 10px; }
+  .participant-line select { font-size: 10px; }
+  .external-fields input,
+.participant-row select { font-size: 11px; }
+  .segment-seq { font-size: 11px; }
+  .segment-row select,
+.segment-row input { font-size: 11px; }
+  .segment-head,
+.segment-line { font-size: 11px; }
+  .segment-head { font-size: 9px; }
+  .prefill-panel strong { font-size: 13px; }
+  .prefill-panel ul { font-size: 11px; }
+  .budget-legend { font-size: 11px; }
+  .no-budget-note { font-size: 14px; }
+  .ledger-head,
+.ledger-row { font-size: 10px; }
+  .ledger-head { font-size: 9px; }
+  .check-line { font-size: 11px; }
+  .category-row input { font-size: 11px; }
+  .expense-item-grid select,
+.expense-item-grid input { font-size: 11px; }
+  .expense-items-head,
+.expense-items-row { font-size: 11px; }
+  .expense-items-head { font-size: 9px; }
+  .expense-items-row small { font-size: 9px; }
+  .day-cell .day-name { font-size: 9px; }
+  .day-cell small { font-size: 10px; }
+  .time-list-head, .time-list-row { font-size: 11px; }
+  .time-list-head { font-size: 9px; }
+  .time-entry-row input[type="number"],
+.time-entry-row select,
+.time-entry-row input:not([type]) { font-size: 11px; }
+  .entry-unit { font-size: 10px; }
+  .palette-hint { font-size: 12px; }
+  .palette-more { font-size: 11px; }
+  .search-hit strong { font-size: 13px; }
+  .search-hit small { font-size: 10px; }
+  .mobile-nav-list a,
+.mobile-nav-ops a { font-size: 14px; }
+  .mobile-nav-list a span { font-size: 10px; }
+  .preview-badge { font-size: 11px; }
+  .preview-topbar .brand span { font-size: 11px; }
+  .preview-nav a { font-size: 13px; }
+  .preview-back { font-size: 12px; }
+  .preview-note { font-size: 11px; }
+  .params-value { font-size: 10px; }
+  .code-rule span { font-size: 14px; }
+  .code-rule strong { font-size: 12px; }
+  .palette-node strong { font-size: 13px; }
+  .palette-node small { font-size: 10px; }
+  .flow-node { font-size: 12px; }
+  .flow-node small { font-size: 10px; }
+  .progress-step strong { font-size: 13px; }
+  .progress-step small { font-size: 10px; }
+  .danger-action { font-size: 13px; }
+  .role-chip { font-size: 11px; }
+}

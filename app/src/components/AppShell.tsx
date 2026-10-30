@@ -8,7 +8,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router";
-import { ArrowRight, Bell, LogOut, Menu, Network, Search, Settings } from "lucide-react";
+import { ArrowRight, Bell, LogOut, Menu, Network, Search, Settings, SlidersHorizontal } from "lucide-react";
 
 import { useLogout, useMe } from "../api/auth";
 import { useUnreadCount } from "../api/notification";
@@ -186,6 +186,11 @@ export default function AppShell() {
           <div className="avatar" title={`${data.user.name} · ${data.user.email}`}>
             {data.user.name.slice(0, 1)}
           </div>
+          {data.globalRoles.includes("sysadmin") ? (
+            <Link to="/admin" className="icon-button dark admin-entry" aria-label="系统配置中心">
+              <SlidersHorizontal size={17} />
+            </Link>
+          ) : null}
           <Link to="/settings" className="icon-button dark settings-link" aria-label="账号设置与改密">
             <Settings size={17} />
           </Link>
