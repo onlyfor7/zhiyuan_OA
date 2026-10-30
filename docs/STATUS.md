@@ -87,8 +87,8 @@
 | 07 清库种子模式 | 数据 | **通过** | 数据会话 | 2026-10-29 | 架构会话已验收（minimal 档 dev 实测 projects/clients/台账全 0、基础件齐备、双档幂等） |
 | 08 生产栈清空重置 | 部署 | **通过** | 部署会话 | 2026-10-29 | 架构会话已验收（0 项目/0 客户/12 用户/14 配置/8 流程，pm 登录空列表） |
 | 09 蓝海项目穷尽覆盖测试 | 测试 | **通过** | 测试会话 | 2026-10-29 | 架构会话已验收（18/18 时序全绿、三交付物齐备、覆盖矩阵完整）；D1–D3/O1 裁定出修复链 |
-| 09b 补 travel_change 默认流 | 数据 | **打回→进行中** | 数据会话 | 2026-10-29 | travel_change 修复通过；打回一项：generic_request 默认流 [project_manager] 无项目上下文致请假提交 SELF_APPROVAL_BLOCKED（实弹证实）——改 [partner]，规格见交接记录置顶条 |
-| 09c 负责人变更+搜索分组+createTemplate | 后端 | 未认领 | | | 微工单，待 09b 通过 |
+| 09b 补 travel_change 默认流 | 数据 | **通过** | 数据会话 | 2026-10-29 | 打回修复复测通过（请假提交→partner 审批）；218/218 |
+| 09c 负责人变更+搜索分组+createTemplate | 后端 | 未认领 | | | 已解锁 |
 | 09d 模板新建+变更负责人入口+搜索分组展示 | 前端 | 未认领 | | | 微工单，待 09c 通过 |
 | 09e 四项修复复测 | 测试 | 未认领 | | | 微工单，待 09d 通过 |
 
@@ -178,6 +178,9 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-10-29｜架构｜迭代6-09b复审｜**工单 09b 验收通过（打回修复闭合）。** 复测：218/218 绿；原被拦请假单 REQ-2026-00002 提交成功、审批步骤解析为 partner@lexflow.demo（[partner] 兜底生效）；种子自愈机制（同名默认流 UPDATE 修正）设计正确且带用例。**解锁工单 09c（后端会话：负责人变更+搜索分组+createTemplate）。**
+
+- 2026-10-29｜数据｜迭代6-09b打回修复｜**打回项修复完成，转待验收（复测路径：member 提交请假 → 审批步骤=partner）。**按裁定改 `generic_request 默认流程` 审批人为 **[partner] 单步**（管理层全局兜底）：① seed/extensions.ts 规格修正（note 记裁定缘由：全局申请单无项目上下文，project_manager 解析自审死锁 SELF_APPROVAL_BLOCKED）；② **种子自愈机制**：seedDefaultFlows 对「同 biz_binding 已有 enabled 全局流」分两种处置——同名种子默认流（dev/测试库 09b 首版遗留行）**UPDATE definition_json 自愈**（种子即迁移，无需手工改库），异名（prod 现场所建）仍跳过共存——存量 dev/prod 重跑 seed 即修正且不撞组合唯一索引；③ 等价断言同步：ENGINE_BIZ_TYPES 全覆盖断言保留 + 新增「generic_request 解析必须恰为 [{role:partner,any}]」显式断言 + **自愈专项用例**（预置旧 project_manager 规格行 → 重跑 seed → 断言被修正为 partner）；④ dev 实测：`SEED_PROFILE=minimal` 双跑后 psql 验证 definition_json=partner 单步。全量：`npm run test -w @lexflow/server`✓ **218/218**、根 typecheck✓ exit 0。复测路径数据就绪：member 提交请假 → 引擎按 biz_binding=generic_request 取 enabled 默认流 → 步骤解析为 partner（member 不会自审）。架构探针 REQ-2026-00002 留 draft 态未动（按置顶条「验收后可弃」归测试/架构处置）。提交：`iter6/data-travel-change-flow` 分支 `[数据]` 前缀 commit。
 - 2026-10-29｜架构｜迭代6-09b｜**工单 09b 验收：travel_change 主修复通过，一项打回（generic_request 默认审批人）。** 复核：217/217 绿、typecheck exit 0；dev 库 10 个 biz_binding 各恰 1 条 enabled 默认流（travel_change/generic_request 补齐）、等价性用例补强防再漏、prod 共存守卫正确。**打回项（我实弹证实）**：generic_request 默认流取 [project_manager]——全局申请单无项目上下文，member 提交请假被 `SELF_APPROVAL_BLOCKED` 拦死（'流程节点无可用审批人'）。**裁定：generic_request 默认流审批人改 [partner]（全局管理层兜底）**，种子双档修正 + 等价断言同步；复测路径：member 提交请假申请 → 审批步骤=partner。修复完转待验收，我只复测该路径。（探针草稿 REQ-2026-00002 留 draft 态，验收后可弃。）
 
 - 2026-10-29｜数据｜迭代6-09b｜**微工单 09b 完成，转待验收（补 travel_change 默认审批流）。**背景：穷尽测试 D2 实测干净系统上 travel_change 无默认流程 → 出差变更提交 412（工单 02 策略迁移 13 策略→8 流程时漏该 biz_type，等价用例未覆盖）。做了什么：① seed/extensions.ts DEFAULT_FLOWS 补 **travel_change 默认流程**（[project_manager] 单步，与迭代 2 策略语义一致）+ **generic_request 默认流程**（[project_manager] 单步——数据会话推断默认值，无冻结策略来源，**待架构确认**）；默认流 8→10 条，full 档 11（含演示流）/minimal 档 10。**共存守卫**：seedDefaultFlows 先查该 biz_binding 是否已有 enabled 全局默认流（project_id null），有则跳过——prod 测试现场所建那条（同名或异名）均不冲突、不撞 (biz_binding, coalesce(project_id)) 组合唯一索引（范围 3 落地）。② 等价性用例补强（tests/db/extensions.test.ts）：新增 travel_change 场景逐步骤集一致断言 + **ENGINE_BIZ_TYPES 十项全覆盖断言**（change_request/travel/travel_change/funding/expense/expense_adjustment/budget/access_grant/timesheet/generic_request 各 ≥1 条 enabled 全局默认流）——防再漏；entity-columns/seed-profile 计数随动（10/11、形态测试改用虚构 biz_binding index_shape_test）。③ dev 补齐：dev 为 07 留下的干净 minimal 态（projects=0），按 `SEED_PROFILE=minimal npm run db:seed`×2 幂等补齐（**刻意不跑 full 档以免灌回演示数据**——与 07 清库意图一致）；psql 实测 10 个 biz_binding 各 1 条 enabled、projects 仍 0。prod 由部署会话择机跑种子，共存守卫已就位（09 现场所建流不会被撞）。怎么验证：`npm run test -w @lexflow/server`✓ **217/217（42 文件零回归）**；根 `npm run typecheck`✓ exit 0；dev minimal 种子×2 幂等。提交：`iter6/data-travel-change-flow` 分支 `[数据]` 前缀 commit。**待架构确认**：generic_request 默认审批人取值（现为 project_manager 单步）。STATUS.md 在工作区未提交。
