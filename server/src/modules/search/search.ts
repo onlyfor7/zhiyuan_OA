@@ -25,9 +25,10 @@ import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
 
 /**
- * 全局搜索（arch/07 §5 逐字）：十类对象；SQL 级权限过滤先于组装；
+ * 全局搜索（arch/07 §5 逐字；O1 裁定 迭代6-09 改分组返回）：十类对象；SQL 级权限过滤先于组装；
  * 无权限对象整体不可见（不返回标题/编号外任何信息）；金额按财务可见权；
- * 命中计数按可见集合；搜索不逐条审计（导出才审计）。
+ * 命中计数按可见集合（totalByType 精确计数）；每类 ≤5 条，消除跨类型挤占；
+ * 搜索不逐条审计（导出才审计）。
  */
 
 export type SearchType =
@@ -69,7 +70,14 @@ export interface SearchHit {
   amountCents?: number;
 }
 
-const PER_TYPE_LIMIT = 8;
+const PER_TYPE_LIMIT = 5;
+
+/** O1 分组返回：每类一组（仅含命中的类型），组内 ≤PER_TYPE_LIMIT 条，total 为精确计数 */
+export interface SearchGroup {
+  type: SearchType;
+  total: number;
+  items: SearchHit[];
+}
 
 function like(keyword: string): string {
   const escaped = keyword.replace(/[\\%_]/g, (m) => `\\${m}`);
@@ -87,32 +95,31 @@ function participantMeetings(user: SessionUser): SQL {
 export async function searchQuery(
   db: DbOrTx,
   user: SessionUser,
-  input: { q: string; types?: SearchType[]; cursor?: string; limit?: number },
-): Promise<{ items: SearchHit[]; nextCursor: string | null; totalByType: Partial<Record<SearchType, number>> }> {
+  input: { q: string; types?: SearchType[]; limit?: number },
+): Promise<{ groups: SearchGroup[]; items: SearchHit[]; totalByType: Partial<Record<SearchType, number>> }> {
   const q = input.q.trim();
   if (!q) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "搜索关键词必填", { q: ["搜索关键词必填"] });
   const types = (input.types?.length ? input.types : ALL_TYPES).filter((t) => ALL_TYPES.includes(t));
-  const limit = Math.min(input.limit ?? PER_TYPE_LIMIT, 20);
-  const offset = input.cursor ? Number(Buffer.from(input.cursor, "base64url").toString("utf8")) || 0 : 0;
+  // O1：limit 为每类上限（默认 5，最大 20），不再做全局合并截断
+  const perType = Math.min(Math.max(input.limit ?? PER_TYPE_LIMIT, 1), 20);
 
-  const hits: SearchHit[] = [];
-  const totalByType: Partial<Record<SearchType, number>> = {};
   const kw = like(q);
+  const totalByType: Partial<Record<SearchType, number>> = {};
+  const byType = new Map<SearchType, SearchHit[]>();
+  const items: SearchHit[] = [];
 
   for (const type of types) {
-    const rows = await searchByType(db, user, type, kw, limit + 1, offset);
+    const rows = await searchByType(db, user, type, kw, perType, 0);
     totalByType[type] = rows.total;
-    for (const hit of rows.items) hits.push(hit);
+    byType.set(type, rows.items);
+    for (const hit of rows.items) items.push(hit);
   }
 
-  hits.sort((a, b) => (a.code ?? "").localeCompare(b.code ?? ""));
-  const page = hits.slice(0, limit);
-  const anyMore = Object.values(totalByType).some((t) => (t ?? 0) > offset + limit);
-  return {
-    items: page,
-    nextCursor: anyMore ? Buffer.from(String(offset + limit), "utf8").toString("base64url") : null,
-    totalByType,
-  };
+  // 分组（仅命中类型）；items 为分组拍平（向后兼容旧消费方）
+  const groups: SearchGroup[] = types
+    .filter((t) => (totalByType[t] ?? 0) > 0)
+    .map((t) => ({ type: t, total: totalByType[t] ?? 0, items: byType.get(t) ?? [] }));
+  return { groups, items, totalByType };
 }
 
 async function searchByType(

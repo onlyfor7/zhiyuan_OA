@@ -73,6 +73,18 @@ export const adminRouter = router({
     .input(z.object({ matterId: z.uuid(), disabled: z.boolean() }))
     .mutation(({ ctx, input }) => admin.setMatterDisabled(ctx.db, ctx.user, { ...input, ip: ctx.ip, sessionId: ctx.session.id })),
 
+  createTemplate: authedMutation
+    .input(
+      z.object({
+        name: z.string().trim().min(1, "模板名称必填").max(100),
+        description: z.string().max(500).optional(),
+        structure: z.record(z.string(), z.unknown()),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      admin.createTemplate(ctx.db, ctx.user, { name: input.name, description: input.description, structureJson: input.structure, ip: ctx.ip, sessionId: ctx.session.id }),
+    ),
+
   updateTemplate: authedMutation
     .input(
       z.object({

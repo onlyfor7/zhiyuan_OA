@@ -48,7 +48,7 @@ export type TimeActivityType = (typeof TIME_ACTIVITY_TYPE)[number];
 export const TIME_ENTRY_SOURCE = ["manual", "prefill_meeting", "prefill_travel", "copy"] as const;
 export type TimeEntrySource = (typeof TIME_ENTRY_SOURCE)[number];
 
-/** 通知事件类型（需求基线 §12.2，arch/02 §3.1 v1.1 冻结；arch/04 §6 增补 7 值；arch/05 §6 增补 1 值） */
+/** 通知事件类型（需求基线 §12.2，arch/02 §3.1 v1.1 冻结；arch/04 §6 增补 7 值；arch/05 §6 增补 1 值；arch 裁定 迭代6-09 D3 增补 1 值） */
 export const NOTIFICATION_EVENT_TYPE = [
   "meeting_starting",
   "minutes_overdue",
@@ -66,6 +66,7 @@ export const NOTIFICATION_EVENT_TYPE = [
   "decision_required",
   "report_draft_ready",
   "minutes_pending_confirm",
+  "manager_transferred",
 ] as const;
 export type NotificationEventType = (typeof NOTIFICATION_EVENT_TYPE)[number];
 

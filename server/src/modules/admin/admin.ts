@@ -224,12 +224,50 @@ export async function setMatterDisabled(db: DbOrTx, actor: SessionUser, input: {
 
 /* ===== 模板与配置 ===== */
 
-export async function updateTemplate(db: DbOrTx, actor: SessionUser, input: { id: string; name?: string; description?: string; structureJson: Record<string, unknown>; ip: string | null; sessionId: string | null }) {
-  await requireAdminConfig(db, actor);
-  const structure = input.structureJson as { stages?: Array<{ name: string; seq: number }> };
+/** structure_json 校验（updateTemplate 与 createTemplate 共用规则，arch/04 §2.10） */
+function assertTemplateStructure(structureJson: Record<string, unknown>): void {
+  const structure = structureJson as { stages?: Array<{ name: string; seq: number }> };
   if (!Array.isArray(structure.stages) || structure.stages.some((s) => !s.name || typeof s.seq !== "number")) {
     throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "structure_json.stages 须为 [{name,seq}] 数组", { structureJson: ["stages 非法"] });
   }
+}
+
+export async function createTemplate(
+  db: DbOrTx,
+  actor: SessionUser,
+  input: { name: string; description?: string; structureJson: Record<string, unknown>; ip: string | null; sessionId: string | null },
+) {
+  await requireAdminConfig(db, actor);
+  const name = input.name.trim();
+  if (!name) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "模板名称必填", { name: ["模板名称必填"] });
+  assertTemplateStructure(input.structureJson);
+  let row;
+  try {
+    [row] = await db
+      .insert(projectTemplates)
+      .values({
+        name,
+        description: input.description?.trim() ?? "",
+        structureJson: input.structureJson,
+        createdBy: actor.id,
+        updatedBy: actor.id,
+      })
+      .returning();
+  } catch (error) {
+    // 模板名唯一：重名映射 4xx（同 R9 FK/约束口径）
+    if (pgErrorCode(error) === "23505") {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "模板名称已存在", { name: ["模板名称已存在"] });
+    }
+    throw error;
+  }
+  if (!row) throw new Error("模板插入失败");
+  await recordAudit(db, { actorId: actor.id, sessionId: input.sessionId, action: "admin.createTemplate", targetType: "project_template", targetId: row.id, result: "success", afterJson: { name }, ip: input.ip });
+  return row;
+}
+
+export async function updateTemplate(db: DbOrTx, actor: SessionUser, input: { id: string; name?: string; description?: string; structureJson: Record<string, unknown>; ip: string | null; sessionId: string | null }) {
+  await requireAdminConfig(db, actor);
+  assertTemplateStructure(input.structureJson);
   const [updated] = await db
     .update(projectTemplates)
     .set({

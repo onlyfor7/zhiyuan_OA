@@ -222,6 +222,18 @@ export const projectRouter = router({
     .input(z.object({ projectId: z.uuid(), userId: z.uuid() }))
     .mutation(({ ctx, input }) => service.removeMember(ctx.db, ctx.user, input.projectId, input.userId)),
 
+  transferManager: authedMutation
+    .input(
+      z.object({
+        projectId: z.uuid(),
+        newManagerId: z.uuid(),
+        reason: z.string().trim().min(1, "变更原因必填").max(500),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      service.transferManager(ctx.db, ctx.user, input, ctx.ip, ctx.session.id),
+    ),
+
   close: authedMutation
     .input(z.object({ projectId: z.uuid(), rowVersion: z.number().int().min(0) }))
     .mutation(({ ctx, input }) => service.closeProject(ctx.db, ctx.user, input.projectId, input.rowVersion)),

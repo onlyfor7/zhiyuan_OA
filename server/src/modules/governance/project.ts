@@ -27,6 +27,7 @@ import type { SessionUser } from "../../modules/auth/session";
 import { nowIso } from "./util";
 import { aggregateProject } from "../../services/ledger/record";
 import { canFinanceSummary } from "../finance/budget";
+import { notify } from "../notify";
 
 /**
  * 项目域 service（arch/04 §5 project.*）：
@@ -432,7 +433,7 @@ export async function removeMember(
   memberUserId: string,
 ): Promise<void> {
   await requireManage(db, user, projectId);
-  // 项目负责人不可移除自己（manager 交接不在迭代 1 范围）
+  // 项目负责人不可移除自己（须先经 project.transferManager 变更负责人，D3 裁定 迭代6-09）
   const project = await db
     .select({ managerId: projects.managerId })
     .from(projects)
@@ -444,6 +445,91 @@ export async function removeMember(
   await db
     .delete(projectMembers)
     .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, memberUserId)));
+}
+
+/* ===== 负责人变更（D3 裁定 迭代6-09：partner/sysadmin 可变更，审批解析按当前 manager_id 运行时读取） ===== */
+
+export async function transferManager(
+  db: DbOrTx,
+  user: SessionUser,
+  input: { projectId: string; newManagerId: string; reason: string },
+  ip: string | null,
+  sessionId: string | null,
+): Promise<{ projectId: string; managerId: string; formerManagerId: string }> {
+  // partner/sysadmin 门；与 project.manage（项目内 manager 职能）分离的运维动作
+  const allowed = user.globalRoles.includes("partner") || user.globalRoles.includes("sysadmin");
+  if (!allowed) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "项目不存在或无权访问");
+  const [project] = await db
+    .select({ id: projects.id, code: projects.code, managerId: projects.managerId })
+    .from(projects)
+    .where(eq(projects.id, input.projectId))
+    .limit(1);
+  if (!project) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "项目不存在或无权访问");
+  if (project.managerId === input.newManagerId) {
+    throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "新负责人与现任负责人相同");
+  }
+  const reason = input.reason.trim();
+  if (!reason) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "变更原因必填", { reason: ["变更原因必填"] });
+  // 新负责人必须是项目成员
+  const [membership] = await db
+    .select({ userId: projectMembers.userId })
+    .from(projectMembers)
+    .where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, input.newManagerId)))
+    .limit(1);
+  if (!membership) {
+    throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "新负责人必须是项目成员", {
+      newManagerId: ["新负责人必须是项目成员"],
+    });
+  }
+  const formerManagerId = project.managerId;
+
+  // 同事务：manager_id 更新 + 成员角色迁移（旧负责人降级 member、新负责人升级 manager）
+  await db
+    .update(projects)
+    .set({
+      managerId: input.newManagerId,
+      updatedBy: user.id,
+      updatedAt: nowIso(),
+      rowVersion: sql`${projects.rowVersion} + 1`,
+    })
+    .where(eq(projects.id, input.projectId));
+  await db
+    .update(projectMembers)
+    .set({ projectRole: "member" })
+    .where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, formerManagerId)));
+  await db
+    .update(projectMembers)
+    .set({ projectRole: "manager" })
+    .where(and(eq(projectMembers.projectId, input.projectId), eq(projectMembers.userId, input.newManagerId)));
+  await recordAudit(db, {
+    actorId: user.id,
+    sessionId,
+    action: "project.transferManager",
+    targetType: "project",
+    targetId: input.projectId,
+    result: "success",
+    beforeJson: { managerId: formerManagerId },
+    afterJson: { managerId: input.newManagerId, reason },
+    ip,
+  });
+  // 通知新旧负责人（D3：通知（新旧负责人））
+  for (const [recipientId, role] of [[input.newManagerId, "new"], [formerManagerId, "former"]] as const) {
+    await notify(db, {
+      eventType: "manager_transferred",
+      recipientId,
+      sourceType: "project",
+      sourceId: input.projectId,
+      payload: {
+        projectId: input.projectId,
+        projectCode: project.code,
+        fromManagerId: formerManagerId,
+        toManagerId: input.newManagerId,
+        reason,
+        role,
+      },
+    });
+  }
+  return { projectId: input.projectId, managerId: input.newManagerId, formerManagerId };
 }
 
 /* ===== 结项检查（arch/04 §5 project.close） ===== */
