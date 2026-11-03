@@ -619,36 +619,53 @@ function TemplatesTab() {
   );
 }
 
+function FlowRow({ f }: { f: { id: string; name: string; versionNo: number; enabled: boolean; bizBinding: string; updatedAt: string } }) {
+  return (
+    <Link className="report-row" to={`/admin/flows/${f.id}`}>
+      <div>
+        <strong>
+          <GitBranch size={14} style={{ verticalAlign: "-2px" }} /> {f.name}
+          <span className={`badge ${f.enabled ? "badge-health-normal" : ""}`}>
+            V{f.versionNo} · {f.enabled ? "启用中" : "草稿"}
+          </span>
+        </strong>
+        <small>
+          绑定业务：{f.bizBinding} · 更新 {f.updatedAt.slice(0, 16).replace("T", " ")}
+        </small>
+      </div>
+      <span className="text-action">打开设计器</span>
+    </Link>
+  );
+}
+
+/** G5：/admin 审批流列表分「系统级 / 项目内」两区（flow.list byScope 分区） */
 function FlowsTab() {
   const flows = useFlowList();
   if (flows.isPending) return <p className="list-note">正在加载流程…</p>;
   if (flows.isError) throw flows.error;
+  const system = flows.data.byScope?.system ?? flows.data.items.filter((f) => f.scope === "global");
+  const project = flows.data.byScope?.project ?? flows.data.items.filter((f) => f.scope === "project");
   return (
     <div className="preview-tab-body">
       <div className="quality-toolbar">
-        <span className="toolbar-hint">流程定义（同名称恰一个启用版本；既有种子策略已迁移为默认流程）</span>
+        <span className="toolbar-hint">流程定义（同名称恰一个启用版本；项目内流程在项目空间「审批流」入口管理）</span>
         <Link to="/admin/flows/new" className="primary-action">
           <Plus size={15} />
-          新建流程
+          新建系统级流程
         </Link>
       </div>
+      <span className="section-label">系统级（{system.length}）</span>
       <div className="report-list">
-        {flows.data.items.map((f) => (
-          <Link className="report-row" key={f.id} to={`/admin/flows/${f.id}`}>
-            <div>
-              <strong>
-                <GitBranch size={14} style={{ verticalAlign: "-2px" }} /> {f.name}
-                <span className={`badge ${f.enabled ? "badge-health-normal" : ""}`}>
-                  V{f.versionNo} · {f.enabled ? "启用中" : "草稿"}
-                </span>
-              </strong>
-              <small>
-                绑定业务：{f.bizBinding} · 范围：{f.scope}
-                {f.projectId ? ` · 项目 ${f.projectId.slice(0, 8)}` : ""} · 更新 {f.updatedAt.slice(0, 16).replace("T", " ")}
-              </small>
-            </div>
-            <span className="text-action">打开设计器</span>
-          </Link>
+        {system.map((f) => (
+          <FlowRow key={f.id} f={f} />
+        ))}
+      </div>
+      <span className="section-label" style={{ display: "block", marginTop: 18 }}>
+        项目内（{project.length}）
+      </span>
+      <div className="report-list">
+        {project.length === 0 ? <p className="list-note">暂无项目内流程（由各项目负责人在项目空间创建）</p> : project.map((f) => (
+          <FlowRow key={f.id} f={f} />
         ))}
       </div>
     </div>

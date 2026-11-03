@@ -8,6 +8,7 @@ import {
   ReactFlow,
   addEdge,
   applyEdgeChanges,
+  reconnectEdge,
   applyNodeChanges,
   type Connection,
   type Edge,
@@ -28,6 +29,7 @@ import {
   type FlowDefinitionInput,
 } from "../../api/flow";
 import { businessCodeOf, type RouterOutputs } from "../../lib/trpc";
+import { FLOW_CONDITION_FIELD_TYPES } from "@lexflow/shared";
 import { newIdempotencyKey, rootErrorMessage } from "../../lib/form";
 import {
   APPROVER_KIND_LABEL,
@@ -41,10 +43,25 @@ interface DesignerNode {
   id: string;
   type: "start" | "end" | "approval" | "condition";
   label: string;
-  approver?: { kind: "role" | "user" | "initiator_manager" | "project_manager"; role?: string; userId?: string };
+  approver?: { kind: "role" | "user" | "initiator_manager" | "initiator_choice" | "project_manager"; role?: string; userId?: string };
   countersign?: "any" | "all";
-  expr?: { field: string; op: string; value: number | string };
+  expr?: { field: string; op: string; value: number | string | number[] };
 }
+
+/** 旧符号归一（arch/11 G4：存量 >=→gte、==→eq 等，后端编译层双形态兼容） */
+const LEGACY_OPS: Record<string, string> = { ">=": "gte", "<=": "lte", ">": "gt", "<": "lt", "==": "eq", "!=": "ne" };
+function normalizeOp(op: string): string {
+  return LEGACY_OPS[op] ?? op;
+}
+
+const FIELD_TYPE = FLOW_CONDITION_FIELD_TYPES as unknown as Record<string, "text" | "number">;
+const NUMBER_OPS: Array<[string, string]> = [["gte", "≥"], ["lte", "≤"], ["between", "介于"]];
+const TEXT_OPS: Array<[string, string]> = [["eq", "等于"], ["contains", "包含"]];
+/** 布尔/枚举字段给固定取值下拉 */
+const FIELD_VALUE_OPTIONS: Record<string, Array<[string, string]>> = {
+  borrow: [["true", "是（借款）"], ["false", "否"]],
+  confidentiality: [["public", "公开"], ["internal", "内部"], ["confidential", "保密"], ["secret", "秘密"]],
+};
 interface DesignerEdge {
   from: string;
   to: string;
@@ -84,7 +101,12 @@ function nodeDetail(def: DesignerNode): string {
 
 function toDesigner(definition: unknown): { nodes: DesignerNode[]; edges: DesignerEdge[] } {
   const def = (definition ?? { nodes: [], edges: [] }) as { nodes: DesignerNode[]; edges: DesignerEdge[] };
-  return { nodes: def.nodes ?? [], edges: def.edges ?? [] };
+  return {
+    nodes: (def.nodes ?? []).map((n) =>
+      n.type === "condition" && n.expr ? { ...n, expr: { ...n.expr, op: normalizeOp(n.expr.op) } } : n,
+    ),
+    edges: def.edges ?? [],
+  };
 }
 
 function toFlowState(designer: { nodes: DesignerNode[]; edges: DesignerEdge[] }) {
@@ -104,6 +126,11 @@ function toFlowState(designer: { nodes: DesignerNode[]; edges: DesignerEdge[] })
     source: e.from,
     target: e.to,
     label: e.when === undefined ? undefined : e.when ? "是" : "否",
+    // G4：宽热区（易选中）+ 可聚焦删除 + 端点可重连
+    interactionWidth: 24,
+    focusable: true,
+    reconnectable: true,
+    style: { strokeWidth: 2 },
   }));
   return { nodes, edges };
 }
@@ -177,16 +204,22 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
     [],
   );
   const onConnect = useCallback(
-    (conn: Connection) => setEdges((es) => addEdge(conn, es)),
+    (conn: Connection) => setEdges((es) => addEdge({ ...conn, interactionWidth: 24, focusable: true, reconnectable: true, style: { strokeWidth: 2 } }, es)),
     [],
   );
+  // G4：从端点重连（拖动既有连线端点到新节点）
+  const onReconnect = useCallback((oldEdge: Edge, conn: Connection) => {
+    setEdges((es) => reconnectEdge(oldEdge, conn, es));
+  }, []);
+  const [paletteOpen, setPaletteOpen] = useState(true);
+  const [propsOpen, setPropsOpen] = useState(true);
 
   const addNode = (type: "approval" | "condition") => {
     const seq = nodes.length + 1;
     const def: DesignerNode =
       type === "approval"
         ? { id: `n${Date.now() % 100000}`, type: "approval", label: `审批节点 ${seq}`, approver: { kind: "project_manager" }, countersign: "any" }
-        : { id: `c${Date.now() % 100000}`, type: "condition", label: `条件 ${seq}`, expr: { field: "amount_cents", op: ">=", value: 5000000 } };
+        : { id: `c${Date.now() % 100000}`, type: "condition", label: `条件 ${seq}`, expr: { field: "amount_cents", op: "gte", value: 5000000 } };
     setNodes((ns) => [
       ...ns,
       { id: def.id, type, position: { x: 240 + (seq % 3) * 60, y: 40 + (seq % 4) * 80 }, data: { label: def.label, detail: nodeDetail(def), def } },
@@ -390,7 +423,12 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
       ) : null}
 
       <div className="designer-layout">
-        <aside className="designer-palette">
+        <aside className={`designer-palette ${paletteOpen ? "" : "collapsed"}`}>
+          <button className="panel-collapse" aria-label={paletteOpen ? "折叠节点面板" : "展开节点面板"} onClick={() => setPaletteOpen((v) => !v)}>
+            {paletteOpen ? "«" : "»"}
+          </button>
+          {paletteOpen ? (
+            <>
           <span className="section-label">节点面板</span>
           <button className="palette-node" onClick={() => addNode("approval")}>
             <strong>＋ 审批节点</strong>
@@ -400,7 +438,9 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
             <strong>＋ 条件节点</strong>
             <small>字段白名单表达式 · 是/否 双边分支</small>
           </button>
-          <p className="context-note">点击添加节点；拖拽移动；右侧圆点拉线连接；选中节点在右侧面板编辑。</p>
+          <p className="context-note">点击添加节点；拖拽移动；右侧圆点拉线/拖端点重连；连线宽热区可选中（Backspace 删除）；选中节点在右侧面板编辑。</p>
+            </>
+          ) : null}
         </aside>
         <div className="designer-canvas">
           <ReactFlow
@@ -410,6 +450,9 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onReconnect={onReconnect}
+            onEdgeClick={(_, edge) => setEdges((es) => es.map((e) => ({ ...e, selected: e.id === edge.id })))}
+            deleteKeyCode={["Backspace", "Delete"]}
             onNodeClick={(_, node) => setSelectedId(node.id)}
             fitView
             colorMode="light"
@@ -419,7 +462,12 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
             <Controls showInteractive={false} />
           </ReactFlow>
         </div>
-        <aside className="designer-props">
+        <aside className={`designer-props ${propsOpen ? "" : "collapsed"}`}>
+          <button className="panel-collapse" aria-label={propsOpen ? "折叠属性面板" : "展开属性面板"} onClick={() => setPropsOpen((v) => !v)}>
+            {propsOpen ? "»" : "«"}
+          </button>
+          {propsOpen ? (
+            <>
           <span className="section-label">属性面板</span>
           {selected ? (
             <div className="props-form">
@@ -494,15 +542,18 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
                     <span>条件字段（白名单）</span>
                     <select
                       value={selected.data.def.expr?.field ?? "amount_cents"}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        // G4：字段类型联动——切字段重置操作符与取值形态
+                        const field = e.target.value;
+                        const kind = FIELD_TYPE[field] ?? "number";
                         patchSelected({
                           expr: {
-                            field: e.target.value,
-                            op: selected.data.def.expr?.op ?? ">=",
-                            value: selected.data.def.expr?.value ?? 0,
+                            field,
+                            op: kind === "number" ? "gte" : "eq",
+                            value: kind === "number" ? 0 : "",
                           },
-                        })
-                      }
+                        });
+                      }}
                     >
                       {CONDITION_FIELD_WHITELIST.map(([value, label]) => (
                         <option key={value} value={value}>
@@ -511,44 +562,101 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
                       ))}
                     </select>
                   </label>
-                  <div className="owner-line">
-                    <label className="form-field">
-                      <span>比较符</span>
-                      <select
-                        value={selected.data.def.expr?.op ?? ">="}
-                        onChange={(e) =>
-                          patchSelected({
-                            expr: {
-                              field: selected.data.def.expr?.field ?? "amount_cents",
-                              op: e.target.value,
-                              value: selected.data.def.expr?.value ?? 0,
-                            },
-                          })
-                        }
-                      >
-                        {[">=", "<=", ">", "<", "==", "!="].map((op) => (
-                          <option key={op}>{op}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="form-field">
-                      <span>阈值</span>
-                      <input
-                        type="number"
-                        value={Number(selected.data.def.expr?.value ?? 0)}
-                        onChange={(e) =>
-                          patchSelected({
-                            expr: {
-                              field: selected.data.def.expr?.field ?? "amount_cents",
-                              op: selected.data.def.expr?.op ?? ">=",
-                              value: Number(e.target.value),
-                            },
-                          })
-                        }
-                      />
-                    </label>
-                  </div>
-                  <p className="context-note">条件出边需「是/否」双边齐备（边标签标记分支）。</p>
+                  {(() => {
+                    const field = selected.data.def.expr?.field ?? "amount_cents";
+                    const kind = FIELD_TYPE[field] ?? "number";
+                    const op = selected.data.def.expr?.op ?? (kind === "number" ? "gte" : "eq");
+                    const value = selected.data.def.expr?.value;
+                    const valueOptions = FIELD_VALUE_OPTIONS[field];
+                    return (
+                      <>
+                        <div className="owner-line">
+                          <label className="form-field">
+                            <span>操作符{kind === "number" ? "（数值）" : "（文本）"}</span>
+                            <select
+                              value={op}
+                              onChange={(e) =>
+                                patchSelected({
+                                  expr: {
+                                    field,
+                                    op: e.target.value,
+                                    value: e.target.value === "between" ? [0, 0] : valueOptions ? valueOptions[0][0] : kind === "number" ? 0 : "",
+                                  },
+                                })
+                              }
+                            >
+                              {(kind === "number" ? NUMBER_OPS : TEXT_OPS).map(([o, label]) => (
+                                <option key={o} value={o}>
+                                  {label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          {op === "between" ? (
+                            <>
+                              <label className="form-field">
+                                <span>下限</span>
+                                <input
+                                  type="number"
+                                  value={Array.isArray(value) ? value[0] : 0}
+                                  onChange={(e) =>
+                                    patchSelected({
+                                      expr: { field, op, value: [Number(e.target.value), Array.isArray(value) ? value[1] : 0] },
+                                    })
+                                  }
+                                />
+                              </label>
+                              <label className="form-field">
+                                <span>上限</span>
+                                <input
+                                  type="number"
+                                  value={Array.isArray(value) ? value[1] : 0}
+                                  onChange={(e) =>
+                                    patchSelected({
+                                      expr: { field, op, value: [Array.isArray(value) ? value[0] : 0, Number(e.target.value)] },
+                                    })
+                                  }
+                                />
+                              </label>
+                            </>
+                          ) : valueOptions ? (
+                            <label className="form-field">
+                              <span>取值</span>
+                              <select
+                                value={String(value ?? valueOptions[0][0])}
+                                onChange={(e) => patchSelected({ expr: { field, op, value: e.target.value } })}
+                              >
+                                {valueOptions.map(([v, label]) => (
+                                  <option key={v} value={v}>
+                                    {label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          ) : (
+                            <label className="form-field">
+                              <span>{kind === "number" ? "阈值" : "文本值"}</span>
+                              <input
+                                type={kind === "number" ? "number" : "text"}
+                                value={kind === "number" ? Number(value ?? 0) : String(value ?? "")}
+                                onChange={(e) =>
+                                  patchSelected({
+                                    expr: { field, op, value: kind === "number" ? Number(e.target.value) : e.target.value },
+                                  })
+                                }
+                              />
+                            </label>
+                          )}
+                        </div>
+                        <p className="context-note">
+                          {kind === "number"
+                            ? "数值字段：比较符 + 阈值（between 为区间二元组）。"
+                            : "文本字段：等于/包含；布尔与密级字段给固定取值下拉。"}
+                          条件出边需「是/否」双边齐备（边标签标记分支）。
+                        </p>
+                      </>
+                    );
+                  })()}
                 </>
               ) : null}
               {selected.data.def.type === "start" || selected.data.def.type === "end" ? (
@@ -558,6 +666,8 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
           ) : (
             <p className="context-note">选中画布节点以编辑属性。</p>
           )}
+            </>
+          ) : null}
         </aside>
       </div>
     </div>

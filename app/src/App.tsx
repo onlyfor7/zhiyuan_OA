@@ -13,6 +13,7 @@ const MeetingDetailPage = lazy(() => import("./pages/MeetingDetailPage"));
 const MeetingNewPage = lazy(() => import("./pages/MeetingNewPage"));
 const MeetingsPage = lazy(() => import("./pages/MeetingsPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 const AdminCenterPage = lazy(() => import("./pages/admin/AdminCenterPage"));
 const FlowDesignerPage = lazy(() => import("./pages/admin/FlowDesignerPage"));
 const RequestsPage = lazy(() => import("./pages/RequestsPage"));
@@ -47,6 +48,7 @@ const MembersTab = lazy(() => import("./pages/project/MembersTab"));
 const TimeCenterPage = lazy(() => import("./pages/TimeCenterPage"));
 const SearchPage = lazy(() => import("./pages/SearchPage"));
 const MeetingsTab = lazy(() => import("./pages/project/MeetingsTab"));
+const ProjectFlowsTab = lazy(() => import("./pages/project/FlowsTab"));
 const TravelTab = lazy(() => import("./pages/project/TravelTab"));
 const BudgetTab = lazy(() => import("./pages/project/BudgetTab"));
 const ExpensesTab = lazy(() => import("./pages/project/ExpensesTab"));
@@ -71,6 +73,7 @@ export default function App() {
         <Route path="/requests" element={<RequestsPage />} />
         <Route path="/requests/:requestId" element={<RequestDetailPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/operations/receipts" element={<ReceiptsPage />} />
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/projects/new" element={<ProjectCreatePage />} />
@@ -89,6 +92,7 @@ export default function App() {
           <Route path="budget" element={<BudgetTab />} />
           <Route path="expenses" element={<ExpensesTab />} />
           <Route path="timesheet" element={<TimesheetTab />} />
+          <Route path="flows" element={<ProjectFlowsTab />} />
           <Route path="*" element={<Navigate to="overview" replace />} />
         </Route>
         <Route path="/operations/time" element={<TimeCenterPage />} />

@@ -21,7 +21,7 @@ import {
 import { useRail } from "../components/shell-rail";
 import { businessDetailsOf } from "../lib/trpc";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
-import { formatMinutes, TIMESHEET_STATUS_LABEL, TIME_ACTIVITY_LABEL, TIME_SOURCE_LABEL } from "../lib/labels";
+import { formatHours, formatMinutes, TIMESHEET_STATUS_LABEL, TIME_ACTIVITY_LABEL, TIME_SOURCE_LABEL } from "../lib/labels";
 
 function TimeRail() {
   return (
@@ -334,7 +334,7 @@ export default function TimeCenterPage() {
                 <span className="mono">{e.workDate}</span>
                 <span>{e.projectId ? e.projectId.slice(0, 8) : "非项目"}</span>
                 <span>{TIME_ACTIVITY_LABEL[e.activityType]}</span>
-                <span className="mono">{formatMinutes(e.durationMinutes)}</span>
+                <span className="mono">{formatHours(e.durationMinutes)}</span>
                 <span>
                   <span className={`badge ${e.source !== "manual" ? "badge-minutes-pending_confirm" : ""}`}>
                     {TIME_SOURCE_LABEL[e.source]}
@@ -371,7 +371,7 @@ export default function TimeCenterPage() {
         <section className="prefill-section">
           <span className="section-label">PREFILL</span>
           <h2>从会议 / 出差预填（仅草稿）</h2>
-          <div className="owner-line">
+          <div className="prefill-toolbar">
             <label className="form-field">
               <span>会议</span>
               <select value={prefillMeetingId} onChange={(e) => setPrefillMeetingId(e.target.value)}>
@@ -682,7 +682,7 @@ function DayEditor({
         </div>
       </div>
       <p className="context-note">
-        保存为覆盖式（提交本周全部明细）；整数分钟 &gt;0；单日 &gt;24h（跨周期合并）将被阻止。
+        保存为覆盖式（提交本周全部明细）；时长按小时 0.5 步进（服务端存整数分钟，step 可配）；单日 &gt;24h（跨周期合并）将被阻止。
       </p>
       {drafts.length === 0 ? (
         <p className="list-note">当日暂无明细，点击「添加明细」。</p>
@@ -691,15 +691,17 @@ function DayEditor({
           <div className="time-entry-row" key={row.key}>
             <input
               type="number"
-              min="1"
-              step="1"
-              value={row.durationMinutes}
-              aria-label="时长（分钟）"
-              onChange={(e) =>
-                setDrafts((prev) => prev.map((x, i) => (i === idx ? { ...x, durationMinutes: Number(e.target.value) } : x)))
-              }
+              min="0.5"
+              step="0.5"
+              value={row.durationMinutes / 60}
+              aria-label="时长（小时，0.5 步进）"
+              onChange={(e) => {
+                // G9：0.5h 步进（30 分钟倍数），服务端校验 step_minutes
+                const minutes = Math.max(30, Math.round(Number(e.target.value) * 2) * 30);
+                setDrafts((prev) => prev.map((x, i) => (i === idx ? { ...x, durationMinutes: minutes } : x)));
+              }}
             />
-            <span className="entry-unit">分钟</span>
+            <span className="entry-unit">小时</span>
             <select
               value={row.activityType}
               aria-label="活动类型"

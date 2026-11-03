@@ -40,3 +40,16 @@ export function CardSkeleton() {
     </div>
   );
 }
+
+/** G8：详情页「← 返回」（浏览器返回显式化） */
+export function BackButton({ label = "返回" }: { label?: string }) {
+  const back = () => {
+    if (window.history.length > 1) window.history.back();
+    else window.location.href = "/cockpit";
+  };
+  return (
+    <button className="text-action ux-back-btn" onClick={back}>
+      ← {label}
+    </button>
+  );
+}

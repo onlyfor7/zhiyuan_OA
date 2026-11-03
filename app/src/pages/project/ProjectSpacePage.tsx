@@ -93,6 +93,11 @@ export default function ProjectSpacePage(): ReactNode {
             {tab.label}
           </NavLink>
         ))}
+        {overview.data?.myRole === "manager" ? (
+          <NavLink to="flows" className={({ isActive }) => (isActive ? "active" : "")} role="tab">
+            审批流
+          </NavLink>
+        ) : null}
         {FUTURE_TABS.map((tab) => (
           <NavLink
             key={tab.key}

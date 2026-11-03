@@ -74,6 +74,25 @@ export function useCloseProject() {
   );
 }
 
+/** G5：项目内审批流 hooks（project.flows.*；负责人门，服务端同形 404） */
+export function useProjectFlows(projectId: string) {
+  const trpc = useTRPC();
+  return useQuery(trpc.project.flows.list.queryOptions({ projectId }));
+}
+
+export function useProjectFlowMutations(projectId: string) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const invalidate = () => {
+    void queryClient.invalidateQueries(trpc.project.flows.pathFilter());
+    void queryClient.invalidateQueries(trpc.flow.pathFilter());
+  };
+  const createDraft = useMutation(trpc.project.flows.createDraft.mutationOptions({ onSuccess: invalidate }));
+  const publish = useMutation(trpc.project.flows.publish.mutationOptions({ onSuccess: invalidate }));
+  const disable = useMutation(trpc.project.flows.disable.mutationOptions({ onSuccess: invalidate }));
+  return { createDraft, publish, disable, projectId };
+}
+
 export function useMemberMutations() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();

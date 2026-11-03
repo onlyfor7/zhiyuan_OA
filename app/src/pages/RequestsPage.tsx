@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BackButton } from "../components/feedback";
 import { Link, useParams } from "react-router";
 import { ArrowRight, ChevronRight, Plus } from "lucide-react";
 
@@ -13,6 +14,7 @@ import "../lib/form";
 import { formatYuan } from "../api/reference";
 import { FlowProgressGraph } from "../components/FlowProgressGraph";
 import { FormDialog } from "../components/FormDialog";
+import { UserPicker } from "../components/UserPicker";
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "草稿",
@@ -236,6 +238,7 @@ export function RequestDetailPage() {
   const mutations = useRequestMutations();
   const types = useRequestTypes();
   const typeLabel = (key: string) => types.data?.items.find((i) => i.key === key)?.label ?? key;
+  const [chosenApproverId, setChosenApproverId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   if (request.isPending) return <p className="list-note">正在加载申请单…</p>;
@@ -246,6 +249,8 @@ export function RequestDetailPage() {
     <div className="screen requests-screen">
       <div className="project-title-row">
         <div>
+          {/* G8 返回按钮 */}
+          <BackButton />
           <div className="breadcrumb">
             <Link to="/requests">通用申请</Link>
             <ChevronRight size={13} />
@@ -270,13 +275,23 @@ export function RequestDetailPage() {
             {STATUS_LABEL[r.status]}
           </span>
           {r.status === "draft" ? (
+            <div className="form-field" style={{ minWidth: 240, margin: 0 }}>
+              <span>选择审批人 *（流程含发起人指定节点时必选）</span>
+              <UserPicker value={chosenApproverId} onChange={setChosenApproverId} placeholder="搜索并选择审批人" />
+            </div>
+          ) : null}
+          {r.status === "draft" ? (
             <button
               className="primary-action"
               disabled={mutations.submit.isPending}
               onClick={() => {
                 setError(null);
+                if (!chosenApproverId) {
+                  setError("请选择审批人：当前流程包含「发起人指定审批人」节点。");
+                  return;
+                }
                 mutations.submit.mutate(
-                  { id: r.id, rowVersion: r.rowVersion, idempotencyKey: newIdempotencyKey() },
+                  { id: r.id, rowVersion: r.rowVersion, idempotencyKey: newIdempotencyKey(), chosenApproverId },
                   {
                     onSuccess: () => toast.success("申请单已提交，进入审批流程"),
                     onError: (err) => {

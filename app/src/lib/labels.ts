@@ -355,6 +355,14 @@ export function formatMinutes(minutes: number | null | undefined): string {
   return h > 0 ? `${h}h ${m}m（${minutes} 分钟）` : `${m}m（${minutes} 分钟）`;
 }
 
+/** G9：小时显示（0.5 步进语义；服务端仍存整数分钟） */
+export function formatHours(minutes: number | null | undefined): string {
+  if (minutes === null || minutes === undefined) return "—";
+  const h = minutes / 60;
+  return `${Number.isInteger(h) ? h : h.toFixed(1)} 小时`;
+}
+
+
 /* —— 迭代 6 审批流设计器常量（arch/09 §3.1 冻结） —— */
 
 export const APPROVER_KIND_LABEL: Record<string, string> = {

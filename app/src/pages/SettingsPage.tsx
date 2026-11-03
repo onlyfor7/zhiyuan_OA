@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { KeyRound, ShieldCheck } from "lucide-react";
+import { KeyRound, LogOut, ShieldCheck } from "lucide-react";
 
-import { useChangePassword, useMe } from "../api/auth";
+import { useChangePassword, useLogout, useMe } from "../api/auth";
 import { useRail } from "../components/shell-rail";
 import { rootErrorMessage } from "../lib/form";
 
@@ -32,6 +32,7 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const me = useMe();
   const change = useChangePassword();
+  const logout = useLogout();
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -87,6 +88,19 @@ export default function SettingsPage() {
         >
           <KeyRound size={15} />
           {change.isPending ? "修改中…" : "确认修改（改后需重新登录）"}
+        </button>
+        <button
+          className="secondary-action"
+          style={{ marginTop: 10 }}
+          disabled={logout.isPending}
+          onClick={() => {
+            logout.mutate(undefined, {
+              onSettled: () => navigate("/login", { replace: true }),
+            });
+          }}
+        >
+          <LogOut size={15} />
+          {logout.isPending ? "正在退出…" : "退出登录"}
         </button>
       </section>
     </div>

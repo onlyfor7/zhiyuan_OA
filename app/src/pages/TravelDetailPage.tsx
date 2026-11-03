@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BackButton } from "../components/feedback";
 import { Link, useParams } from "react-router";
 import {
   ArrowRight, Check, ChevronRight, FileText, MapPin, Timer, X,
@@ -45,6 +46,8 @@ export default function TravelDetailPage() {
     <div className="screen travel-detail-screen">
       <div className="project-title-row">
         <div>
+          {/* G8 返回按钮 */}
+          <BackButton />
           <div className="breadcrumb">
             <Link to="/travel">出差</Link>
             <ChevronRight size={13} />

@@ -3,6 +3,9 @@ import { Link, useLocation } from "react-router";
 import { ChevronDown } from "lucide-react";
 
 import { buildNavGroups, activeGroupKey, type TopNavItem } from "./topnav-config";
+import { FormDialog } from "./FormDialog";
+import { DensitySwitch } from "./density";
+import { useTableDensity } from "../lib/tableDensity";
 
 /**
  * 迭代 7 新 IA 顶栏（arch/10 §1.1）：五组下拉 + 头像菜单收口系统级功能。
@@ -132,57 +135,47 @@ export function GroupNav({ ganttTo, globalRoles }: { ganttTo: string; globalRole
   );
 }
 
-/** 头像菜单：系统配置中心[仅 sysadmin]/账号设置与改密/退出登录（系统级收口） */
-export function AvatarMenu({
-  name,
-  email,
-  globalRoles,
-  onLogout,
-  logoutPending,
-}: {
-  name: string;
-  email: string;
-  globalRoles: string[];
-  onLogout: () => void;
-  logoutPending: boolean;
-}) {
+/** 头像菜单（IA v2/G2）：仅 账户信息 / 修改密码 / 界面自定义；配置中心入治理组，退出登录在设置页 */
+export function AvatarMenu({ name, email }: { name: string; email: string }) {
   const [open, setOpen] = useState(false);
-  const isSysadmin = globalRoles.includes("sysadmin");
+  const [customOpen, setCustomOpen] = useState(false);
+  const { density, setDensity } = useTableDensity();
   return (
-    <Dropdown
-      label={<span className="topnav-avatar">{name.slice(0, 1)}</span>}
-      open={open}
-      onToggle={() => setOpen((v) => !v)}
-      onClose={() => setOpen(false)}
-      active={false}
-      alignRight
-    >
-      {() => (
-        <>
-          <div className="ux-menu-head">
-            {name} · {email}
-          </div>
-          {isSysadmin ? (
-            <Link role="menuitem" to="/admin" onClick={() => setOpen(false)}>
-              系统配置中心
+    <>
+      <Dropdown
+        label={<span className="topnav-avatar">{name.slice(0, 1)}</span>}
+        open={open}
+        onToggle={() => setOpen((v) => !v)}
+        onClose={() => setOpen(false)}
+        active={false}
+        alignRight
+      >
+        {() => (
+          <>
+            <div className="ux-menu-head">
+              {name} · {email}
+            </div>
+            <Link role="menuitem" to="/settings" onClick={() => setOpen(false)}>
+              修改密码
             </Link>
-          ) : null}
-          <Link role="menuitem" to="/settings" onClick={() => setOpen(false)}>
-            账号设置与改密
-          </Link>
-          <button
-            role="menuitem"
-            className="danger"
-            disabled={logoutPending}
-            onClick={() => {
-              setOpen(false);
-              onLogout();
-            }}
-          >
-            {logoutPending ? "正在退出…" : "退出登录"}
-          </button>
-        </>
-      )}
-    </Dropdown>
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                setCustomOpen(true);
+              }}
+            >
+              界面自定义
+            </button>
+          </>
+        )}
+      </Dropdown>
+      {customOpen ? (
+        <FormDialog title="界面自定义" eyebrow="APPEARANCE" onClose={() => setCustomOpen(false)}>
+          <DensitySwitch density={density} onChange={setDensity} />
+          <p className="context-note">表格密度即时生效并保存在本机（界面偏好）；更多自定义项随迭代补充。</p>
+        </FormDialog>
+      ) : null}
+    </>
   );
 }

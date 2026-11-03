@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import { Component, lazy, Suspense, useEffect, useState } from "react";
-import { Link, Navigate, Outlet, useLocation, useNavigate } from "react-router";
-import { ArrowRight, Bell, Menu, Network, Search } from "lucide-react";
+import { Link, Navigate, Outlet, useLocation } from "react-router";
+import { Bell, Menu, Search } from "lucide-react";
 import { Toaster } from "sonner";
 
-import { useLogout, useMe } from "../api/auth";
+import { useMe } from "../api/auth";
 import { useUnreadCount } from "../api/notification";
 import { SearchPalette } from "./SearchPalette";
 import { MobileNavDrawer } from "./MobileNavDrawer";
@@ -80,10 +80,7 @@ class AccessErrorBoundary extends Component<BoundaryProps, BoundaryState> {
 export default function AppShell() {
   const me = useMe();
   const location = useLocation();
-  const navigate = useNavigate();
-  const logout = useLogout();
   const unread = useUnreadCount();
-  const [mobileRail, setMobileRail] = useState(false);
   const [rail, setRail] = useState<ReactNode>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
@@ -156,17 +153,7 @@ export default function AppShell() {
               <i className="bell-badge">{unread.data.count > 99 ? "99+" : unread.data.count}</i>
             ) : null}
           </Link>
-          <AvatarMenu
-            name={data.user.name}
-            email={data.user.email}
-            globalRoles={data.globalRoles}
-            logoutPending={logout.isPending}
-            onLogout={() => {
-              logout.mutate(undefined, {
-                onSettled: () => navigate("/login", { replace: true }),
-              });
-            }}
-          />
+          <AvatarMenu name={data.user.name} email={data.user.email} />
           <button
             className="icon-button dark nav-menu-trigger"
             aria-label="打开主导航"
@@ -176,54 +163,12 @@ export default function AppShell() {
           >
             <Menu size={18} />
           </button>
-          <button
-            className="icon-button dark mobile-menu"
-            aria-label="打开项目索引"
-            onClick={() => setMobileRail((v) => !v)}
-          >
-            <Menu size={18} />
-          </button>
         </div>
       </header>
       {searchOpen ? <SearchPalette onClose={() => setSearchOpen(false)} /> : null}
       <Toaster position="bottom-right" richColors closeButton />
       <MobileNavDrawer open={navOpen} ganttTo={ganttTo} globalRoles={data.globalRoles} onClose={() => setNavOpen(false)} />
-      <div className="app-body">
-        <aside className={`project-rail ${mobileRail ? "mobile-open" : ""}`}>
-          <div className="rail-heading">
-            <span>项目索引</span>
-            <strong>{data.projects.length.toString().padStart(2, "0")}</strong>
-          </div>
-          <div className="rail-list">
-            {data.projects.length === 0 ? (
-              <p className="rail-empty">暂无可见项目</p>
-            ) : (
-              data.projects.map((project) => (
-                <Link
-                  key={project.id}
-                  to={`/projects/${project.id}`}
-                  className={location.pathname.includes(`/projects/${project.id}`) ? "active" : ""}
-                  onClick={() => setMobileRail(false)}
-                >
-                  <span className="status-dot ok" />
-                  <div>
-                    <strong>{project.name}</strong>
-                    <small>{project.code}</small>
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
-          <Link to="/projects" className="all-projects" onClick={() => setMobileRail(false)}>
-            查看全部项目
-            <ArrowRight size={14} />
-          </Link>
-          <div className="rail-bottom">
-            <Network size={16} />
-            <span>仅显示你权限范围内的项目</span>
-            <small>NEED-TO-KNOW ACCESS</small>
-          </div>
-        </aside>
+      <div className="app-body no-rail">
         <main className="main-workspace">
           <AccessErrorBoundary key={location.pathname} from={from}>
             <Outlet context={{ me: data, setRail } satisfies ShellContextValue} />

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BackButton } from "../components/feedback";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   ArrowRight, Check, ChevronRight, FileText, GitBranch, Plus, Timer, X,
@@ -378,6 +379,8 @@ export default function MeetingDetailPage() {
     <div className="screen meeting-detail-screen">
       <div className="project-title-row">
         <div>
+          {/* G8 返回按钮 */}
+          <BackButton />
           <div className="breadcrumb">
             <Link to="/meetings">会议</Link>
             <ChevronRight size={13} />

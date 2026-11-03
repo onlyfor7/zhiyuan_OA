@@ -44,6 +44,11 @@ export function buildNavGroups(ganttTo: string): TopNavGroup[] {
       { to: "/decisions", label: "决策中心", match: "/decisions" },
       { to: "/archive", label: "档案中心", match: "/archive" },
       { to: "/audit", label: "权限审计", match: "/audit", roles: ["sysadmin", "partner"] },
+      { to: "/admin", label: "系统配置中心", match: "/admin", roles: ["sysadmin"] },
+    ] },
+    { key: "office", label: "办公", items: [
+      { to: "/requests", label: "我的申请单", match: "/requests" },
+      { to: "/notifications", label: "通知中心", match: "/notifications" },
     ] },
   ];
 }
@@ -53,6 +58,7 @@ export function activeGroupKey(pathname: string): string | null {
   if (pathname.startsWith("/projects")) return "project";
   if (pathname.startsWith("/meetings") || pathname.startsWith("/travel") || pathname.startsWith("/requests")) return "collab";
   if (pathname.startsWith("/operations") || pathname.startsWith("/approvals") || pathname.startsWith("/expenses")) return "ops";
-  if (["/quality", "/decisions", "/archive", "/audit"].some((p) => pathname.startsWith(p))) return "gov";
+  if (["/quality", "/decisions", "/archive", "/audit", "/admin"].some((p) => pathname.startsWith(p))) return "gov";
+  if (pathname.startsWith("/notifications")) return "office";
   return null;
 }

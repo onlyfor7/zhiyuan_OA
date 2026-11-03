@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BackButton } from "../components/feedback";
 import { useParams } from "react-router";
 import { ArrowRight, ChevronRight, Wallet, X } from "lucide-react";
 
@@ -49,6 +50,8 @@ export default function FundingDetailPage() {
     <div className="screen funding-detail-screen">
       <div className="project-title-row">
         <div>
+          {/* G8 返回按钮 */}
+          <BackButton />
           <div className="breadcrumb">
             <span>经费</span>
             <ChevronRight size={13} />

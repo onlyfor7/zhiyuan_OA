@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BackButton } from "../components/feedback";
 import { useParams } from "react-router";
 import { ArrowRight, Check, ChevronRight, FileText, X } from "lucide-react";
 
@@ -55,6 +56,8 @@ export default function ExpenseDetailPage() {
     <div className="screen expense-detail-screen">
       <div className="project-title-row">
         <div>
+          {/* G8 返回按钮 */}
+          <BackButton />
           <div className="breadcrumb">
             <span>费用</span>
             <ChevronRight size={13} />
