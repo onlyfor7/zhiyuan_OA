@@ -78,7 +78,7 @@ export const genericRequestRouter = router({
     .mutation(({ ctx, input }) => service.updateRequest(ctx.db, ctx.user, input)),
 
   submit: authedMutation
-    .input(z.object({ id: z.uuid(), rowVersion: z.number().int().min(0), idempotencyKey: z.uuid() }))
+    .input(z.object({ id: z.uuid(), rowVersion: z.number().int().min(0), idempotencyKey: z.uuid(), chosenApproverId: z.uuid().optional() }))
     .mutation(({ ctx, input }) => service.submitRequest(ctx.db, ctx.user, input)),
 
   withdraw: authedMutation

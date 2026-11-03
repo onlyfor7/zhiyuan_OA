@@ -245,6 +245,30 @@ export async function submit(db: DbOrTx, input: SubmitInput): Promise<ApprovalIn
         candidates = node.userId ? [node.userId] : [];
       } else if (node.kind === "initiator_manager") {
         candidates = input.runtimeApproverId ? [input.runtimeApproverId] : [];
+      } else if (node.kind === "initiator_choice") {
+        // G3（arch/11）：发起人指定审批人——从表单快照 chosenApproverId 读取，落具体人
+        const chosen = input.formSnapshot.chosenApproverId;
+        if (typeof chosen !== "string" || !chosen.trim()) {
+          throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "该流程节点要求发起人指定审批人", {
+            chosenApproverId: ["请选择审批人"],
+          });
+        }
+        if (chosen === input.applicantId) {
+          throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "指定审批人不能为发起人本人", {
+            chosenApproverId: ["指定审批人不能为发起人本人"],
+          });
+        }
+        const [chosenUser] = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(and(eq(users.id, chosen), eq(users.status, "active")))
+          .limit(1);
+        if (!chosenUser) {
+          throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "指定审批人不存在或已停用", {
+            chosenApproverId: ["指定审批人不存在或已停用"],
+          });
+        }
+        candidates = [chosen];
       } else if (node.kind === "project_manager") {
         candidates = input.projectId ? await resolveRoleCandidates(db, "project_manager", input.projectId) : [];
       }

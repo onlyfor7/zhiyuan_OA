@@ -130,7 +130,7 @@ describe("迭代 4 验收·工时域（arch/07 §8 红线）", () => {
       input: {
         periodId: periodW,
         idempotencyKey: crypto.randomUUID(),
-        entries: [{ projectId: projectAId, activityType: "professional_work", workDate: dayOf(warnWeek, 0), durationMinutes: 700, description: "" }],
+        entries: [{ projectId: projectAId, activityType: "professional_work", workDate: dayOf(warnWeek, 0), durationMinutes: 660, description: "" }],
       },
     });
     expect(saveW.status).toBe(200);

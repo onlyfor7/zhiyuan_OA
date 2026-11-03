@@ -112,7 +112,11 @@ export async function updateRequest(
   if (!updated[0]) throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "数据已被他人修改，请刷新后重试");
 }
 
-export async function submitRequest(db: DbOrTx, user: SessionUser, input: { id: string; rowVersion: number; idempotencyKey: string }) {
+export async function submitRequest(
+  db: DbOrTx,
+  user: SessionUser,
+  input: { id: string; rowVersion: number; idempotencyKey: string; chosenApproverId?: string },
+) {
   const [row] = await db.select().from(genericRequests).where(eq(genericRequests.id, input.id)).limit(1);
   if (!row) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "申请单不存在或无权访问");
   if (row.applicantId !== user.id) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "仅申请人可提交");
@@ -131,6 +135,8 @@ export async function submitRequest(db: DbOrTx, user: SessionUser, input: { id: 
       request_type: row.requestType,
       amount_cents: row.amountCents,
       title: row.title,
+      // G3：发起人指定审批人透传（引擎 initiator_choice 节点消费；缺省由引擎按节点校验）
+      ...(input.chosenApproverId ? { chosenApproverId: input.chosenApproverId } : {}),
     },
     idempotencyKey: input.idempotencyKey,
   });

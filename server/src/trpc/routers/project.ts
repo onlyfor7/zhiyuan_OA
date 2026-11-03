@@ -15,6 +15,7 @@ import { BusinessError } from "../../lib/errors";
 import { can, projectScopeFilter } from "../../services/access";
 import { authedMutation, authedProcedure, router } from "../trpc";
 import * as service from "../../modules/governance/project";
+import * as projectFlows from "../../modules/flow/project-flows";
 
 const manager = alias(users, "manager");
 
@@ -235,6 +236,29 @@ export const projectRouter = router({
     .mutation(({ ctx, input }) =>
       service.transferManager(ctx.db, ctx.user, input, ctx.ip, ctx.session.id),
     ),
+
+  // ===== 项目级审批流管理（arch/11 G5：项目负责人可见可管，scope=project+project_id） =====
+  flows: router({
+    list: authedProcedure
+      .input(z.object({ projectId: z.uuid() }))
+      .query(({ ctx, input }) => projectFlows.listProjectFlows(ctx.db, ctx.user, input.projectId)),
+    createDraft: authedMutation
+      .input(
+        z.object({
+          projectId: z.uuid(),
+          name: z.string().trim().min(1, "流程名称必填").max(200),
+          bizBinding: z.string().min(1).max(50),
+          definitionJson: z.record(z.string(), z.unknown()),
+        }),
+      )
+      .mutation(({ ctx, input }) => projectFlows.createProjectFlowDraft(ctx.db, ctx.user, input)),
+    publish: authedMutation
+      .input(z.object({ projectId: z.uuid(), id: z.uuid(), idempotencyKey: z.uuid() }))
+      .mutation(({ ctx, input }) => projectFlows.publishProjectFlow(ctx.db, ctx.user, input)),
+    disable: authedMutation
+      .input(z.object({ projectId: z.uuid(), id: z.uuid(), rowVersion: z.number().int().min(0) }))
+      .mutation(({ ctx, input }) => projectFlows.disableProjectFlow(ctx.db, ctx.user, input)),
+  }),
 
   close: authedMutation
     .input(z.object({ projectId: z.uuid(), rowVersion: z.number().int().min(0) }))

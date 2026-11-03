@@ -633,7 +633,7 @@ function FlowsTab() {
         </Link>
       </div>
       <div className="report-list">
-        {flows.data.map((f) => (
+        {flows.data.items.map((f) => (
           <Link className="report-row" key={f.id} to={`/admin/flows/${f.id}`}>
             <div>
               <strong>

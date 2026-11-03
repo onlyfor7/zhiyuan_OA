@@ -33,6 +33,8 @@ function fmt(d: Date): string {
 async function validationConfig(db: DbOrTx): Promise<{
   dailyMaxMinutes: number;
   regularThresholdMinutes: number;
+  /** arch/11 G9：填报步进分钟数（timesheet.step_minutes，默认 30=0.5 小时） */
+  stepMinutes: number;
 }> {
   const [row] = await db
     .select({ valueJson: systemConfig.valueJson })
@@ -40,10 +42,24 @@ async function validationConfig(db: DbOrTx): Promise<{
     .where(eq(systemConfig.key, CONFIG_KEY.TIMESHEET_VALIDATION))
     .limit(1);
   const value = (row?.valueJson ?? {}) as { dailyMaxMinutes?: number; regularThresholdMinutes?: number };
+  const [stepRow] = await db
+    .select({ valueJson: systemConfig.valueJson })
+    .from(systemConfig)
+    .where(eq(systemConfig.key, CONFIG_KEY.TIMESHEET_STEP_MINUTES))
+    .limit(1);
+  const stepValue = (stepRow?.valueJson ?? {}) as { minutes?: number };
+  const stepMinutes = Number.isFinite(stepValue.minutes) && Number(stepValue.minutes) > 0 ? Number(stepValue.minutes) : 30;
   return {
     dailyMaxMinutes: value.dailyMaxMinutes ?? DAY_MINUTES,
     regularThresholdMinutes: value.regularThresholdMinutes ?? 540,
+    stepMinutes,
   };
+}
+
+/** 步进按小时显示（30→0.5、60→1、15→0.25） */
+function stepHoursLabel(stepMinutes: number): string {
+  const hours = stepMinutes / 60;
+  return String(Number(hours.toFixed(2)));
 }
 
 async function loadPeriod(db: DbOrTx, periodId: string) {
@@ -171,6 +187,15 @@ export async function validatePeriodEntries(
   const blockers: string[] = [];
   const warnings: string[] = [];
   const config = await validationConfig(db);
+
+  // arch/11 G9：duration_minutes 须为 timesheet.step_minutes（默认 30）的整数倍；提示按小时显示；24h 规则不变
+  for (const entry of candidateEntries) {
+    if (entry.durationMinutes > 0 && entry.durationMinutes % config.stepMinutes !== 0) {
+      blockers.push(
+        `${entry.workDate} 工时 ${entry.durationMinutes} 分钟须为 ${stepHoursLabel(config.stepMinutes)} 小时（${config.stepMinutes} 分钟）的整数倍`,
+      );
+    }
+  }
 
   // 24h 跨周期合并：候选集 + 本周期之外既有明细，按 work_date 分组
   const byDate = new Map<string, number>();

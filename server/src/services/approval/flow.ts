@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 
-import { ERROR_CODE, FLOW_APPROVER_KIND, FLOW_CONDITION_FIELDS, FLOW_NODE_TYPE } from "@lexflow/shared";
+import { ERROR_CODE, FLOW_APPROVER_KIND, FLOW_CONDITION_FIELDS, FLOW_CONDITION_FIELD_TYPES, FLOW_NODE_TYPE } from "@lexflow/shared";
 
 import { flowDefinitions } from "../../db/schema";
 import { BusinessError } from "../../lib/errors";
@@ -33,7 +33,19 @@ export interface FlowDefinition {
   edges: FlowEdge[];
 }
 
-const OPS = [">=", "<=", ">", "<", "==", "!="] as const;
+/**
+ * 条件操作符（arch/11 G4 按字段类型联动；存量流程旧符号归一：>=→gte、<=→lte、==→eq、>→gt、<→lt、!=→ne）。
+ * 每字段允许集：amount_cents=数字比较+between；text 类=eq/contains；borrow=eq（布尔等值，存量兼容）；
+ * request_type=eq/contains/in（列表）。
+ */
+const LEGACY_OP: Record<string, string> = { ">=": "gte", "<=": "lte", "==": "eq", ">": "gt", "<": "lt", "!=": "ne" };
+export const FLOW_CONDITION_OP_BY_FIELD: Record<string, readonly string[]> = {
+  amount_cents: ["gte", "lte", "gt", "lt", "between"],
+  confidentiality: ["eq", "contains"],
+  level: ["eq", "contains"],
+  borrow: ["eq"],
+  request_type: ["eq", "contains", "in"],
+};
 
 function asDefinition(raw: unknown): FlowDefinition {
   const def = raw as FlowDefinition;
@@ -68,12 +80,36 @@ export function validateFlowStructure(raw: unknown): FlowDefinition {
       if (!expr || !FLOW_CONDITION_FIELDS.includes(expr.field as never)) {
         throw invalid(`条件节点 ${node.id} 字段须在白名单：${FLOW_CONDITION_FIELDS.join("/")}`);
       }
-      if (!OPS.includes(expr.op as never)) throw invalid(`条件节点 ${node.id} 操作符非法：${expr.op}`);
-      // R8：条件值允许字面量或 {"$config":键} 引用形态
-      if (expr.value !== null && typeof expr.value === "object" && !isConfigRef(expr.value)) {
-        throw invalid(`条件节点 ${node.id} 的值对象仅允许 {"$config":键} 引用形态`);
+      // G4：操作符按字段类型校验（存量旧符号归一），非法组合 400 + 字段级错误
+      const op = LEGACY_OP[expr.op] ?? expr.op;
+      const allowed = FLOW_CONDITION_OP_BY_FIELD[expr.field];
+      if (!allowed.includes(op)) {
+        throw invalid(`条件节点 ${node.id}（${expr.field}）操作符 ${expr.op} 非法：该字段允许 ${allowed.join("/")}`);
       }
-      if (isConfigRef(expr.value) && !expr.value.$config.trim()) {
+      expr.op = op;
+      // 值形态按操作符校验：R8 $config 引用形态继续放行（编译期求值）
+      if (!isConfigRef(expr.value)) {
+        if (op === "between") {
+          const pair = expr.value;
+          if (!Array.isArray(pair) || pair.length !== 2 || pair.some((v) => typeof v !== "number")) {
+            throw invalid(`条件节点 ${node.id}（${expr.field}）between 值须为 [下限, 上限] 数字二元组`);
+          }
+        } else if (op === "in") {
+          if (!Array.isArray(expr.value) || expr.value.length === 0 || expr.value.some((v) => typeof v !== "string")) {
+            throw invalid(`条件节点 ${node.id}（${expr.field}）in 值须为非空字符串数组`);
+          }
+        } else if (FLOW_CONDITION_FIELD_TYPES[expr.field as keyof typeof FLOW_CONDITION_FIELD_TYPES] === "number") {
+          if (typeof expr.value !== "number") {
+            throw invalid(`条件节点 ${node.id}（${expr.field}）值须为数字`);
+          }
+        } else if (expr.field === "borrow") {
+          if (typeof expr.value !== "boolean" && typeof expr.value !== "string") {
+            throw invalid(`条件节点 ${node.id}（borrow）值须为布尔或字符串`);
+          }
+        } else if (typeof expr.value !== "string") {
+          throw invalid(`条件节点 ${node.id}（${expr.field}）值须为字符串`);
+        }
+      } else if (!expr.value.$config.trim()) {
         throw invalid(`条件节点 ${node.id} 的 $config 键为空`);
       }
     }
@@ -194,23 +230,40 @@ function evalCondition(
   if (!expr) return false;
   const actual = snapshot[expr.field];
   const expected = resolveExpected(expr.value, resolveConfig);
-  if (typeof expected === "number") {
-    const a = Number(actual);
-    if (!Number.isFinite(a)) return false;
-    switch (expr.op) {
-      case ">=": return a >= expected;
-      case "<=": return a <= expected;
-      case ">": return a > expected;
-      case "<": return a < expected;
-      case "==": return a === expected;
-      case "!=": return a !== expected;
-      default: return false;
-    }
-  }
+  const a = Number(actual);
+  const numericActual = Number.isFinite(a);
   switch (expr.op) {
-    case "==": return actual === expected;
-    case "!=": return actual !== expected;
-    default: return false;
+    // 数字比较（gte/lte 为新符号；>= / <= / > / < 为存量旧符号双形态兼容）
+    case "gte":
+    case ">=":
+      return numericActual && typeof expected === "number" && a >= expected;
+    case "lte":
+    case "<=":
+      return numericActual && typeof expected === "number" && a <= expected;
+    case "gt":
+    case ">":
+      return numericActual && typeof expected === "number" && a > expected;
+    case "lt":
+    case "<":
+      return numericActual && typeof expected === "number" && a < expected;
+    case "between": {
+      if (!numericActual || !Array.isArray(expected) || expected.length !== 2) return false;
+      const [lo, hi] = expected.map(Number);
+      return Number.isFinite(lo) && Number.isFinite(hi) && a >= lo && a <= hi;
+    }
+    // 文本/枚举/布尔
+    case "eq":
+    case "==":
+      return actual === expected;
+    case "ne":
+    case "!=":
+      return actual !== expected;
+    case "contains":
+      return typeof actual === "string" && typeof expected === "string" && actual.includes(expected);
+    case "in":
+      return Array.isArray(expected) && expected.includes(actual);
+    default:
+      return false;
   }
 }
 

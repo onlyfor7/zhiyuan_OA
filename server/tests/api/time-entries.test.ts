@@ -126,7 +126,7 @@ describe("迭代 4 工时域（D1–D6/D10）", () => {
       input: {
         periodId: periodW,
         idempotencyKey: crypto.randomUUID(),
-        entries: [{ projectId: projectAId, activityType: "professional_work", workDate: dayOf(warnWeek, 0), durationMinutes: 700, description: "" }],
+        entries: [{ projectId: projectAId, activityType: "professional_work", workDate: dayOf(warnWeek, 0), durationMinutes: 660, description: "" }],
       },
     });
     expect(saveW.status).toBe(200); // 警告不阻断
@@ -178,7 +178,7 @@ describe("迭代 4 工时域（D1–D6/D10）", () => {
       input: {
         periodId,
         idempotencyKey: crypto.randomUUID(),
-        entries: [{ projectId: projectAId, activityType: "professional_work", workDate: d1, durationMinutes: 430, description: "D2 重填" }],
+        entries: [{ projectId: projectAId, activityType: "professional_work", workDate: d1, durationMinutes: 420, description: "D2 重填" }],
       },
     });
     expect(reedit.status).toBe(200);
