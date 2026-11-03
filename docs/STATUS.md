@@ -67,7 +67,7 @@
 | 01 名单种子替换 | 数据 | **通过** | 数据会话 | 2026-10-30 | 架构会话已验收（22 用户/五项目/旧名清零/双角色/initiator_choice 种子就位） |
 | 02 扩展能力后端 | 后端 | **通过** | 后端会话 | 2026-10-30 | 架构会话已验收（四能力 12 探针实弹全过：自选审批人/条件类型联动/项目流接管/0.5h 步进） |
 | 03 体验深化前端接入 | 前端 | **通过** | 前端会话 | 2026-10-30 | 架构会话已验收（IA v2 无左栏+设计器大画布截图核验、四道门 253 全绿） |
-| 04 prod 发布 | 部署 | 未认领 | | | 已解锁（重置+新名单+web 重建） |
+| 04 prod 发布 | 部署 | 待验收 | 部署会话 | 2026-11-03 | 实录见交接记录置顶条；名单/五项目/办公组/旧名清零全验证，会话已全部失效需重登 |
 | 05 迭代 8 验收 + 手册 v1.2 | 测试 | 未认领 | | | 收口，待 04 通过 |
 
 ## 迭代 7 工单状态
@@ -206,6 +206,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-03｜部署｜迭代8-04｜**工单 04（prod 发布迭代 8）完成，转待验收（发布实录如下）。** 做了什么：① 重建 web 镜像——按工单用 `DOCKER_BUILDKIT=0 docker build -f app/Dockerfile -t lexflow-prod-web .`（legacy builder，47s exit 0，绕开中文路径 buildkit bug），新镜像 `sha256:0b401dbd683e3c2cc4961b9062ff9fcb58d51618c9a46748c0966a8e5729edd3`（Created 2026-11-03T11:46:30Z，vite 实跑）；**server 镜像按工单不动**（仍 `sha256:af56909f0dfe…a702413f`）。② prod 删卷重置：`down -v`（容器×3+网络+两卷全删，0 残留；工单 09 残留与演示数据全清）→ `up -d`（2026-11-03T11:47:02Z 发起，**19s 三服务全 healthy**）→ server 启动自动迁移 `migrate: done`，`drizzle.__drizzle_migrations`=**10 行（0000–0009 全重放，迭代 7/8 无新增迁移）**。③ full 档新名单种子：**沿用工单 08 的既有规避方案**——server 镜像内 dist/seed.js 不含迭代 8 名单（实测 grep liangqifeng/wangbaozhuo=0/0；镜像构建于 10-30，早于 iter8 工单 01），按「server 镜像不动」约束用一次性容器执行：`docker run --rm --network lexflow-prod_default -v <工作区新构建 dist>:/app/dist:ro -e SEED_PROFILE=full -e DATABASE_URL=… lexflow-prod-server node dist/seed.js`，输出 `种子完成（profile=full，幂等）`，耗时 1s。（留痕：esbuild ascii 转义使 bundle 内中文为 \uXXXX 形式，核验以拼音 token 为准。）怎么验证（全实测 prod :8080）：三服务 healthy ✓；**名单在库**：users=22（梁奇烽/王宝茁/曹佳妮/陈玥/管晨/郭静文/何静/霍达/廖益敏…）、projects=5（比博思特/金通灵/佳力奇/合规运作规则引擎上市公司 1.0/GD 法律服务）✓；**pm（王宝茁 wangbaozhuo@lexflow.demo）登录 200，可见其项目 2 个**（比博思特、金通灵）✓；**顶栏「办公」组在产物**：新 bundle `/assets/index-Bud1-PZP.js` 命中 `{key:"office",label:"办公",items:[/requests 我的申请单、/notifications 通知中心]}` ✓；**旧名清零**：华宸/星澜/蓝海在 projects/clients/matters 三表 0 命中 ✓——如实说明：「佳力奇」有 3 处（client/matter/project 各一），系迭代 8 新名单种子自身数据（工单 01 已验收内容），非旧演示残留；工单原文旧名清单含佳力奇与新种子存在文字出入，以已验收种子为准并在此留痕。**会话失效提醒**：删卷后 sessions 表清空，全部用户会话已失效，需重新登录（口令统一 Demo@2026）——请向用户通知。dev 栈（3000/3001/15432）与 dev 库全程未动（抽查 dev.projects=0 依旧 minimal）✓。提交：仅 STATUS.md（[部署] 前缀）。遗留：同工单 08 记录——prod server 镜像内种子为旧版，容器内直接 exec 跑种子会得旧名单（须用一次性容器方式，命令如上）；建议下次含种子变更的发布随镜像重建一并消化。
 
 - 2026-10-30｜架构｜迭代8-03｜**工单 03（体验深化前端）验收通过。** 独立复核：根四道门全绿（253=230+23、build 288kB、migrate exit 0）；截图核验——IA v2 生产形态（顶栏六组含办公、**左侧项目索引栏已移除主区全宽**、三档无溢出）、设计器画布占满主区+面板可折叠+条件类型联动（切「借款」出文本操作符）、项目空间审批流页签与 /admin 两区、通知中心折叠、小时 0.5 步进、返回按钮、375px 零越界。遗留注明：项目流深度编辑走 JSON 骨架（project.flows 无 updateDraft 端点）——接受为后续评估项，不阻塞。**解锁工单 04（部署会话·prod 发布）。注意：发布会清空 prod 并灌新名单种子，用户会话将失效。**
 
