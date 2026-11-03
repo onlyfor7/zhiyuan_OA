@@ -65,14 +65,14 @@ let projectAId = "";
 test.beforeAll(async ({ browser }) => {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
-  await login(page, "pm@lexflow.demo");
+  await login(page, "wangbaozhuo@lexflow.demo");
   const list = await api(page, "project.list", { method: "GET" });
   projectAId = (list.json as any).result.data.items.find((p: any) => p.code.endsWith("-00001")).id;
   await ctx.close();
 });
 
 test("E2E-01 负责人创建质量复核会并确认纪要→行动项成为任务，互相定位", async ({ page }) => {
-  await login(page, "pm@lexflow.demo");
+  await login(page, "wangbaozhuo@lexflow.demo");
   const created = await api(page, "meeting.create", {
     body: { projectId: projectAId, type: "quality_review", subject: "E2E-01 质量复核会", startAt: "2028-03-01T01:00:00.000Z", endAt: "2028-03-01T03:00:00.000Z", participants: [{ userId: (await me(page)) }] },
   });
@@ -97,7 +97,7 @@ test("E2E-01 负责人创建质量复核会并确认纪要→行动项成为任�
 });
 
 test("E2E-02 时间-质量冲突→决策单带会议版本，回写可溯", async ({ page }) => {
-  await login(page, "pm@lexflow.demo");
+  await login(page, "wangbaozhuo@lexflow.demo");
   // 自建带确认纪要的会议（与前用例解耦，避免列表分页/顺序干扰）
   const mCreate = await api(page, "meeting.create", {
     body: { projectId: projectAId, type: "project", subject: "E2E-02 决策源会", startAt: "2028-04-01T01:00:00.000Z", endAt: "2028-04-01T02:00:00.000Z", participants: [{ userId: await me(page) }] },
@@ -114,7 +114,7 @@ test("E2E-02 时间-质量冲突→决策单带会议版本，回写可溯", asy
   const esc = await api(page, "meeting.extra.escalateToDecision", { body: { meetingId, minutesVersionId: v1.id, title: "E2E-02 冲突决策", context: "时间-质量冲突" } });
   const decisionId = (esc.json as any).result.data.id;
   await api(page, "decision.submitOpinions", { body: { id: decisionId, pmOpinion: "倾向延期" } });
-  const qualityPage = await authedPage(page, "quality@lexflow.demo");
+  const qualityPage = await authedPage(page, "liangqifeng@lexflow.demo");
   await api(qualityPage, "decision.submitOpinions", { body: { id: decisionId, qualityOpinion: "同意" } });
   const detail = await api(page, `decision.getById?input=${encodeURIComponent(JSON.stringify({ id: decisionId }))}`, { method: "GET" });
   const rv = (detail.json as any).result.data.rowVersion;
@@ -128,16 +128,16 @@ test("E2E-02 时间-质量冲突→决策单带会议版本，回写可溯", asy
 });
 
 test("E2E-03 出差与经费分别审批，经费获批才占用", async ({ page }) => {
-  await login(page, "member@lexflow.demo");
+  await login(page, "guanchen@lexflow.demo");
   const funding = await api(page, "funding.create", { body: { projectId: projectAId, purpose: "E2E-03 经费", amountCents: 300000 } });
   const fundingId = (funding.json as any).result.data.id;
   const travel = await api(page, "travel.create", { body: { projectId: projectAId, reason: "E2E-03 出差", destination: "北京", startOn: "2028-03-05", endOn: "2028-03-06", segments: [{ seq: 1, type: "transport", startAt: "2028-03-05T01:00:00.000Z", endAt: "2028-03-05T05:00:00.000Z" }] } });
   expect(travel.status).toBe(200); // 出差申请与经费审批相互独立
   const fd = await api(page, `funding.getById?input=${encodeURIComponent(JSON.stringify({ id: fundingId }))}`, { method: "GET" });
   const sub = await api(page, "funding.submit", { body: { id: fundingId, rowVersion: (fd.json as any).result.data.rowVersion, idempotencyKey: uuid() } });
-  const pmReader = await authedPage(page, "pm@lexflow.demo");
+  const pmReader = await authedPage(page, "wangbaozhuo@lexflow.demo");
   const ledgerBefore = await ledgerNet(pmReader, projectAId);
-  await approveByRole(page, "member", (sub.json as any).result.data.instance.id, "pm@lexflow.demo");
+  await approveByRole(page, "member", (sub.json as any).result.data.instance.id, "wangbaozhuo@lexflow.demo");
   const ledgerAfter = await ledgerNet(pmReader, projectAId);
   expect(ledgerAfter - ledgerBefore).toBe(300000); // 获批才占用（RESERVED +300k）
   await gotoApp(pmReader, `/operations/funding/${fundingId}`);
@@ -147,18 +147,18 @@ test("E2E-03 出差与经费分别审批，经费获批才占用", async ({ page
 });
 
 test("E2E-04 报销带入行程，获批后释放占用确认实际，无重复扣减", async ({ page }) => {
-  await login(page, "member@lexflow.demo");
+  await login(page, "guanchen@lexflow.demo");
   const fundings = await api(page, "funding.list", { method: "GET" });
   const funding = (fundings.json as any).result.data.items.find((f: any) => f.purpose === "E2E-03 经费");
   const expense = await api(page, "expense.create", { body: { reason: "E2E-04 报销", items: [{ projectId: projectAId, fundingRequestId: funding.id, date: "2028-03-07", category: "transport", amountCents: 200000, description: "行程费用" }] } });
   const reportId = (expense.json as any).result.data.id;
   const detail = await api(page, `expense.getById?input=${encodeURIComponent(JSON.stringify({ id: reportId }))}`, { method: "GET" });
-  const pmReader = await authedPage(page, "pm@lexflow.demo");
+  const pmReader = await authedPage(page, "wangbaozhuo@lexflow.demo");
   const reservedBefore = await ledgerNet(pmReader, projectAId);
   const actualBefore = await ledgerActual(pmReader, projectAId);
   const sub = await api(page, "expense.submit", { body: { id: reportId, rowVersion: (detail.json as any).result.data.rowVersion, idempotencyKey: uuid() } });
-  await approveByRole(page, "member", (sub.json as any).result.data.instance.id, "pm@lexflow.demo");
-  const fin = await authedPage(page, "finance@lexflow.demo");
+  await approveByRole(page, "member", (sub.json as any).result.data.instance.id, "wangbaozhuo@lexflow.demo");
+  const fin = await authedPage(page, "guojingwen@lexflow.demo");
   const d2 = await api(fin, `approval.listMine`, { method: "GET" });
   const mine = (d2.json as any).result.data.items.find((i: any) => i.instance.bizId === reportId).instance;
   await api(fin, "approval.act", { body: { instanceId: mine.id, stepSeq: mine.currentStepSeq, action: "approve", idempotencyKey: uuid() } });
@@ -172,7 +172,7 @@ test("E2E-04 报销带入行程，获批后释放占用确认实际，无重复�
 });
 
 test("E2E-05 超预算按策略升级审批，不静默放行", async ({ page }) => {
-  await login(page, "member@lexflow.demo");
+  await login(page, "guanchen@lexflow.demo");
   const big = await api(page, "expense.create", { body: { reason: "E2E-05 超预算", items: [{ projectId: projectAId, date: "2028-03-08", category: "translation", amountCents: 200000000, description: "超大额" }] } });
   const bigId = (big.json as any).result.data.id;
   const detail = await api(page, `expense.getById?input=${encodeURIComponent(JSON.stringify({ id: bigId }))}`, { method: "GET" });
@@ -187,7 +187,7 @@ test("E2E-05 超预算按策略升级审批，不静默放行", async ({ page })
 });
 
 test("E2E-06 重复提交/网络重试只一个有效结果一组台账", async ({ page }) => {
-  await login(page, "member@lexflow.demo");
+  await login(page, "guanchen@lexflow.demo");
   const exp = await api(page, "expense.create", { body: { reason: "E2E-06 幂等", items: [{ projectId: projectAId, date: "2028-03-09", category: "meals", amountCents: 30000, description: "餐费" }] } });
   const reportId = (exp.json as any).result.data.id;
   const detail = await api(page, `expense.getById?input=${encodeURIComponent(JSON.stringify({ id: reportId }))}`, { method: "GET" });
@@ -196,8 +196,8 @@ test("E2E-06 重复提交/网络重试只一个有效结果一组台账", async 
   await api(page, "expense.submit", { body: { id: reportId, rowVersion: rv, idempotencyKey: key } });
   const dup = await api(page, "expense.submit", { body: { id: reportId, rowVersion: rv, idempotencyKey: key } });
   expect(dup.status).not.toBe(200); // 重复提交被拒/幂等
-  await approveByRole(page, "member", ((await api(page, `expense.getById?input=${encodeURIComponent(JSON.stringify({ id: reportId }))}`, { method: "GET" })).json as any).result.data.approvalInstanceId, "pm@lexflow.demo");
-  const fin = await authedPage(page, "finance@lexflow.demo");
+  await approveByRole(page, "member", ((await api(page, `expense.getById?input=${encodeURIComponent(JSON.stringify({ id: reportId }))}`, { method: "GET" })).json as any).result.data.approvalInstanceId, "wangbaozhuo@lexflow.demo");
+  const fin = await authedPage(page, "guojingwen@lexflow.demo");
   const d2 = await api(fin, `approval.listMine`, { method: "GET" });
   const mine = (d2.json as any).result.data.items.find((i: any) => i.instance.bizId === reportId).instance;
   const a1 = await api(fin, "approval.act", { body: { instanceId: mine.id, stepSeq: mine.currentStepSeq, action: "approve", idempotencyKey: uuid() } });
@@ -208,15 +208,17 @@ test("E2E-06 重复提交/网络重试只一个有效结果一组台账", async 
 });
 
 test("E2E-07 相同票据再次报销被识别并定位原报销", async ({ page }) => {
-  await login(page, "member@lexflow.demo");
-  const pmReader = await authedPage(page, "pm@lexflow.demo");
+  await login(page, "guanchen@lexflow.demo");
+  const pmReader = await authedPage(page, "wangbaozhuo@lexflow.demo");
   const list = await api(pmReader, `expense.list?input=${encodeURIComponent(JSON.stringify({ projectId: projectAId }))}`, { method: "GET" });
   const candidates = (list.json as any).result.data.items;
   let withReceipt: any;
   let item: any;
   for (const c of candidates) {
     const detail = await api(pmReader, `expense.getById?input=${encodeURIComponent(JSON.stringify({ id: c.id }))}`, { method: "GET" });
-    const found = (detail.json as any).result.data.items.find((i: any) => i.receiptNo);
+    const data = (detail.json as any).result.data;
+    if (data.status === "draft" || data.status === "rejected") continue; // 草稿/被拒不参与重复判定
+    const found = data.items.find((i: any) => i.receiptNo);
     if (found) { withReceipt = { id: c.id, code: c.code }; item = found; break; }
   }
   expect(item).toBeDefined();
@@ -236,7 +238,7 @@ test("E2E-07 相同票据再次报销被识别并定位原报销", async ({ page
 });
 
 test("E2E-08 会议出差预填工时：草稿可改，提交审批后有效，取消会议不产生", async ({ page }) => {
-  await login(page, "member@lexflow.demo");
+  await login(page, "guanchen@lexflow.demo");
   const mDay = `2028-06-${String(1 + Math.floor(Math.random() * 28)).padStart(2, "0")}`;
   const created = await api(page, "meeting.create", { body: { projectId: projectAId, type: "project", subject: "E2E-08 预填会", startAt: `${mDay}T01:00:00.000Z`, endAt: `${mDay}T04:00:00.000Z`, participants: [{ userId: await me(page) }] } });
   const mid = (created.json as any).result.data.id;
@@ -253,7 +255,7 @@ test("E2E-08 会议出差预填工时：草稿可改，提交审批后有效，�
 });
 
 test("E2E-09 工时退回、重提和周期锁定；解锁有理由与审计", async ({ page }) => {
-  await login(page, "member@lexflow.demo");
+  await login(page, "guanchen@lexflow.demo");
   const week = (() => {
     for (const offsetDays of [28, 35, 42, 49, 56]) {
       const d = new Date(Date.now() + offsetDays * 864e5);
@@ -286,13 +288,13 @@ test("E2E-09 工时退回、重提和周期锁定；解锁有理由与审计", a
   const sub = await api(page, "time.submit", { body: { periodId: pid, idempotencyKey: uuid() } });
   if (!(sub.json as any)?.result) throw new Error("submit failed: " + JSON.stringify(sub.json).slice(0, 300));
   const instId = (sub.json as any).result.data.instance.id;
-  const pmPage = await authedPage(page, "pm@lexflow.demo");
+  const pmPage = await authedPage(page, "wangbaozhuo@lexflow.demo");
   const rejected = await api(pmPage, "approval.act", { body: { instanceId: instId, stepSeq: 1, action: "reject", comment: "补充说明", idempotencyKey: uuid() } });
   expect(rejected.status).toBe(200);
   await api(page, "time.saveEntries", { body: { periodId: pid, idempotencyKey: uuid(), entries: [{ projectId: projectAId, activityType: "professional_work", workDate: d, durationMinutes: 420, description: "E2E-09 重提" }] } });
   const resub = await api(page, "time.submit", { body: { periodId: pid, idempotencyKey: uuid() } });
   await api(pmPage, "approval.act", { body: { instanceId: (resub.json as any).result.data.instance.id, stepSeq: 1, action: "approve", idempotencyKey: uuid() } });
-  const partnerPage = await authedPage(page, "partner@lexflow.demo");
+  const partnerPage = await authedPage(page, "liangqifeng@lexflow.demo");
   await api(partnerPage, "time.lock", { body: { periodId: pid, reason: "归档" } });
   const edit = await api(page, "time.saveEntries", { body: { periodId: pid, idempotencyKey: uuid(), entries: [] } });
   expect(edit.status).toBe(403); // locked 普通修改禁止
@@ -305,7 +307,7 @@ test("E2E-09 工时退回、重提和周期锁定；解锁有理由与审计", a
 });
 
 test("E2E-10 周报与驾驶舱统计同名同数（五域统一口径）", async ({ page }) => {
-  await login(page, "pm@lexflow.demo");
+  await login(page, "wangbaozhuo@lexflow.demo");
   const stats = await api(page, `time.stats.byProject?input=${encodeURIComponent(JSON.stringify({ from: "2026-01-01", to: "2028-12-31" }))}`, { method: "GET" });
   const total = (stats.json as any).result.data.items.reduce((s: number, i: any) => s + i.minutes, 0);
   const dash = await api(page, "dashboard.summary", { method: "GET" });
@@ -320,10 +322,10 @@ test("E2E-10 周报与驾驶舱统计同名同数（五域统一口径）", asyn
 });
 
 test("E2E-11 信息墙用户访问：页面/接口/搜索/报表/附件/导出均不泄露", async ({ page }) => {
-  await login(page, "viewer@lexflow.demo");
+  await login(page, "hejing@lexflow.demo");
   const projects = await api(page, "project.list", { method: "GET" });
   expect((projects.json as any).result.data.items).toHaveLength(0); // viewer 默认不见
-  const search = await api(page, `search.query?input=${encodeURIComponent(JSON.stringify({ q: "华宸" }))}`, { method: "GET" });
+  const search = await api(page, `search.query?input=${encodeURIComponent(JSON.stringify({ q: "比博思特" }))}`, { method: "GET" });
   expect((search.json as any).result.data.items).toHaveLength(0);
   const direct = await api(page, `project.getById?input=${encodeURIComponent(JSON.stringify({ id: projectAId }))}`, { method: "GET" });
   expect(direct.status).toBe(404);
@@ -333,12 +335,12 @@ test("E2E-11 信息墙用户访问：页面/接口/搜索/报表/附件/导出�
 });
 
 test("E2E-12 财务可处理费用但不因此读取法律文书", async ({ page }) => {
-  await login(page, "finance@lexflow.demo");
+  await login(page, "guojingwen@lexflow.demo");
   const list = await api(page, "expense.list", { method: "GET" }); // finance 全量职责视角（projectId 过滤需项目可见权）
   expect(list.status).toBe(200); // 费用处理职责
   const project = await api(page, `project.getById?input=${encodeURIComponent(JSON.stringify({ id: projectAId }))}`, { method: "GET" });
   expect(project.status).toBe(404); // 法律内容不可见
-  const search = await api(page, `search.query?input=${encodeURIComponent(JSON.stringify({ q: "华宸" }))}`, { method: "GET" });
+  const search = await api(page, `search.query?input=${encodeURIComponent(JSON.stringify({ q: "比博思特" }))}`, { method: "GET" });
   expect((search.json as any).result.data.items.filter((i: any) => i.type === "project")).toHaveLength(0);
   await gotoApp(page, "/operations/expenses");
   await expect(page.getByRole("heading", { name: "费用中心" })).toBeVisible();
@@ -346,13 +348,13 @@ test("E2E-12 财务可处理费用但不因此读取法律文书", async ({ page
 });
 
 test("E2E-13 已支付费用更正走调整/冲销，净额与历史完整", async ({ page }) => {
-  await login(page, "finance@lexflow.demo");
+  await login(page, "guojingwen@lexflow.demo");
   const list = await api(page, `expense.list?input=${encodeURIComponent(JSON.stringify({ status: "paid" }))}`, { method: "GET" });
   const paid = (list.json as any).result.data.items[0];
   const before = await ledgerActual(page, projectAId);
   const adj = await api(page, "expense.adjustCreate", { body: { expenseId: paid.id, deltaCents: -50000, reason: "E2E-13 冲销", idempotencyKey: uuid() } });
   const instId = (adj.json as any).result.data.instance.id;
-  await approveByRole(page, "finance", instId, "partner@lexflow.demo");
+  await approveByRole(page, "finance", instId, "liangqifeng@lexflow.demo");
   expect((await ledgerActual(page, projectAId)) - before).toBe(-50000);
   const after = await api(page, `expense.getById?input=${encodeURIComponent(JSON.stringify({ id: paid.id }))}`, { method: "GET" });
   expect((after.json as any).result.data.status).toBe("paid"); // 原记录不可变
@@ -362,7 +364,7 @@ test("E2E-13 已支付费用更正走调整/冲销，净额与历史完整", asy
 });
 
 test("E2E-14 结项检查：未决事项明确列出并按模板阻断/警告", async ({ page }) => {
-  await login(page, "pm@lexflow.demo");
+  await login(page, "wangbaozhuo@lexflow.demo");
   const detail = await api(page, `project.getById?input=${encodeURIComponent(JSON.stringify({ id: projectAId }))}`, { method: "GET" });
   const closed = await api(page, "project.close", { body: { projectId: projectAId, rowVersion: (detail.json as any).result.data.rowVersion } });
   const data = (closed.json as any).result.data;
@@ -374,7 +376,7 @@ test("E2E-14 结项检查：未决事项明确列出并按模板阻断/警告", 
 });
 
 test("E2E-15 治理回归：项目总览直开（潜伏崩溃修复）+ 关键治理页", async ({ page }) => {
-  await login(page, "pm@lexflow.demo");
+  await login(page, "wangbaozhuo@lexflow.demo");
   await gotoApp(page, `/projects/${projectAId}`);
   await expect(page.getByRole("heading", { name: "治理要点" })).toBeVisible(); // 总览潜伏崩溃修复回归：真实数据渲染
   await gotoApp(page, `/projects/${projectAId}/plan`);
@@ -385,7 +387,7 @@ test("E2E-15 治理回归：项目总览直开（潜伏崩溃修复）+ 关键�
 });
 
 test("E2E-16 移动端 375px 核心填报与审批", async ({ page, browser }) => {
-  await login(page, "member@lexflow.demo");
+  await login(page, "guanchen@lexflow.demo");
   const mob = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
   const mp = await mob.newPage();
   await mob.addCookies((await page.context().cookies()).map((c) => ({ ...c, sameSite: (c.sameSite ?? "Lax") as "Lax" })));
