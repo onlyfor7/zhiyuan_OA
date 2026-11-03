@@ -43,9 +43,9 @@ async function idByCode<T extends { id: string }>(
 }
 
 export async function seedTime(tx: SeedTx): Promise<void> {
-  const pmId = await userIdByEmail(tx, "pm@lexflow.demo");
-  const memberId = await userIdByEmail(tx, "member@lexflow.demo");
-  const partnerId = await userIdByEmail(tx, "partner@lexflow.demo");
+  const pmId = await userIdByEmail(tx, "wangbaozhuo@lexflow.demo");
+  const memberId = await userIdByEmail(tx, "guanchen@lexflow.demo");
+  const partnerId = await userIdByEmail(tx, "liangqifeng@lexflow.demo");
 
   const projectAId = (await idByCode(tx, tx.select({ id: projects.id }).from(projects).where(eq(projects.code, `PRJ-${YEAR}-00001`))))!;
   const task3Id = await idByCode(tx, tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.code, `TSK-${YEAR}-00003`)));
@@ -103,7 +103,7 @@ export async function seedTime(tx: SeedTx): Promise<void> {
         activityType: "professional_work",
         workDate: fmt(addDays(MONDAY_THIS_WEEK, 0)),
         durationMinutes: 480,
-        description: "证据交换材料核对",
+        description: "接口文档核对",
         source: "manual",
         createdBy: memberId,
         updatedBy: memberId,
@@ -116,7 +116,7 @@ export async function seedTime(tx: SeedTx): Promise<void> {
         activityType: "professional_work",
         workDate: fmt(addDays(MONDAY_THIS_WEEK, 1)),
         durationMinutes: 360,
-        description: "庭前会议提纲",
+        description: "联调计划编制",
         source: "manual",
         createdBy: memberId,
         updatedBy: memberId,
@@ -142,7 +142,7 @@ export async function seedTime(tx: SeedTx): Promise<void> {
         activityType: "travel",
         workDate: fmt(addDays(MONDAY_THIS_WEEK, 2)),
         durationMinutes: 300,
-        description: "杭州出差证据调取",
+        description: "杭州出差现场服务",
         source: "manual",
         createdBy: memberId,
         updatedBy: memberId,
@@ -173,12 +173,12 @@ export async function seedTime(tx: SeedTx): Promise<void> {
       .returning({ id: timesheetPeriods.id });
     const periodId = period[0].id;
     await tx.insert(timeEntries).values([
-      { periodId, userId: memberId, projectId: projectAId, taskId: task3Id, activityType: "professional_work", workDate: fmt(addDays(MONDAY_LAST_WEEK, 0)), durationMinutes: 420, description: "证据清单整理", source: "manual", createdBy: memberId, updatedBy: memberId },
-      { periodId, userId: memberId, projectId: projectAId, taskId: task4Id, activityType: "professional_work", workDate: fmt(addDays(MONDAY_LAST_WEEK, 1)), durationMinutes: 360, description: "庭前会议提纲", source: "manual", createdBy: memberId, updatedBy: memberId },
-      { periodId, userId: memberId, projectId: projectAId, activityType: "professional_work", workDate: fmt(addDays(MONDAY_LAST_WEEK, 2)), durationMinutes: 300, description: "起诉状修订", source: "manual", createdBy: memberId, updatedBy: memberId },
+      { periodId, userId: memberId, projectId: projectAId, taskId: task3Id, activityType: "professional_work", workDate: fmt(addDays(MONDAY_LAST_WEEK, 0)), durationMinutes: 420, description: "需求清单整理", source: "manual", createdBy: memberId, updatedBy: memberId },
+      { periodId, userId: memberId, projectId: projectAId, taskId: task4Id, activityType: "professional_work", workDate: fmt(addDays(MONDAY_LAST_WEEK, 1)), durationMinutes: 360, description: "联调计划编制", source: "manual", createdBy: memberId, updatedBy: memberId },
+      { periodId, userId: memberId, projectId: projectAId, activityType: "professional_work", workDate: fmt(addDays(MONDAY_LAST_WEEK, 2)), durationMinutes: 300, description: "技术方案修订", source: "manual", createdBy: memberId, updatedBy: memberId },
       { periodId, userId: memberId, projectId: projectAId, meetingId: meeting2Id, activityType: "meeting", workDate: fmt(addDays(MONDAY_LAST_WEEK, 3)), durationMinutes: 120, description: "项目周会", source: "manual", createdBy: memberId, updatedBy: memberId },
       { periodId, userId: memberId, projectId: projectAId, travelId: travel1Id, activityType: "travel", workDate: fmt(addDays(MONDAY_LAST_WEEK, 3)), durationMinutes: 480, description: "杭州出差当日往返", source: "manual", createdBy: memberId, updatedBy: memberId },
-      { periodId, userId: memberId, projectId: projectAId, activityType: "quality_review", workDate: fmt(addDays(MONDAY_LAST_WEEK, 4)), durationMinutes: 180, description: "证据链质量复核", source: "manual", createdBy: memberId, updatedBy: memberId },
+      { periodId, userId: memberId, projectId: projectAId, activityType: "quality_review", workDate: fmt(addDays(MONDAY_LAST_WEEK, 4)), durationMinutes: 180, description: "数据质量复核", source: "manual", createdBy: memberId, updatedBy: memberId },
     ]);
   }
 
@@ -209,7 +209,7 @@ export async function seedTime(tx: SeedTx): Promise<void> {
     const periodId = period[0].id;
     await tx.insert(timeEntries).values([
       { periodId, userId: pmId, projectId: projectAId, activityType: "professional_work", workDate: fmt(addDays(MONDAY_LAST_WEEK, 0)), durationMinutes: 480, description: "项目整体推进与客户沟通", source: "manual", createdBy: pmId, updatedBy: pmId },
-      { periodId, userId: pmId, projectId: projectAId, taskId: task3Id, activityType: "professional_work", workDate: fmt(addDays(MONDAY_LAST_WEEK, 1)), durationMinutes: 420, description: "证据交换材料核对复核", source: "manual", createdBy: pmId, updatedBy: pmId },
+      { periodId, userId: pmId, projectId: projectAId, taskId: task3Id, activityType: "professional_work", workDate: fmt(addDays(MONDAY_LAST_WEEK, 1)), durationMinutes: 420, description: "接口文档核对复核", source: "manual", createdBy: pmId, updatedBy: pmId },
       // 非项目内部工作：project_id 为空，活动类型须为 internal_admin/other（arch/07 §2 check）
       { periodId, userId: pmId, projectId: null, activityType: "internal_admin", workDate: fmt(addDays(MONDAY_LAST_WEEK, 2)), durationMinutes: 120, description: "所内培训与行政会议", source: "manual", createdBy: pmId, updatedBy: pmId },
     ]);

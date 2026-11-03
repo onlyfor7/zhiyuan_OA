@@ -90,9 +90,9 @@ describe("SEED_PROFILE=minimal 清库种子档（工单 07）", () => {
     // 基础件
     expect(counts.org_units).toBe(4); // 1 律所 + 3 部门
     expect(counts.roles).toBe(8);
-    expect(counts.users).toBe(12); // 口令统一 Demo@2026
-    expect(counts.user_roles).toBe(12);
-    expect(counts.system_config).toBe(14); // §18 全量 + timesheet.default_approver + generic_request.types
+    expect(counts.users).toBe(22); // arch/11 G1 名单，口令统一 Demo@2026
+    expect(counts.user_roles).toBe(23); // 梁奇烽 partner+quality_lead 双挂
+    expect(counts.system_config).toBe(15); // §18 全量 + timesheet.default_approver + generic_request.types + timesheet.step_minutes
     // minimal 清单项：2 模板 + 默认审批流（8 条，无演示流程）+ 编号水位（19 前缀）
     expect(counts.project_templates).toBe(2);
     expect(counts.flow_definitions).toBe(10); // 10 默认（含 09b 补的 travel_change/generic_request）
@@ -130,14 +130,14 @@ describe("SEED_PROFILE=minimal 清库种子档（工单 07）", () => {
   it("档位切换：minimal 库上重跑 full 档，演示数据按幂等补齐（不重建不冲突）", async () => {
     await runSeed(TEST_DATABASE_URL, "full");
     const counts = await countRows();
-    expect(counts.clients).toBe(4);
+    expect(counts.clients).toBe(5); // arch/11 G1 五配套
     expect(counts.projects).toBe(5);
     expect(counts.flow_definitions).toBe(11); // 10 默认 + 1 演示
     expect(counts.project_templates).toBe(2); // 模板不重复建行
     expect(counts.code_sequences).toBe(19);
-    expect(counts.system_config).toBe(14);
+    expect(counts.system_config).toBe(15);
     // users 不重复
-    expect(counts.users).toBe(12);
+    expect(counts.users).toBe(22);
   });
 
   it("默认档零回归：不带 profile 参数等价 full（环境变量未设时）", async () => {
@@ -146,7 +146,7 @@ describe("SEED_PROFILE=minimal 清库种子档（工单 07）", () => {
     await runSeed(TEST_DATABASE_URL);
     const counts = await countRows();
     expect(counts.projects).toBe(5);
-    expect(counts.clients).toBe(4);
+    expect(counts.clients).toBe(5);
     expect(counts.flow_definitions).toBe(11);
     expect(counts.payment_receipts).toBe(3);
   });
@@ -158,7 +158,7 @@ describe("SEED_PROFILE=minimal 清库种子档（工单 07）", () => {
       await runSeed(TEST_DATABASE_URL); // 不传 profile → 读 env
       const counts = await countRows();
       expect(counts.projects).toBe(0);
-      expect(counts.users).toBe(12);
+      expect(counts.users).toBe(22); // arch/11 G1 名单（minimal 亦建全名单）
     } finally {
       delete process.env.SEED_PROFILE;
     }

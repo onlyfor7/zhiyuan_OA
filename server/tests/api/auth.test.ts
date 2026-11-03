@@ -40,7 +40,7 @@ describe("认证（auth.login / logout / me）", () => {
   it("错误口令与不存在账号 → 统一提示，且不区分", async () => {
     const app = await getApp();
     const wrongPassword = await trpc(app, "auth.login", {
-      input: { email: "pm@lexflow.demo", password: "WrongPass1" },
+      input: { email: "wangbaozhuo@lexflow.demo", password: "WrongPass1" },
     });
     const wrongAccount = await trpc(app, "auth.login", {
       input: { email: "ghost@lexflow.demo", password: "Demo@2026" },
@@ -57,7 +57,7 @@ describe("认证（auth.login / logout / me）", () => {
   it("登录 → Set-Cookie(HttpOnly) → me → 登出 → me 失效（全流程）", async () => {
     const app = await getApp();
     const login = await trpc(app, "auth.login", {
-      input: { email: "pm@lexflow.demo", password: "Demo@2026" },
+      input: { email: "wangbaozhuo@lexflow.demo", password: "Demo@2026" },
     });
     expect(login.status).toBe(200);
     const setCookie = login.setCookies.find((line) => line.startsWith("lexflow_session="));
@@ -72,8 +72,8 @@ describe("认证（auth.login / logout / me）", () => {
       globalRoles: string[];
       projects: { id: string; code: string; name: string; projectRole: string }[];
     } } }).result.data;
-    expect(meData.user.email).toBe("pm@lexflow.demo");
-    expect(meData.user.name).toBe("陈立");
+    expect(meData.user.email).toBe("wangbaozhuo@lexflow.demo");
+    expect(meData.user.name).toBe("王宝茁");
     expect(meData.user.orgUnit?.name).toBe("诉讼业务部");
     expect(meData.globalRoles).toContain("project_manager");
     expect(meData.projects.map((p) => p.code).sort()).toEqual([
@@ -92,8 +92,8 @@ describe("认证（auth.login / logout / me）", () => {
 
   it("登录/登出与失败登录均写 audit_events", async () => {
     const app = await getApp();
-    await trpc(app, "auth.login", { input: { email: "pm@lexflow.demo", password: "bad" } });
-    const { cookie } = await loginAs(app, "member@lexflow.demo");
+    await trpc(app, "auth.login", { input: { email: "wangbaozhuo@lexflow.demo", password: "bad" } });
+    const { cookie } = await loginAs(app, "guanchen@lexflow.demo");
     await trpc(app, "auth.logout", { cookie });
 
     const client = new pg.Client({ connectionString: TEST_DATABASE_URL });
@@ -122,14 +122,14 @@ describe("认证（auth.login / logout / me）", () => {
 
   it("停用账号后会话立即失效", async () => {
     const app = await getApp();
-    const { cookie } = await loginAs(app, "mayue@lexflow.demo");
+    const { cookie } = await loginAs(app, "tianyiming@lexflow.demo");
     const before = await trpc(app, "auth.me", { cookie, method: "GET" });
     expect(before.status).toBe(200);
 
     const client = new pg.Client({ connectionString: TEST_DATABASE_URL });
     await client.connect();
     try {
-      await client.query(`UPDATE users SET status = 'disabled' WHERE email = 'mayue@lexflow.demo'`);
+      await client.query(`UPDATE users SET status = 'disabled' WHERE email = 'tianyiming@lexflow.demo'`);
     } finally {
       await client.end();
     }

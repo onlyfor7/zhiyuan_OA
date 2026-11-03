@@ -94,9 +94,9 @@ async function projectIdByCode(tx: SeedTx, code: string): Promise<string> {
 }
 
 export async function seedFinance(tx: SeedTx): Promise<void> {
-  const pmId = await userIdByEmail(tx, "pm@lexflow.demo");
-  const memberId = await userIdByEmail(tx, "member@lexflow.demo");
-  const financeId = await userIdByEmail(tx, "finance@lexflow.demo");
+  const pmId = await userIdByEmail(tx, "wangbaozhuo@lexflow.demo");
+  const memberId = await userIdByEmail(tx, "guanchen@lexflow.demo");
+  const financeId = await userIdByEmail(tx, "guojingwen@lexflow.demo");
   void financeId; // 策略引用角色即可
 
   const projectAId = await projectIdByCode(tx, `PRJ-${YEAR}-00001`);
@@ -202,7 +202,7 @@ export async function seedFinance(tx: SeedTx): Promise<void> {
         projectId: projectAId,
         code: f1Code,
         applicantId: memberId,
-        purpose: "杭州出差证据调取经费",
+        purpose: "杭州出差现场服务经费",
         amountCents: 2000000,
         expectedUseDate: fmt(addDays(TODAY, -13)),
         recipientInfo: "差旅费用据实报销",
@@ -243,7 +243,7 @@ export async function seedFinance(tx: SeedTx): Promise<void> {
       projectId: projectAId,
       code: f2Code,
       applicantId: pmId,
-      purpose: "北京异地庭审差旅借款",
+      purpose: "北京异地验收差旅借款",
       amountCents: 6000000,
       expectedUseDate: fmt(addDays(TODAY, 9)),
       recipientInfo: "借款 5,000 元随差旅核销",
@@ -264,7 +264,7 @@ export async function seedFinance(tx: SeedTx): Promise<void> {
       .values({
         code: expCode,
         applicantId: memberId,
-        reason: "杭州出差费用报销（证据调取）",
+        reason: "杭州出差费用报销（现场服务）",
         isCrossProject: false,
         travelId: travelRow[0]?.id ?? null,
         totalCents: 1400000, // 服务端口径 = 明细合计：800,000 + 600,000

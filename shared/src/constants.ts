@@ -57,6 +57,8 @@ export const CONFIG_KEY = {
   TIMESHEET_DEFAULT_APPROVER: "timesheet.default_approver",
   /** 通用申请单类型配置（arch/09 §3.2：种子 leave/procurement/seal/other，可扩充） */
   GENERIC_REQUEST_TYPES: "generic_request.types",
+  /** 工时填报步进分钟数（arch/11：默认 30） */
+  TIMESHEET_STEP_MINUTES: "timesheet.step_minutes",
 } as const;
 export type ConfigKey = (typeof CONFIG_KEY)[keyof typeof CONFIG_KEY];
 

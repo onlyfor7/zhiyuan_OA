@@ -89,9 +89,9 @@ async function approveInstance(
     const step = instance.steps.find((s) => s.seq === instance.currentStepSeq);
     if (!step) return;
     const approverCookie =
-      step.approverRole === "partner" ? (await loginAs(app, "partner@lexflow.demo")).cookie
-      : step.approverRole === "finance" ? (await loginAs(app, "finance@lexflow.demo")).cookie
-      : step.approverRole === "project_manager" ? (await loginAs(app, "pm@lexflow.demo")).cookie
+      step.approverRole === "partner" ? (await loginAs(app, "liangqifeng@lexflow.demo")).cookie
+      : step.approverRole === "finance" ? (await loginAs(app, "guojingwen@lexflow.demo")).cookie
+      : step.approverRole === "project_manager" ? (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie
       : cookie;
     const acted = await trpc(app, "approval.act", {
       cookie: approverCookie,
@@ -119,6 +119,7 @@ describe("迭代 3 验收·台账重资产（arch/06 §9）", () => {
   let app: Awaited<ReturnType<typeof getApp>>;
   let pmCookie: string;
   let partnerCookie: string;
+  let wangjiayuCookie: string;
   let memberCookie: string;
   let financeCookie: string;
   let projectAId: string;
@@ -128,10 +129,11 @@ describe("迭代 3 验收·台账重资产（arch/06 §9）", () => {
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    financeCookie = (await loginAs(app, "finance@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
+    wangjiayuCookie = (await loginAs(app, "wangjiayu@lexflow.demo")).cookie; // B 项目负责人
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    financeCookie = (await loginAs(app, "guojingwen@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     const items = (list.json as { result: { data: { items: { id: string; code: string }[] } } }).result.data.items;
     projectAId = items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;
@@ -155,7 +157,7 @@ describe("迭代 3 验收·台账重资产（arch/06 §9）", () => {
       actualCents: a0.actual, availableCents: a0.available, hasBudget: true,
     });
     const b0 = await recomputeFive(projectBId);
-    const aggB0 = await aggregateOf(app, pmCookie, await activeBudgetId(projectBId));
+    const aggB0 = await aggregateOf(app, wangjiayuCookie, await activeBudgetId(projectBId)); // B 预算仅负责人/财务/管理层可见（王宝茁为 B 普通成员→同形 404）
     expect(b0).toMatchObject({ effectiveBudget: 20_000_000, reserved: 0, actual: 0, available: 20_000_000 });
     expect(aggB0.aggregate.effectiveBudgetCents).toBe(b0.effectiveBudget);
 
@@ -194,7 +196,8 @@ describe("迭代 3 验收·台账重资产（arch/06 §9）", () => {
     // ④ 无预算项目：hasBudget=false（「未设预算」≠ 余额零）
     const c0 = await recomputeFive(projectCId);
     expect(c0.hasBudget).toBe(false);
-    const overviewC = await trpc(app, "project.overview", { cookie: partnerCookie, method: "GET", input: { projectId: projectCId } });
+    const sunCookie = (await loginAs(app, "sunhaoxiang@lexflow.demo")).cookie; // C=佳力奇由 sunhaoxiang 负责（partner 非成员不可见）
+    const overviewC = await trpc(app, "project.overview", { cookie: sunCookie, method: "GET", input: { projectId: projectCId } });
     expect((overviewC.json as { result: { data: { budgetSummary: { hasBudget: boolean } } } }).result.data.budgetSummary).toMatchObject({ hasBudget: false });
   });
 

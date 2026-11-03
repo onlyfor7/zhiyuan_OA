@@ -111,8 +111,8 @@ describe("审批引擎与延期闭环（arch/04 §4/§2.4）", () => {
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
     const ids = await projectIds(app, pmCookie);
     projectAId = ids.projectA;
     memberId = (await me(app, memberCookie)).user.id;
@@ -359,7 +359,7 @@ describe("审批引擎与延期闭环（arch/04 §4/§2.4）", () => {
     });
     expect(notApprover.status).toBe(404);
 
-    const partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
+    const partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
     const rejectNoReason = await trpc(app, "approval.act", {
       cookie: partnerCookie,
       input: { instanceId: cr.approvalInstanceId, stepSeq: 1, action: "reject" },

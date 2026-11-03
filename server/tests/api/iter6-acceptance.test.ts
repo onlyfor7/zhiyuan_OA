@@ -52,12 +52,12 @@ describe("迭代 6 验收·扩展域（arch/09 §6）", () => {
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    financeCookie = (await loginAs(app, "finance@lexflow.demo")).cookie;
-    partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
-    sysadminCookie = (await loginAs(app, "sysadmin@lexflow.demo")).cookie;
-    viewerCookie = (await loginAs(app, "viewer@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    financeCookie = (await loginAs(app, "guojingwen@lexflow.demo")).cookie;
+    partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
+    sysadminCookie = (await loginAs(app, "zhaokai@lexflow.demo")).cookie;
+    viewerCookie = (await loginAs(app, "hejing@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     const items = (list.json as { result: { data: { items: { id: string; code: string }[] } } }).result.data.items;
     projectAId = items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;

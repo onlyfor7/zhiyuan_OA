@@ -48,11 +48,11 @@ describe("迭代 6 扩展域（E1–E8）", () => {
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    financeCookie = (await loginAs(app, "finance@lexflow.demo")).cookie;
-    partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
-    sysadminCookie = (await loginAs(app, "sysadmin@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    financeCookie = (await loginAs(app, "guojingwen@lexflow.demo")).cookie;
+    partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
+    sysadminCookie = (await loginAs(app, "zhaokai@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     projectAId = (list.json as { result: { data: { items: { id: string; code: string }[] } } })
       .result.data.items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;
@@ -82,7 +82,7 @@ describe("迭代 6 扩展域（E1–E8）", () => {
         amountCents: 150_000,
         receivedOn: "2027-10-02",
         referenceNo: `BANK-${Date.now()}`,
-        payerName: "华宸贸易有限公司",
+        payerName: "比博思特（虚构）",
         idempotencyKey: crypto.randomUUID(),
       },
     });

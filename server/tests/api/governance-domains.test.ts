@@ -69,12 +69,12 @@ describe("治理域（质量/决策/周报/档案/授权/D2/N1/查询口径）",
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    qualityCookie = (await loginAs(app, "quality@lexflow.demo")).cookie;
-    viewerCookie = (await loginAs(app, "viewer@lexflow.demo")).cookie;
-    archivistCookie = (await loginAs(app, "archivist@lexflow.demo")).cookie;
-    sysadminCookie = (await loginAs(app, "sysadmin@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    qualityCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
+    viewerCookie = (await loginAs(app, "hejing@lexflow.demo")).cookie;
+    archivistCookie = (await loginAs(app, "wangying@lexflow.demo")).cookie;
+    sysadminCookie = (await loginAs(app, "zhaokai@lexflow.demo")).cookie;
     projectAId = await projectIdByCode(app, pmCookie, `PRJ-${YEAR}-00001`);
   });
 
@@ -503,7 +503,7 @@ describe("治理域（质量/决策/周报/档案/授权/D2/N1/查询口径）",
     }).result.data.items;
     expect(memberItems.some((i) => i.kind === "task" && i.dueSoon)).toBe(true);
     // 刘畅：种子逾期任务 TSK-00004（overdue）
-    const liuchangCookie = (await loginAs(app, "liuchang@lexflow.demo")).cookie;
+    const liuchangCookie = (await loginAs(app, "zhangchen@lexflow.demo")).cookie;
     const liuchangTodo = await trpc(app, "todo.mine", { cookie: liuchangCookie, method: "GET" });
     const liuchangItems = (liuchangTodo.json as {
       result: { data: { items: { kind: string; overdue: boolean }[] } };

@@ -44,11 +44,11 @@ describe("迭代 4 统计/搜索/导出（D7–D9/D11）", () => {
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
-    financeCookie = (await loginAs(app, "finance@lexflow.demo")).cookie;
-    viewerCookie = (await loginAs(app, "viewer@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
+    financeCookie = (await loginAs(app, "guojingwen@lexflow.demo")).cookie;
+    viewerCookie = (await loginAs(app, "hejing@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     projectAId = (list.json as { result: { data: { items: { id: string; code: string }[] } } })
       .result.data.items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;
@@ -133,7 +133,7 @@ describe("迭代 4 统计/搜索/导出（D7–D9/D11）", () => {
 
   it("D9 搜索权限矩阵：SQL 级过滤、无泄露、金额按财务可见权、命中计数按可见集合", async () => {
     // member 搜项目：只见 A（C 对 member 不可见且无泄露）
-    const projSearch = await trpc(app, "search.query", { cookie: memberCookie, method: "GET", input: { q: "华宸" } });
+    const projSearch = await trpc(app, "search.query", { cookie: memberCookie, method: "GET", input: { q: "比博思特" } });
     expect(projSearch.status).toBe(200);
     const projData = (projSearch.json as { result: { data: { items: { type: string; title: string; code: string }[]; totalByType: Record<string, number> } } }).result.data;
     const projectsHit = projData.items.filter((i) => i.type === "project");
@@ -162,7 +162,7 @@ describe("迭代 4 统计/搜索/导出（D7–D9/D11）", () => {
     expect(pmTotal).toBe(0); // 仅本人，无泄露
 
     // viewer 全局限流：项目搜索 0 命中（不返回任何标题）
-    const viewerSearch = await trpc(app, "search.query", { cookie: viewerCookie, method: "GET", input: { q: "华宸" } });
+    const viewerSearch = await trpc(app, "search.query", { cookie: viewerCookie, method: "GET", input: { q: "比博思特" } });
     const viewerData = (viewerSearch.json as { result: { data: { items: unknown[]; totalByType: Record<string, number> } } }).result.data;
     expect(viewerData.items).toHaveLength(0);
     expect(viewerData.totalByType.project ?? 0).toBe(0);

@@ -26,19 +26,19 @@ describe("种子幂等与验收布局", () => {
     const second = await countRows();
 
     expect(second).toEqual(first);
-    expect(first.org_units).toBe(4); // 1 律所 + 3 部门
+    expect(first.org_units).toBe(4); // 1 组织 + 3 部门
     expect(first.roles).toBe(8); // arch/03 §1
-    expect(first.users).toBe(12); // ≥10
-    expect(first.user_roles).toBe(12);
-    expect(first.clients).toBe(4); // 华宸 / 星澜 / 恒岳 / 佳力奇（虚构，承工单 06）
-    expect(first.matters).toBe(4);
-    expect(first.projects).toBe(5); // A/B/C + D 恒岳尽调 + E 数据合规
-    expect(first.project_members).toBe(12); // 4+2+2+2+2
-    expect(first.system_config).toBe(14); // 13 + generic_request.types（arch/09 §3.2）
+    expect(first.users).toBe(22); // arch/11 G1 名单（梁奇烽双角色）
+    expect(first.user_roles).toBe(23); // 22 用户 + 梁奇烽 partner+quality_lead 双挂
+    expect(first.clients).toBe(5); // 比博思特/金通灵/佳力奇/合规引擎/GD（arch/11 G1）
+    expect(first.matters).toBe(5);
+    expect(first.projects).toBe(5);
+    expect(first.project_members).toBe(16); // 4+3+2+3+4
+    expect(first.system_config).toBe(15); // 14 + timesheet.step_minutes（arch/11）
     expect(first.code_sequences).toBe(19); // 17 + RCV/REQ
   });
 
-  it("验收场景布局：pm 负责 A/B、member 仅在 A、C 对二者不可见", async () => {
+  it("验收场景布局：王宝茁可见 A（负责）与 B（成员），管晨仅在 A，佳力奇 C 对二者不可见", async () => {
     const client = new pg.Client({ connectionString: TEST_DATABASE_URL });
     await client.connect();
     const layout = await client.query<{
@@ -60,16 +60,21 @@ describe("种子幂等与验收布局", () => {
     const projectA = byCode.get(`PRJ-${year}-00001`);
     const projectB = byCode.get(`PRJ-${year}-00002`);
     const projectC = byCode.get(`PRJ-${year}-00003`);
-    expect(projectA?.manager).toBe("pm@lexflow.demo");
-    expect(projectA?.members).toContain("member@lexflow.demo");
-    expect(projectB?.manager).toBe("pm@lexflow.demo");
-    expect(projectB?.members).not.toContain("member@lexflow.demo");
-    expect(projectC?.manager).toBe("partner@lexflow.demo");
-    expect(projectC?.members).not.toContain("pm@lexflow.demo");
-    expect(projectC?.members).not.toContain("member@lexflow.demo");
+    const projectD = byCode.get(`PRJ-${year}-00004`);
+    const projectE = byCode.get(`PRJ-${year}-00005`);
+    expect(projectA?.manager).toBe("wangbaozhuo@lexflow.demo");
+    expect(projectA?.members).toContain("guanchen@lexflow.demo");
+    expect(projectB?.manager).toBe("wangjiayu@lexflow.demo");
+    expect(projectB?.members).toContain("wangbaozhuo@lexflow.demo"); // 王宝茁为 B 成员 → 可见 A/B 两项目
+    expect(projectB?.members).not.toContain("guanchen@lexflow.demo");
+    expect(projectC?.manager).toBe("sunhaoxiang@lexflow.demo");
+    expect(projectC?.members).not.toContain("wangbaozhuo@lexflow.demo");
+    expect(projectC?.members).not.toContain("guanchen@lexflow.demo");
+    expect(projectD?.manager).toBe("liaoyimin@lexflow.demo");
+    expect(projectE?.manager).toBe("huoda@lexflow.demo");
 
     const pmUser = await client.query<{ password_hash: string }>(
-      `SELECT password_hash FROM users WHERE email = 'pm@lexflow.demo'`,
+      `SELECT password_hash FROM users WHERE email = 'wangbaozhuo@lexflow.demo'`,
     );
     await client.end();
     expect(verifyPassword("Demo@2026", pmUser.rows[0].password_hash)).toBe(true);

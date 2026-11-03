@@ -43,9 +43,9 @@ describe("迭代 2 验收·会议域（arch/05 §8 B1–B5/B9–B11 + 权限边�
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    viewerCookie = (await loginAs(app, "viewer@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    viewerCookie = (await loginAs(app, "hejing@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     projectAId = (list.json as { result: { data: { items: { id: string; code: string }[] } } })
       .result.data.items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;

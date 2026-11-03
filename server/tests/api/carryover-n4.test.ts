@@ -31,9 +31,9 @@ describe("迭代 1 结转硬项（arch/05 §9：N4 / grant rejected / ON CONFLIC
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     projectAId = (list.json as { result: { data: { items: { id: string; code: string }[] } } })
       .result.data.items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;
@@ -180,9 +180,9 @@ describe("迭代 1 结转硬项（arch/05 §9：N4 / grant rejected / ON CONFLIC
   });
 
   it("grant 驳回落 rejected 态（arch/01 §3 v1.1）", async () => {
-    const viewerCookie = (await loginAs(app, "viewer@lexflow.demo")).cookie;
+    const viewerCookie = (await loginAs(app, "hejing@lexflow.demo")).cookie;
     const viewerId = await me(app, viewerCookie);
-    const archivistCookie = (await loginAs(app, "archivist@lexflow.demo")).cookie;
+    const archivistCookie = (await loginAs(app, "wangying@lexflow.demo")).cookie;
 
     const applied = await trpc(app, "archive.grantApply", {
       cookie: viewerCookie,
@@ -252,7 +252,7 @@ describe("迭代 1 结转硬项（arch/05 §9：N4 / grant rejected / ON CONFLIC
 
   it("会签 all 多候选人：全员通过才生效；任一驳回即终态", async () => {
     // 临时给 liuchang 增加 finance 全局角色（finance 双候选人 → 第二步骤展开为子步）
-    const liuchangId = (await query<{ id: string }>(`SELECT id FROM users WHERE email = 'liuchang@lexflow.demo'`))[0].id;
+    const liuchangId = (await query<{ id: string }>(`SELECT id FROM users WHERE email = 'zhangchen@lexflow.demo'`))[0].id;
     await query(`INSERT INTO user_roles (user_id, role_key) VALUES ($1, 'finance') ON CONFLICT DO NOTHING`, [liuchangId]);
     try {
       // 借款出差（member 申请）→ 第二步骤 [finance all] 展开为 2001/2002
@@ -296,12 +296,16 @@ describe("迭代 1 结转硬项（arch/05 §9：N4 / grant rejected / ON CONFLIC
       const subSteps = steps.filter((s) => s.seq >= 2000);
       expect(subSteps.map((s) => s.seq).sort()).toEqual([2001, 2002]);
 
-      // 全员通过才生效：只批一个 → 仍 pending
-      const liuchangCookie = (await loginAs(app, "liuchang@lexflow.demo")).cookie;
-      const financeCookie = (await loginAs(app, "finance@lexflow.demo")).cookie;
+      // 全员通过才生效：只批一个 → 仍 pending（子步按 approverId 匹配，不假设分配顺序）
+      const liuchangCookie = (await loginAs(app, "zhangchen@lexflow.demo")).cookie;
+      const financeCookie = (await loginAs(app, "guojingwen@lexflow.demo")).cookie;
+      const financeId = (await query<{ id: string }>(`SELECT id FROM users WHERE email = 'guojingwen@lexflow.demo'`))[0].id;
+      const zhangchenId = (await query<{ id: string }>(`SELECT id FROM users WHERE email = 'zhangchen@lexflow.demo'`))[0].id;
+      const financeStep = subSteps.find((s) => s.approverId === financeId)!.seq;
+      const zhangchenStep = subSteps.find((s) => s.approverId === zhangchenId)!.seq;
       const one = await trpc(app, "approval.act", {
         cookie: financeCookie,
-        input: { instanceId, stepSeq: 2001, action: "approve", idempotencyKey: crypto.randomUUID() },
+        input: { instanceId, stepSeq: financeStep, action: "approve", idempotencyKey: crypto.randomUUID() },
       });
       expect(one.status).toBe(200);
       const mid = await query<{ status: string }>(`SELECT status FROM approval_instances WHERE id = $1`, [instanceId]);
@@ -309,7 +313,7 @@ describe("迭代 1 结转硬项（arch/05 §9：N4 / grant rejected / ON CONFLIC
 
       const two = await trpc(app, "approval.act", {
         cookie: liuchangCookie,
-        input: { instanceId, stepSeq: 2002, action: "approve", idempotencyKey: crypto.randomUUID() },
+        input: { instanceId, stepSeq: zhangchenStep, action: "approve", idempotencyKey: crypto.randomUUID() },
       });
       expect(two.status).toBe(200);
       const done = await query<{ status: string }>(`SELECT status FROM approval_instances WHERE id = $1`, [instanceId]);
@@ -345,15 +349,19 @@ describe("迭代 1 结转硬项（arch/05 §9：N4 / grant rejected / ON CONFLIC
         cookie: pmCookie,
         input: { instanceId: instanceId2, stepSeq: 1, action: "approve", idempotencyKey: crypto.randomUUID() },
       });
-      // 会签子步精确到人：另一 finance 成员对 2001（他人子步，角色已置空）无权 → 404
+      // 会签子步精确到人：另一 finance 成员对 finance 的子步（他人子步，角色已置空）无权 → 404
+      const steps2 = await query<{ seq: number; approver_id: string }>(
+        `SELECT seq, approver_id FROM approval_steps WHERE instance_id = $1 AND seq >= 2000`, [instanceId2],
+      );
+      const financeStep2 = steps2.find((st) => st.approver_id === financeId)!.seq;
       const cross = await trpc(app, "approval.act", {
         cookie: liuchangCookie,
-        input: { instanceId: instanceId2, stepSeq: 2001, action: "approve", idempotencyKey: crypto.randomUUID() },
+        input: { instanceId: instanceId2, stepSeq: financeStep2, action: "approve", idempotencyKey: crypto.randomUUID() },
       });
       expect(cross.status).toBe(404);
       const rejectOne = await trpc(app, "approval.act", {
         cookie: financeCookie,
-        input: { instanceId: instanceId2, stepSeq: 2001, action: "reject", comment: "预算冻结", idempotencyKey: crypto.randomUUID() },
+        input: { instanceId: instanceId2, stepSeq: financeStep2, action: "reject", comment: "预算冻结", idempotencyKey: crypto.randomUUID() },
       });
       expect(rejectOne.status).toBe(200);
       const rejected = await query<{ status: string }>(`SELECT status FROM approval_instances WHERE id = $1`, [instanceId2]);

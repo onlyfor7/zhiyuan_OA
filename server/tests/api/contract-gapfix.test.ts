@@ -29,9 +29,9 @@ describe("工单 02b：参照数据端点 / 立项权限门 / plan_items.name / 
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
   });
 
   afterAll(async () => {
@@ -45,17 +45,17 @@ describe("工单 02b：参照数据端点 / 立项权限门 / plan_items.name / 
       result: { data: { items: { id: string; name: string; email: string; orgUnitName: string | null }[] } };
     }).result.data;
     expect(data.items.length).toBeGreaterThanOrEqual(12);
-    const pm = data.items.find((u) => u.email === "pm@lexflow.demo");
-    expect(pm).toMatchObject({ name: "陈立", orgUnitName: "诉讼业务部" });
+    const pm = data.items.find((u) => u.email === "wangbaozhuo@lexflow.demo");
+    expect(pm).toMatchObject({ name: "王宝茁", orgUnitName: "诉讼业务部" });
 
     const keyword = await trpc(app, "user.list", {
       cookie: pmCookie,
       method: "GET",
-      input: { keyword: "林晓" },
+      input: { keyword: "管晨" },
     });
     const keywordItems = (keyword.json as { result: { data: { items: { email: string }[] } } }).result.data.items;
     expect(keywordItems).toHaveLength(1);
-    expect(keywordItems[0].email).toBe("member@lexflow.demo");
+    expect(keywordItems[0].email).toBe("guanchen@lexflow.demo");
 
     // 未登录 → 401
     const anonymous = await trpc(app, "user.list", { method: "GET" });
@@ -68,18 +68,18 @@ describe("工单 02b：参照数据端点 / 立项权限门 / plan_items.name / 
     expect(clients.status).toBe(200);
     const clientItems = (clients.json as { result: { data: { items: { id: string; code: string; name: string }[] } } })
       .result.data.items;
-    expect(clientItems.length).toBe(4); // 华宸 / 星澜 / 恒岳 / 佳力奇（虚构）
+    expect(clientItems.length).toBe(5); // 比博思特/金通灵/佳力奇/合规引擎/GD（arch/11 G1）
     expect(clientItems[0]).toHaveProperty("code");
     expect(clientItems[0]).toHaveProperty("name");
 
     const clientKeyword = await trpc(app, "client.list", {
       cookie: memberCookie,
       method: "GET",
-      input: { keyword: "星澜" },
+      input: { keyword: "金通灵" },
     });
     expect(
       (clientKeyword.json as { result: { data: { items: { name: string }[] } } }).result.data.items.map((c) => c.name),
-    ).toEqual(["星澜科技有限公司"]);
+    ).toEqual(["金通灵（虚构）"]);
 
     const matters = await trpc(app, "matter.list", { cookie: memberCookie, method: "GET" });
     expect(matters.status).toBe(200);
@@ -88,9 +88,9 @@ describe("工单 02b：参照数据端点 / 立项权限门 / plan_items.name / 
         result: { data: { items: { id: string; code: string; name: string; clientId: string; clientName: string }[] } };
       }
     ).result.data.items;
-    expect(matterItems.length).toBe(4); // 华宸 / 星澜 / 恒岳 / 佳力奇咨询
+    expect(matterItems.length).toBe(5);
     expect(matterItems.find((m) => m.code === `MTR-${YEAR}-00001`)).toMatchObject({
-      clientName: "华宸贸易有限公司",
+      clientName: "比博思特（虚构）",
     });
 
     const clientId = matterItems.find((m) => m.code === `MTR-${YEAR}-00001`)!.clientId;
@@ -112,7 +112,7 @@ describe("工单 02b：参照数据端点 / 立项权限门 / plan_items.name / 
         id: string;
         name: string;
       }[]
-    ).find((t) => t.name === "诉讼案件标准模板")!.id;
+    ).find((t) => t.name === "技术服务标准模板")!.id;
     const matters = await trpc(app, "matter.list", { cookie: pmCookie, method: "GET" });
     const matterId = (
       matters.json as { result: { data: { items: { id: string }[] } } }

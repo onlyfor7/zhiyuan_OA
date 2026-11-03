@@ -185,7 +185,7 @@ describe("财务域种子与台账口径", () => {
         .select({ id: projects.id })
         .from(projects)
         .where(eq(projects.code, `PRJ-${YEAR}-00001`));
-      const pm = await db.select({ id: users.id }).from(users).where(eq(users.email, "pm@lexflow.demo"));
+      const pm = await db.select({ id: users.id }).from(users).where(eq(users.email, "wangbaozhuo@lexflow.demo"));
       await expectPgViolation(
         db.insert(fundingRequests).values({
           projectId: projectA[0].id,

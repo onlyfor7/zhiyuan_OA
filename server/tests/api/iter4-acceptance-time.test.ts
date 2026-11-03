@@ -66,10 +66,10 @@ describe("迭代 4 验收·工时域（arch/07 §8 红线）", () => {
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
-    financeCookie = (await loginAs(app, "finance@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
+    financeCookie = (await loginAs(app, "guojingwen@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     projectAId = (list.json as { result: { data: { items: { id: string; code: string }[] } } })
       .result.data.items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;
@@ -243,7 +243,7 @@ describe("迭代 4 验收·工时域（arch/07 §8 红线）", () => {
     const relock = await trpc(app, "time.lock", { cookie: partnerCookie, input: { periodId: lockedId, reason: "复验锁定" } });
     expect(relock.status).toBe(200);
     const editLocked = await trpc(app, "time.saveEntries", {
-      cookie: (await loginAs(app, "pm@lexflow.demo")).cookie,
+      cookie: (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie,
       input: { periodId: lockedId, idempotencyKey: crypto.randomUUID(), entries: [] },
     });
     expect(editLocked.status).toBe(403);

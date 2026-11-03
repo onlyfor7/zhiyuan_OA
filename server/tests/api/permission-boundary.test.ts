@@ -66,8 +66,8 @@ describe("权限边界验收（工单 00 场景 1/2/3/5）", () => {
   beforeAll(async () => {
     await setupDatabase();
     const app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
 
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     const items = (list.json as { result: { data: { items: { id: string; code: string }[] } } })
@@ -194,14 +194,14 @@ describe("权限边界验收（工单 00 场景 1/2/3/5）", () => {
 
   it("场景 5：停用账号后其会话立即失效（全部 API 一律 401）", async () => {
     const app = await getApp();
-    const { cookie } = await loginAs(app, "mayue@lexflow.demo");
+    const { cookie } = await loginAs(app, "tianyiming@lexflow.demo");
     const before = await trpc(app, "auth.me", { cookie, method: "GET" });
     expect(before.status).toBe(200);
 
     const client = new pg.Client({ connectionString: TEST_DATABASE_URL });
     await client.connect();
     try {
-      await client.query(`UPDATE users SET status = 'disabled' WHERE email = 'mayue@lexflow.demo'`);
+      await client.query(`UPDATE users SET status = 'disabled' WHERE email = 'tianyiming@lexflow.demo'`);
     } finally {
       await client.end();
     }

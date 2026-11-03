@@ -61,7 +61,7 @@ describe("一致性地基验收（审计 / 登录同形 / 会话一致性 / 幂�
   beforeAll(async () => {
     await setupDatabase();
     const app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     const items = (list.json as { result: { data: { items: { id: string; code: string }[] } } })
       .result.data.items;
@@ -75,9 +75,9 @@ describe("一致性地基验收（审计 / 登录同形 / 会话一致性 / 幂�
 
   it("登录审计：成功/失败各落行，action/actor/target/result/session 完整", async () => {
     const app = await getApp();
-    await trpc(app, "auth.login", { input: { email: "pm@lexflow.demo", password: "bad" } });
+    await trpc(app, "auth.login", { input: { email: "wangbaozhuo@lexflow.demo", password: "bad" } });
     const login = await trpc(app, "auth.login", {
-      input: { email: "member@lexflow.demo", password: "Demo@2026" },
+      input: { email: "guanchen@lexflow.demo", password: "Demo@2026" },
     });
     expect(login.status).toBe(200);
 
@@ -90,7 +90,7 @@ describe("一致性地基验收（审计 / 登录同形 / 会话一致性 / 幂�
     expect(failure).toBeDefined();
     expect(success).toBeDefined();
     // N1（arch/04 §7 落地）：登录成功审计行由 resolver 显式补记 actor+session
-    const member = await query<{ id: string }>(`SELECT id FROM users WHERE email = 'member@lexflow.demo'`);
+    const member = await query<{ id: string }>(`SELECT id FROM users WHERE email = 'guanchen@lexflow.demo'`);
     expect(success?.actor_id).toBe(member[0].id);
     expect(success?.session_id).toBeTruthy();
     expect(success?.target_type).toBe("rpc");
@@ -116,7 +116,7 @@ describe("一致性地基验收（审计 / 登录同形 / 会话一致性 / 幂�
       result: "success",
     });
     // actor 为上传人本人（pm），且 after_json 带 sha256 供追溯
-    const users = await query<{ id: string }>(`SELECT id FROM users WHERE email = 'pm@lexflow.demo'`);
+    const users = await query<{ id: string }>(`SELECT id FROM users WHERE email = 'wangbaozhuo@lexflow.demo'`);
     expect(rows[0].actor_id).toBe(users[0].id);
     expect(rows[0].after_json.sha256).toBe(saved.sha256);
   });
@@ -124,7 +124,7 @@ describe("一致性地基验收（审计 / 登录同形 / 会话一致性 / 幂�
   it("auth.login 错误口令与不存在账号 → 响应逐字段一致（不泄露账号存在性）", async () => {
     const app = await getApp();
     const wrongPassword = await trpc(app, "auth.login", {
-      input: { email: "pm@lexflow.demo", password: "WrongPass1" },
+      input: { email: "wangbaozhuo@lexflow.demo", password: "WrongPass1" },
     });
     const wrongAccount = await trpc(app, "auth.login", {
       input: { email: "ghost@lexflow.demo", password: "Demo@2026" },
@@ -143,7 +143,7 @@ describe("一致性地基验收（审计 / 登录同形 / 会话一致性 / 幂�
 
   it("会话一致性（场景 4 服务端部分）：登出后所有 API 一律 AUTH_REQUIRED；重登后数据一致", async () => {
     const app = await getApp();
-    const first = await loginAs(app, "pm@lexflow.demo");
+    const first = await loginAs(app, "wangbaozhuo@lexflow.demo");
     const beforeList = await trpc(app, "project.list", { cookie: first.cookie, method: "GET" });
     const beforeCodes = (beforeList.json as { result: { data: { items: { code: string }[] } } })
       .result.data.items.map((p) => p.code);
@@ -163,7 +163,7 @@ describe("一致性地基验收（审计 / 登录同形 / 会话一致性 / 幂�
     expect(fileAfter.status).toBe(401);
 
     // 重新登录：同一用户、同一项目集合（刷新/重登一致性）
-    const second = await loginAs(app, "pm@lexflow.demo");
+    const second = await loginAs(app, "wangbaozhuo@lexflow.demo");
     expect(second.user.id).toBe(first.user.id);
     const reloginList = await trpc(app, "project.list", { cookie: second.cookie, method: "GET" });
     const afterCodes = (reloginList.json as { result: { data: { items: { code: string }[] } } })
@@ -214,7 +214,7 @@ describe("一致性地基验收（审计 / 登录同形 / 会话一致性 / 幂�
   it("会话 cookie 属性：HttpOnly + SameSite=Lax（防 XSS 窃取与会话固定面）", async () => {
     const app = await getApp();
     const login = await trpc(app, "auth.login", {
-      input: { email: "pm@lexflow.demo", password: "Demo@2026" },
+      input: { email: "wangbaozhuo@lexflow.demo", password: "Demo@2026" },
     });
     const setCookie = login.setCookies.find((line) => line.startsWith("lexflow_session="));
     expect(setCookie).toBeDefined();

@@ -85,12 +85,12 @@ describe("迭代 2 验收·结转硬项（arch/05 §9）", () => {
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
-    financeCookie = (await loginAs(app, "finance@lexflow.demo")).cookie;
-    viewerCookie = (await loginAs(app, "viewer@lexflow.demo")).cookie;
-    archivistCookie = (await loginAs(app, "archivist@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
+    financeCookie = (await loginAs(app, "guojingwen@lexflow.demo")).cookie;
+    viewerCookie = (await loginAs(app, "hejing@lexflow.demo")).cookie;
+    archivistCookie = (await loginAs(app, "wangying@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     projectAId = (list.json as { result: { data: { items: { id: string; code: string }[] } } })
       .result.data.items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;
@@ -246,10 +246,10 @@ describe("迭代 2 验收·结转硬项（arch/05 §9）", () => {
   });
 
   it("会签 all：全员通过才生效；任一驳回即终态；同子步并发双批恰一生效；同角色他人不可代审", async () => {
-    const liuchangId = (await query<{ id: string }>(`SELECT id FROM users WHERE email = 'liuchang@lexflow.demo'`))[0].id;
+    const liuchangId = (await query<{ id: string }>(`SELECT id FROM users WHERE email = 'zhangchen@lexflow.demo'`))[0].id;
     await query(`INSERT INTO user_roles (user_id, role_key) VALUES ($1, 'finance') ON CONFLICT DO NOTHING`, [liuchangId]);
     try {
-      const liuchangCookie = (await loginAs(app, "liuchang@lexflow.demo")).cookie;
+      const liuchangCookie = (await loginAs(app, "zhangchen@lexflow.demo")).cookie;
 
       // 全员通过才生效
       const created = await trpc(app, "travel.create", {
@@ -287,16 +287,21 @@ describe("迭代 2 验收·结转硬项（arch/05 §9）", () => {
       }).result.data.steps;
       const subSteps = steps.filter((s) => s.seq >= 2000);
       expect(subSteps.map((s) => s.seq).sort()).toEqual([2001, 2002]);
+      // 子步按 approverId 匹配（不假设 2001/2002 分配顺序）
+      const financeId = (await query<{ id: string }>(`SELECT id FROM users WHERE email = 'guojingwen@lexflow.demo'`))[0].id;
+      const zhangchenId = (await query<{ id: string }>(`SELECT id FROM users WHERE email = 'zhangchen@lexflow.demo'`))[0].id;
+      const financeStep = subSteps.find((s) => s.approverId === financeId)!.seq;
+      const zhangchenStep = subSteps.find((s) => s.approverId === zhangchenId)!.seq;
 
       // 同子步并发双批恰一生效
       const [x, y] = await Promise.all([
         trpc(app, "approval.act", {
           cookie: financeCookie,
-          input: { instanceId, stepSeq: 2001, action: "approve", idempotencyKey: crypto.randomUUID() },
+          input: { instanceId, stepSeq: financeStep, action: "approve", idempotencyKey: crypto.randomUUID() },
         }),
         trpc(app, "approval.act", {
           cookie: financeCookie,
-          input: { instanceId, stepSeq: 2001, action: "approve", idempotencyKey: crypto.randomUUID() },
+          input: { instanceId, stepSeq: financeStep, action: "approve", idempotencyKey: crypto.randomUUID() },
         }),
       ]);
       const appliedCount = [x, y].filter(
@@ -307,7 +312,7 @@ describe("迭代 2 验收·结转硬项（arch/05 §9）", () => {
       // 另一候选人补齐 → 全员通过生效
       await trpc(app, "approval.act", {
         cookie: liuchangCookie,
-        input: { instanceId, stepSeq: 2002, action: "approve", idempotencyKey: crypto.randomUUID() },
+        input: { instanceId, stepSeq: zhangchenStep, action: "approve", idempotencyKey: crypto.randomUUID() },
       });
       const done = await query<{ status: string }>(`SELECT status FROM approval_instances WHERE id = $1`, [instanceId]);
       expect(done[0].status).toBe("approved");
@@ -344,16 +349,20 @@ describe("迭代 2 验收·结转硬项（arch/05 §9）", () => {
         cookie: pmCookie,
         input: { instanceId: instanceId2, stepSeq: 1, action: "approve", idempotencyKey: crypto.randomUUID() },
       });
+      const steps2 = (await query<{ seq: number; approver_id: string }>(
+        `SELECT seq, approver_id FROM approval_steps WHERE instance_id = $1 AND seq >= 2000`, [instanceId2],
+      ));
+      const financeStep2 = steps2.find((st) => st.approver_id === financeId)!.seq;
       const proxy = await trpc(app, "approval.act", {
         cookie: pmCookie,
-        input: { instanceId: instanceId2, stepSeq: 2001, action: "approve", idempotencyKey: crypto.randomUUID() },
+        input: { instanceId: instanceId2, stepSeq: financeStep2, action: "approve", idempotencyKey: crypto.randomUUID() },
       });
       expect(proxy.status).toBe(404);
 
       // 任一驳回即终态
       const rejected = await trpc(app, "approval.act", {
         cookie: financeCookie,
-        input: { instanceId: instanceId2, stepSeq: 2001, action: "reject", comment: "借款额度不足（验收）", idempotencyKey: crypto.randomUUID() },
+        input: { instanceId: instanceId2, stepSeq: financeStep2, action: "reject", comment: "借款额度不足（验收）", idempotencyKey: crypto.randomUUID() },
       });
       expect(rejected.status).toBe(200);
       const terminal = await query<{ status: string }>(`SELECT status FROM approval_instances WHERE id = $1`, [instanceId2]);

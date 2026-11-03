@@ -136,18 +136,18 @@ describe("扩展域种子与约束（arch/09）", () => {
     expect(counts.flow_definitions).toBe(11); // 10 默认（含 09b 补的 travel_change/generic_request）+ 1 演示（disabled）
     expect(counts.generic_requests).toBe(0);
     expect(counts.code_sequences).toBe(19);
-    expect(counts.system_config).toBe(14);
+    expect(counts.system_config).toBe(15); // + timesheet.step_minutes（arch/11）
 
     const { db, pool } = await openDb();
     try {
       // 佳力奇主数据（承工单 06）
-      const jia = await db.select({ name: clients.name }).from(clients).where(eq(clients.code, `CLT-${YEAR}-00004`));
-      expect(jia[0].name).toBe("佳力奇科技（虚构）");
+      const jia = await db.select({ name: clients.name }).from(clients).where(eq(clients.code, `CLT-${YEAR}-00003`));
+      expect(jia[0].name).toBe("佳力奇（虚构）");
       const jiaMatter = await db
         .select({ name: matters.name })
         .from(matters)
-        .where(eq(matters.code, `MTR-${YEAR}-00004`));
-      expect(jiaMatter[0].name).toBe("佳力奇咨询");
+        .where(eq(matters.code, `MTR-${YEAR}-00003`));
+      expect(jiaMatter[0].name).toBe("佳力奇技术服务");
 
       // 收款口径：A 实收 = Σregistered − Σvoided（原额）= 500,000+300,000−200,000
       const projectA = await db
@@ -203,7 +203,7 @@ describe("扩展域种子与约束（arch/09）", () => {
         .select({ id: clients.id })
         .from(clients)
         .where(eq(clients.code, `CLT-${YEAR}-00001`));
-      const finance = await db.select({ id: users.id }).from(users).where(eq(users.email, "finance@lexflow.demo"));
+      const finance = await db.select({ id: users.id }).from(users).where(eq(users.email, "guojingwen@lexflow.demo"));
 
       await expectPgViolation(
         db.insert(paymentReceipts).values({
@@ -258,7 +258,7 @@ describe("扩展域种子与约束（arch/09）", () => {
       ).resolves.toHaveLength(1);
 
       // 通用申请单五态可写
-      const member = await db.select({ id: users.id }).from(users).where(eq(users.email, "member@lexflow.demo"));
+      const member = await db.select({ id: users.id }).from(users).where(eq(users.email, "guanchen@lexflow.demo"));
       for (const [i, status] of ["draft", "pending_approval", "approved", "rejected", "withdrawn"].entries()) {
         await expect(
           db
@@ -279,7 +279,7 @@ describe("扩展域种子与约束（arch/09）", () => {
     }
   });
 
-  it("种子自愈（09b 打回修复）：同名种子默认流旧规格行重跑 seed 被修正为 partner", async () => {
+  it("种子自愈（09b 打回修复）：同名种子默认流旧规格行重跑 seed 被修正为当前规格（initiator_choice）", async () => {
     const { db, pool } = await openDb();
     try {
       const stale = await db
@@ -313,7 +313,7 @@ describe("扩展域种子与约束（arch/09）", () => {
         .where(eq(flowDefinitions.id, stale[0].id));
       const nodes = (healed[0].definitionJson as { nodes: Array<{ type: string; approver?: { kind: string; role?: string } }> }).nodes;
       const approval = nodes.find((n) => n.type === "approval");
-      expect(approval?.approver).toEqual({ kind: "role", role: "partner" });
+      expect(approval?.approver).toEqual({ kind: "initiator_choice" });
     } finally {
       await pool.end();
     }
@@ -368,10 +368,10 @@ describe("扩展域种子与约束（arch/09）", () => {
         expect(defaults.length, `${bizType} 应有 ≥1 条 enabled 默认流程`).toBeGreaterThanOrEqual(1);
       }
 
-      // 09b 打回裁定：generic_request 全局默认流解析必须为 [partner]（project_manager 会自审死锁）
+      // arch/11 G3：generic_request 全局默认流解析必须为 [initiator_choice]（发起人指定；09b partner 兜底被 G3 取代）
       const genericFlow = flows.find((f) => f.bizBinding === "generic_request" && f.enabled && f.projectId === null)!;
       expect(resolveFlow(genericFlow, {}, configRows)).toEqual([
-        { approver: { kind: "role", role: "partner" }, countersign: "any" },
+        { approver: { kind: "initiator_choice" }, countersign: "any" },
       ]);
 
       // timesheet：占位策略 ↔ 运行时解析节点（initiator_manager）

@@ -18,11 +18,11 @@ describe("迭代 6 · 工单 04b（projectOptions / userList roles / types 公�
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    financeCookie = (await loginAs(app, "finance@lexflow.demo")).cookie;
-    partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
-    sysadminCookie = (await loginAs(app, "sysadmin@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    financeCookie = (await loginAs(app, "guojingwen@lexflow.demo")).cookie;
+    partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
+    sysadminCookie = (await loginAs(app, "zhaokai@lexflow.demo")).cookie;
   });
 
   afterAll(async () => {
@@ -54,9 +54,9 @@ describe("迭代 6 · 工单 04b（projectOptions / userList roles / types 公�
     const result = await trpc(app, "admin.userList", { cookie: sysadminCookie, method: "GET" });
     expect(result.status).toBe(200);
     const items = (result.json as { result: { data: { email: string; roles: string[] }[] } }).result.data;
-    const pm = items.find((u) => u.email === "pm@lexflow.demo");
+    const pm = items.find((u) => u.email === "wangbaozhuo@lexflow.demo");
     expect(pm?.roles).toContain("project_manager");
-    const member = items.find((u) => u.email === "member@lexflow.demo");
+    const member = items.find((u) => u.email === "guanchen@lexflow.demo");
     expect(member?.roles).toEqual(["member"]);
 
     const denied = await trpc(app, "admin.userList", { cookie: memberCookie, method: "GET" });

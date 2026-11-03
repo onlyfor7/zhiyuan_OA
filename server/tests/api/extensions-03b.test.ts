@@ -39,12 +39,12 @@ describe("迭代 6 · 工单 03b（R1 修复 / 状态列切换 / 流程项目绑
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    financeCookie = (await loginAs(app, "finance@lexflow.demo")).cookie;
-    partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
-    sysadminCookie = (await loginAs(app, "sysadmin@lexflow.demo")).cookie;
-    viewerCookie = (await loginAs(app, "viewer@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    financeCookie = (await loginAs(app, "guojingwen@lexflow.demo")).cookie;
+    partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
+    sysadminCookie = (await loginAs(app, "zhaokai@lexflow.demo")).cookie;
+    viewerCookie = (await loginAs(app, "hejing@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     const items = (list.json as { result: { data: { items: { id: string; code: string }[] } } }).result.data.items;
     projectAId = items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;
@@ -135,7 +135,7 @@ describe("迭代 6 · 工单 03b（R1 修复 / 状态列切换 / 流程项目绑
     const current = await trpc(app, "plan.current", { cookie: pmCookie, method: "GET", input: { projectId: projectBId } });
     const target = (current.json as { result: { data: { items: { itemType: string; refId: string }[] } } })
       .result.data.items.find((i) => i.itemType === "task")!;
-    const archivistCookie = (await loginAs(app, "archivist@lexflow.demo")).cookie;
+    const archivistCookie = (await loginAs(app, "wangying@lexflow.demo")).cookie;
     const created = await trpc(app, "change.create", {
       cookie: pmCookie,
       input: {

@@ -44,21 +44,21 @@ describe("迭代6-09c：负责人变更 + 搜索分组 + createTemplate", () => 
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
-    sysadminCookie = (await loginAs(app, "sysadmin@lexflow.demo")).cookie;
-    viewerCookie = (await loginAs(app, "viewer@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
+    sysadminCookie = (await loginAs(app, "zhaokai@lexflow.demo")).cookie;
+    viewerCookie = (await loginAs(app, "hejing@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     const items = (list.json as { result: { data: { items: { id: string; code: string }[] } } }).result.data.items;
     projectAId = items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;
     const users = await query<{ id: string; email: string }>(
-      `SELECT id, email FROM users WHERE email IN ('pm@lexflow.demo','liuchang@lexflow.demo','viewer@lexflow.demo','partner@lexflow.demo')`,
+      `SELECT id, email FROM users WHERE email IN ('wangbaozhuo@lexflow.demo','zhangchen@lexflow.demo','hejing@lexflow.demo','liangqifeng@lexflow.demo')`,
     );
-    pmUserId = users.find((u) => u.email === "pm@lexflow.demo")!.id;
-    liuchangUserId = users.find((u) => u.email === "liuchang@lexflow.demo")!.id;
-    viewerUserId = users.find((u) => u.email === "viewer@lexflow.demo")!.id;
-    partnerUserId = users.find((u) => u.email === "partner@lexflow.demo")!.id;
+    pmUserId = users.find((u) => u.email === "wangbaozhuo@lexflow.demo")!.id;
+    liuchangUserId = users.find((u) => u.email === "zhangchen@lexflow.demo")!.id;
+    viewerUserId = users.find((u) => u.email === "hejing@lexflow.demo")!.id;
+    partnerUserId = users.find((u) => u.email === "liangqifeng@lexflow.demo")!.id;
   });
 
   afterAll(async () => {

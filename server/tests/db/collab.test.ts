@@ -121,7 +121,7 @@ describe("会议与出差种子及约束", () => {
         .select({ id: projects.id })
         .from(projects)
         .where(eq(projects.code, `PRJ-${YEAR}-00001`));
-      const pm = await db.select({ id: users.id }).from(users).where(eq(users.email, "pm@lexflow.demo"));
+      const pm = await db.select({ id: users.id }).from(users).where(eq(users.email, "wangbaozhuo@lexflow.demo"));
       const base = {
         projectId: project[0].id,
         code: `MTG-${YEAR}-90001`,
@@ -156,7 +156,7 @@ describe("会议与出差种子及约束", () => {
       // 两空：user_id 与 external_name 都空 → 必败
       await expectPgViolation(db.insert(meetingParticipants).values({ meetingId }), "23514");
       // 两非空：既是内部又是外部 → 必败
-      const pm = await db.select({ id: users.id }).from(users).where(eq(users.email, "pm@lexflow.demo"));
+      const pm = await db.select({ id: users.id }).from(users).where(eq(users.email, "wangbaozhuo@lexflow.demo"));
       await expectPgViolation(
         db.insert(meetingParticipants).values({ meetingId, userId: pm[0].id, externalName: "张三" }),
         "23514",
@@ -185,7 +185,7 @@ describe("会议与出差种子及约束", () => {
         .select({ id: meetings.id })
         .from(meetings)
         .where(eq(meetings.code, `MTG-${YEAR}-00002`));
-      const member = await db.select({ id: users.id }).from(users).where(eq(users.email, "member@lexflow.demo"));
+      const member = await db.select({ id: users.id }).from(users).where(eq(users.email, "guanchen@lexflow.demo"));
       const existing = await db
         .select({ versionNo: meetingMinutes.versionNo })
         .from(meetingMinutes)
@@ -220,8 +220,8 @@ describe("会议与出差种子及约束", () => {
     const { db, pool } = await openDb();
     try {
       // ① access_grant_status 增 rejected 可写
-      const member = await db.select({ id: users.id }).from(users).where(eq(users.email, "member@lexflow.demo"));
-      const pm = await db.select({ id: users.id }).from(users).where(eq(users.email, "pm@lexflow.demo"));
+      const member = await db.select({ id: users.id }).from(users).where(eq(users.email, "guanchen@lexflow.demo"));
+      const pm = await db.select({ id: users.id }).from(users).where(eq(users.email, "wangbaozhuo@lexflow.demo"));
       await expect(
         db
           .insert(accessGrants)

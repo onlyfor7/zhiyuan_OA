@@ -43,11 +43,11 @@ async function approveInstance(
     if (!step) return;
     const approverCookie =
       step.approverRole === "partner"
-        ? (await loginAs(app, "partner@lexflow.demo")).cookie
+        ? (await loginAs(app, "liangqifeng@lexflow.demo")).cookie
         : step.approverRole === "finance"
-          ? (await loginAs(app, "finance@lexflow.demo")).cookie
+          ? (await loginAs(app, "guojingwen@lexflow.demo")).cookie
           : step.approverRole === "project_manager"
-            ? (await loginAs(app, "pm@lexflow.demo")).cookie
+            ? (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie
             : cookie;
     const acted = await trpc(app, "approval.act", {
       cookie: approverCookie,
@@ -108,9 +108,9 @@ describe("迭代 3 费用域（C4–C11 红线全覆盖）", () => {
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    financeCookie = (await loginAs(app, "finance@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    financeCookie = (await loginAs(app, "guojingwen@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     const items = (list.json as { result: { data: { items: { id: string; code: string }[] } } }).result.data.items;
     projectAId = items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;

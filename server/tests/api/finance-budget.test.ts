@@ -36,11 +36,11 @@ async function approveInstance(
     if (!step) return;
     const approverCookie =
       step.approverRole === "partner"
-        ? (await loginAs(app, "partner@lexflow.demo")).cookie
+        ? (await loginAs(app, "liangqifeng@lexflow.demo")).cookie
         : step.approverRole === "finance"
-          ? (await loginAs(app, "finance@lexflow.demo")).cookie
+          ? (await loginAs(app, "guojingwen@lexflow.demo")).cookie
           : step.approverRole === "project_manager"
-            ? (await loginAs(app, "pm@lexflow.demo")).cookie
+            ? (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie
             : cookie;
     const acted = await trpc(app, "approval.act", {
       cookie: approverCookie,
@@ -61,9 +61,9 @@ describe("迭代 3 预算域与台账（C1/C3）", () => {
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     const items = (list.json as { result: { data: { items: { id: string; code: string }[] } } }).result.data.items;
     projectAId = items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;
@@ -131,8 +131,10 @@ describe("迭代 3 预算域与台账（C1/C3）", () => {
 
   it("C1 预算生命周期：创建→生效（ACTIVATED marker）→调整新版本（ADJUSTED+旧版 superseded）→关闭", async () => {
     // 项目 C 无预算：overview 预算摘要 hasBudget=false（「未设预算」≠ 余额零）
+    // （C=佳力奇由 sunhaoxiang 负责；partner 非成员不可见——用项目负责人身份取证）
+    const sunCookie = (await loginAs(app, "sunhaoxiang@lexflow.demo")).cookie;
     const overviewBefore = await trpc(app, "project.overview", {
-      cookie: partnerCookie,
+      cookie: sunCookie,
       method: "GET",
       input: { projectId: projectCId },
     });

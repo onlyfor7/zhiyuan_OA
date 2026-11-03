@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import type { ExtractTablesWithRelations } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import type { NodePgDatabase, NodePgTransaction } from "drizzle-orm/node-postgres";
@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import { hashPassword } from "../../lib/password";
 import { loadEnvFile, requireDatabaseUrl } from "../env";
 import * as schema from "../schema";
-import { clients, matters, orgUnits, projectMembers, projects, roles, systemConfig, userRoles, users } from "../schema";
+import { clients, matters, orgUnits, archiveDirectories, projectMembers, projects, roles, systemConfig, userRoles, users } from "../schema";
 import { SYSTEM_CONFIG_DEFAULTS } from "./config-defaults";
 import { seedClosure } from "./closure";
 import { seedCollab } from "./collab";
@@ -24,7 +24,7 @@ type DbOrTx =
 const DEMO_PASSWORD = "Demo@2026";
 const YEAR = new Date().getFullYear();
 
-/** 组织树：1 律所 + 3 部门（arch/00 §8） */
+/** 组织树：1 组织 + 3 部门（arch/00 §8） */
 const ORG_FIRM = "示例律师事务所";
 const ORG_DEPARTMENTS = ["诉讼业务部", "非诉业务部", "综合管理部"] as const;
 
@@ -43,85 +43,161 @@ const ROLE_SEED = [
 interface UserSeed {
   email: string;
   name: string;
-  roleKey: string;
+  roleKeys: string[];
   org?: string;
 }
 
-/** ≥10 用户，口令统一 Demo@2026（arch/00 §8） */
+/**
+ * 用户名单（arch/11 G1，2026-10-30 用户指定，全虚构演示口径；口令统一 Demo@2026）。
+ * 邮箱=姓名拼音全小写；梁奇烽双挂 partner+quality_lead。
+ */
 const USER_SEED: UserSeed[] = [
-  { email: "pm@lexflow.demo", name: "陈立", roleKey: "project_manager", org: "诉讼业务部" },
-  { email: "member@lexflow.demo", name: "林晓", roleKey: "member", org: "诉讼业务部" },
-  { email: "partner@lexflow.demo", name: "周正", roleKey: "partner", org: "综合管理部" },
-  { email: "finance@lexflow.demo", name: "吴敏", roleKey: "finance", org: "综合管理部" },
-  { email: "archivist@lexflow.demo", name: "郑楠", roleKey: "archivist", org: "综合管理部" },
-  { email: "sysadmin@lexflow.demo", name: "赵凯", roleKey: "sysadmin", org: "综合管理部" },
-  { email: "quality@lexflow.demo", name: "孙倩", roleKey: "quality_lead", org: "非诉业务部" },
-  { email: "viewer@lexflow.demo", name: "何静", roleKey: "viewer" },
-  { email: "liuchang@lexflow.demo", name: "刘畅", roleKey: "member", org: "诉讼业务部" },
-  { email: "huanglei@lexflow.demo", name: "黄蕾", roleKey: "member", org: "诉讼业务部" },
-  { email: "xubin@lexflow.demo", name: "徐斌", roleKey: "member", org: "非诉业务部" },
-  { email: "mayue@lexflow.demo", name: "马悦", roleKey: "member", org: "综合管理部" },
-];
-
-/** 2 客户（虚构，arch/00 §8；仅 full 档） */
-const CLIENT_SEED = [
-  { code: `CLT-${YEAR}-00001`, name: "华宸贸易有限公司", level: "internal" as const },
-  { code: `CLT-${YEAR}-00002`, name: "星澜科技有限公司", level: "confidential" as const },
-];
-
-/** 2 事项（仅 full 档） */
-const MATTER_SEED = [
-  { code: `MTR-${YEAR}-00001`, clientCode: `CLT-${YEAR}-00001`, name: "华宸贸易合同纠纷", type: "诉讼" },
-  { code: `MTR-${YEAR}-00002`, clientCode: `CLT-${YEAR}-00002`, name: "星澜科技常年法律顾问", type: "非诉" },
+  { email: "liangqifeng@lexflow.demo", name: "梁奇烽", roleKeys: ["partner", "quality_lead"], org: "综合管理部" },
+  { email: "wangbaozhuo@lexflow.demo", name: "王宝茁", roleKeys: ["project_manager"], org: "诉讼业务部" },
+  { email: "wangjiayu@lexflow.demo", name: "王家玉", roleKeys: ["project_manager"], org: "诉讼业务部" },
+  { email: "sunhaoxiang@lexflow.demo", name: "孙浩祥", roleKeys: ["project_manager"], org: "诉讼业务部" },
+  { email: "liaoyimin@lexflow.demo", name: "廖益敏", roleKeys: ["project_manager"], org: "诉讼业务部" },
+  { email: "huoda@lexflow.demo", name: "霍达", roleKeys: ["project_manager"], org: "非诉业务部" },
+  { email: "maozhenyu@lexflow.demo", name: "毛振宇", roleKeys: ["project_manager"], org: "非诉业务部" },
+  { email: "lijie@lexflow.demo", name: "李洁", roleKeys: ["project_manager"], org: "非诉业务部" },
+  { email: "guanchen@lexflow.demo", name: "管晨", roleKeys: ["member"], org: "诉讼业务部" },
+  { email: "zhangchen@lexflow.demo", name: "张琛", roleKeys: ["member"], org: "诉讼业务部" },
+  { email: "lijianwei@lexflow.demo", name: "李见微", roleKeys: ["member"], org: "诉讼业务部" },
+  { email: "zhaofengxue@lexflow.demo", name: "赵凤学", roleKeys: ["member"], org: "诉讼业务部" },
+  { email: "chenyue@lexflow.demo", name: "陈玥", roleKeys: ["member"], org: "诉讼业务部" },
+  { email: "tianyiming@lexflow.demo", name: "田伊铭", roleKeys: ["member"], org: "诉讼业务部" },
+  { email: "niuchenchen@lexflow.demo", name: "牛琛琛", roleKeys: ["member"], org: "诉讼业务部" },
+  { email: "caojiani@lexflow.demo", name: "曹佳妮", roleKeys: ["member"], org: "非诉业务部" },
+  { email: "lishuo@lexflow.demo", name: "李硕", roleKeys: ["member"], org: "非诉业务部" },
+  { email: "liumingle@lexflow.demo", name: "刘明乐", roleKeys: ["member"], org: "非诉业务部" },
+  { email: "guojingwen@lexflow.demo", name: "郭静文", roleKeys: ["finance"], org: "综合管理部" },
+  { email: "wangying@lexflow.demo", name: "王颖", roleKeys: ["archivist"], org: "综合管理部" },
+  { email: "zhaokai@lexflow.demo", name: "赵凯", roleKeys: ["sysadmin"], org: "综合管理部" },
+  { email: "hejing@lexflow.demo", name: "何静", roleKeys: ["viewer"] },
 ];
 
 /**
- * 3 项目（验收场景布局，工单 00 §迭代验收场景 1/2；仅 full 档）：
- * pm 是 A/B 负责人；member 仅是 A 成员；C 对二者均不可见（负责人为 partner）。
+ * 5 客户 + 5 事项 + 5 项目（arch/11 G1 名单配套，虚构演示口径）。
+ * 权限验收布局保持（工单 00 场景 1/2 语义）：王宝茁负责 00001 且为 00002 成员（可见两个）；
+ * 管晨仅 00001 成员；00003 对二者均不可见。
  */
+const ARCHIVE_DIRECTORIES = [
+  { dirKey: "01_立项与授权", name: "立项与授权", seq: 1 },
+  { dirKey: "02_计划基线与变更", name: "计划基线与变更", seq: 2 },
+  { dirKey: "03_过程文件", name: "过程文件", seq: 3 },
+  { dirKey: "04_质量检查与问题", name: "质量检查与问题", seq: 4 },
+  { dirKey: "05_风险与决策", name: "风险与决策", seq: 5 },
+  { dirKey: "06_周报与月报", name: "周报与月报", seq: 6 },
+  { dirKey: "07_交付与验收", name: "交付与验收", seq: 7 },
+  { dirKey: "08_结项与复盘", name: "结项与复盘", seq: 8 },
+  { dirKey: "09_会议纪要与协同", name: "会议纪要与协同", seq: 9 },
+  { dirKey: "10_出差与费用", name: "出差与费用", seq: 10 },
+  { dirKey: "11_预算与经费", name: "预算与经费", seq: 11 },
+];
+
+async function ensureArchiveDirs(tx: DbOrTx, projectId: string): Promise<void> {
+  for (const dir of ARCHIVE_DIRECTORIES) {
+    const existing = await tx
+      .select({ id: archiveDirectories.id })
+      .from(archiveDirectories)
+      .where(and(eq(archiveDirectories.projectId, projectId), eq(archiveDirectories.dirKey, dir.dirKey)));
+    if (!existing[0]) {
+      await tx.insert(archiveDirectories).values({ projectId, ...dir });
+    }
+  }
+}
+
+const CLIENT_SEED = [
+  { code: `CLT-${YEAR}-00001`, name: "比博思特（虚构）", level: "internal" as const },
+  { code: `CLT-${YEAR}-00002`, name: "金通灵（虚构）", level: "confidential" as const },
+  { code: `CLT-${YEAR}-00003`, name: "佳力奇（虚构）", level: "internal" as const },
+  { code: `CLT-${YEAR}-00004`, name: "合规运作规则引擎上市公司（虚构）", level: "confidential" as const },
+  { code: `CLT-${YEAR}-00005`, name: "GD（虚构）", level: "internal" as const },
+];
+
+const MATTER_SEED = [
+  { code: `MTR-${YEAR}-00001`, clientCode: `CLT-${YEAR}-00001`, name: "比博思特技术服务", type: "技术服务" },
+  { code: `MTR-${YEAR}-00002`, clientCode: `CLT-${YEAR}-00002`, name: "金通灵技术服务", type: "技术服务" },
+  { code: `MTR-${YEAR}-00003`, clientCode: `CLT-${YEAR}-00003`, name: "佳力奇技术服务", type: "技术服务" },
+  { code: `MTR-${YEAR}-00004`, clientCode: `CLT-${YEAR}-00004`, name: "合规运作规则引擎上市公司 1.0", type: "软件开发" },
+  { code: `MTR-${YEAR}-00005`, clientCode: `CLT-${YEAR}-00005`, name: "GD 法律服务", type: "法律服务" },
+];
+
 const PROJECT_SEED = [
   {
     code: `PRJ-${YEAR}-00001`,
     matterCode: `MTR-${YEAR}-00001`,
-    name: "华宸贸易合同纠纷代理·一审",
-    type: "诉讼",
-    managerEmail: "pm@lexflow.demo",
+    name: "比博思特技术服务项目",
+    type: "技术服务",
+    managerEmail: "wangbaozhuo@lexflow.demo",
     level: "internal" as const,
     lifecycle: "in_progress" as const,
     health: "normal" as const,
     members: [
-      { email: "pm@lexflow.demo", projectRole: "manager" },
-      { email: "member@lexflow.demo", projectRole: "member" },
-      { email: "liuchang@lexflow.demo", projectRole: "member" },
-      { email: "huanglei@lexflow.demo", projectRole: "member" },
+      { email: "wangbaozhuo@lexflow.demo", projectRole: "manager" },
+      { email: "guanchen@lexflow.demo", projectRole: "member" },
+      { email: "zhangchen@lexflow.demo", projectRole: "member" },
+      { email: "lijianwei@lexflow.demo", projectRole: "member" },
     ],
   },
   {
     code: `PRJ-${YEAR}-00002`,
     matterCode: `MTR-${YEAR}-00002`,
-    name: "星澜科技常年法律顾问服务",
-    type: "非诉",
-    managerEmail: "pm@lexflow.demo",
+    name: "金通灵技术服务项目",
+    type: "技术服务",
+    managerEmail: "wangjiayu@lexflow.demo",
     level: "confidential" as const,
     lifecycle: "in_progress" as const,
     health: "warning" as const,
     members: [
-      { email: "pm@lexflow.demo", projectRole: "manager" },
-      { email: "xubin@lexflow.demo", projectRole: "member" },
+      { email: "wangjiayu@lexflow.demo", projectRole: "manager" },
+      { email: "wangbaozhuo@lexflow.demo", projectRole: "member" },
+      { email: "zhaofengxue@lexflow.demo", projectRole: "member" },
     ],
   },
   {
     code: `PRJ-${YEAR}-00003`,
-    matterCode: `MTR-${YEAR}-00001`,
-    name: "华宸贸易合同纠纷·执行阶段",
-    type: "诉讼",
-    managerEmail: "partner@lexflow.demo",
-    level: "secret" as const,
+    matterCode: `MTR-${YEAR}-00003`,
+    name: "佳力奇技术服务项目",
+    type: "技术服务",
+    managerEmail: "sunhaoxiang@lexflow.demo",
+    level: "internal" as const,
     lifecycle: "preparing" as const,
     health: "normal" as const,
     members: [
-      { email: "partner@lexflow.demo", projectRole: "manager" },
-      { email: "mayue@lexflow.demo", projectRole: "member" },
+      { email: "sunhaoxiang@lexflow.demo", projectRole: "manager" },
+      { email: "tianyiming@lexflow.demo", projectRole: "member" },
+    ],
+  },
+  {
+    code: `PRJ-${YEAR}-00004`,
+    matterCode: `MTR-${YEAR}-00004`,
+    name: "合规运作规则引擎上市公司 1.0 项目",
+    type: "软件开发",
+    managerEmail: "liaoyimin@lexflow.demo",
+    level: "confidential" as const,
+    lifecycle: "in_progress" as const,
+    health: "at_risk" as const,
+    members: [
+      { email: "liaoyimin@lexflow.demo", projectRole: "manager" },
+      { email: "chenyue@lexflow.demo", projectRole: "member" },
+      { email: "niuchenchen@lexflow.demo", projectRole: "member" },
+    ],
+  },
+  {
+    code: `PRJ-${YEAR}-00005`,
+    matterCode: `MTR-${YEAR}-00005`,
+    name: "GD 法律服务项目",
+    type: "法律服务",
+    managerEmail: "huoda@lexflow.demo",
+    level: "public" as const,
+    lifecycle: "preparing" as const,
+    health: "normal" as const,
+    members: [
+      { email: "huoda@lexflow.demo", projectRole: "manager" },
+      { email: "caojiani@lexflow.demo", projectRole: "member" },
+      { email: "lishuo@lexflow.demo", projectRole: "member" },
+      { email: "liumingle@lexflow.demo", projectRole: "member" },
     ],
   },
 ];
@@ -162,8 +238,8 @@ export type SeedProfile = "full" | "minimal";
 
 /** 全部编号前缀水位（minimal 档亦建全表，full 档经 GREATEST 上移不冲突） */
 const WATER_FLOORS: Array<[string, number]> = [
-  ["CLT", 4],
-  ["MTR", 4],
+  ["CLT", 6],
+  ["MTR", 6],
   ["PRJ", 6],
   ["STG", 11],
   ["MLS", 4],
@@ -211,17 +287,19 @@ async function seedFoundation(tx: DbOrTx): Promise<void> {
       .onConflictDoNothing();
   }
 
-  // 用户 + 全局角色分配（二次执行不重复建行、不重算口令散列）
+  // 用户 + 全局角色分配（二次执行不重复建行、不重算口令散列；支持双角色）
   const passwordHash = hashPassword(DEMO_PASSWORD);
   const userIds = new Map<string, string>();
   for (const userSeed of USER_SEED) {
     const orgId = userSeed.org ? deptIds.get(userSeed.org) : undefined;
     const userId = await ensureUser(tx, userSeed, orgId, passwordHash);
     userIds.set(userSeed.email, userId);
-    await tx.insert(userRoles).values({ userId, roleKey: userSeed.roleKey }).onConflictDoNothing();
+    for (const roleKey of userSeed.roleKeys) {
+      await tx.insert(userRoles).values({ userId, roleKey }).onConflictDoNothing();
+    }
   }
-  if (!userIds.get("pm@lexflow.demo")) throw new Error("种子用户 pm@lexflow.demo 缺失");
-  const pmId = userIds.get("pm@lexflow.demo")!;
+  if (!userIds.get("wangbaozhuo@lexflow.demo")) throw new Error("种子用户 wangbaozhuo@lexflow.demo 缺失");
+  const pmId = userIds.get("wangbaozhuo@lexflow.demo")!;
 
   // system_config 默认配置（需求基线 §18 全量 + 迭代 4/6 增补键）
   for (const config of SYSTEM_CONFIG_DEFAULTS) {
@@ -242,7 +320,7 @@ async function seedDemoFoundation(tx: DbOrTx): Promise<void> {
     const row = await tx.select({ id: users.id }).from(users).where(eq(users.email, userSeed.email));
     if (row[0]) userIds.set(userSeed.email, row[0].id);
   }
-  const pmId = userIds.get("pm@lexflow.demo")!;
+  const pmId = userIds.get("wangbaozhuo@lexflow.demo")!;
   const clientIds = new Map<string, string>();
   for (const client of CLIENT_SEED) {
     const id = await idByCode(
@@ -318,6 +396,8 @@ async function seedDemoFoundation(tx: DbOrTx): Promise<void> {
         .values({ projectId, userId: memberId, projectRole: member.projectRole })
         .onConflictDoNothing();
     }
+    // 十一项目档案目录（§12.1；5 项目各一套，仅 full 档）
+    await ensureArchiveDirs(tx, projectId);
   }
 }
 

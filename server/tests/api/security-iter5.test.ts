@@ -40,9 +40,9 @@ describe("迭代 5 安全与运维收口（arch/08 §3 服务端矩阵 + 收口�
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    sysadminCookie = (await loginAs(app, "sysadmin@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    sysadminCookie = (await loginAs(app, "zhaokai@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     projectAId = (list.json as { result: { data: { items: { id: string; code: string }[] } } })
       .result.data.items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;
@@ -54,12 +54,12 @@ describe("迭代 5 安全与运维收口（arch/08 §3 服务端矩阵 + 收口�
 
   it("会话滑动续期：距到期 <2h 顺延至 8h；过期/停用照旧立即失效", async () => {
     const login = await trpc(app, "auth.login", {
-      input: { email: "mayue@lexflow.demo", password: "Demo@2026" },
+      input: { email: "tianyiming@lexflow.demo", password: "Demo@2026" },
     });
     const cookie = login.setCookies.find((l) => l.startsWith("lexflow_session="))!.split(";")[0];
     const sessionId = (
       await query<{ id: string }>(
-        `SELECT s.id FROM sessions s JOIN users u ON u.id = s.user_id WHERE u.email = 'mayue@lexflow.demo' ORDER BY s.created_at DESC LIMIT 1`,
+        `SELECT s.id FROM sessions s JOIN users u ON u.id = s.user_id WHERE u.email = 'tianyiming@lexflow.demo' ORDER BY s.created_at DESC LIMIT 1`,
       )
     )[0].id;
 
@@ -90,11 +90,11 @@ describe("迭代 5 安全与运维收口（arch/08 §3 服务端矩阵 + 收口�
     expect(expired.status).toBe(401);
 
     // 停用账号会话即时失效（回归）
-    const fresh = await loginAs(app, "mayue@lexflow.demo");
-    await query(`UPDATE users SET status = 'disabled' WHERE email = 'mayue@lexflow.demo'`);
+    const fresh = await loginAs(app, "tianyiming@lexflow.demo");
+    await query(`UPDATE users SET status = 'disabled' WHERE email = 'tianyiming@lexflow.demo'`);
     const disabled = await trpc(app, "auth.me", { cookie: fresh.cookie, method: "GET" });
     expect(disabled.status).toBe(401);
-    await query(`UPDATE users SET status = 'active' WHERE email = 'mayue@lexflow.demo'`);
+    await query(`UPDATE users SET status = 'active' WHERE email = 'tianyiming@lexflow.demo'`);
   });
 
   it("孤儿文件清理（R5 拆端点）：dry-run=GET 只读；实删=POST mutation；权限与审计齐备", async () => {
@@ -213,7 +213,7 @@ describe("迭代 5 安全与运维收口（arch/08 §3 服务端矩阵 + 收口�
 
     // 篡改 userId（水平越权读他人报销）：member 读 pm 的报销 → 404 同形
     const pmExpense = await query<{ id: string }>(
-      `SELECT er.id FROM expense_reports er WHERE er.applicant_id = (SELECT id FROM users WHERE email='pm@lexflow.demo') LIMIT 1`,
+      `SELECT er.id FROM expense_reports er WHERE er.applicant_id = (SELECT id FROM users WHERE email='wangbaozhuo@lexflow.demo') LIMIT 1`,
     );
     if (pmExpense[0]) {
       const denied = await trpc(app, "expense.getById", { cookie: memberCookie, input: { id: pmExpense[0].id }, method: "GET" });
@@ -277,7 +277,7 @@ describe("迭代 5 安全与运维收口（arch/08 §3 服务端矩阵 + 收口�
     expect(upload.status).toBe(400);
 
     // CSRF 面：cookie SameSite=Lax 保持（无 JSON CSRF 面评估结论见 docs/安全与运维说明.md）
-    const setCookie = (await trpc(app, "auth.login", { input: { email: "pm@lexflow.demo", password: "Demo@2026" } }))
+    const setCookie = (await trpc(app, "auth.login", { input: { email: "wangbaozhuo@lexflow.demo", password: "Demo@2026" } }))
       .setCookies.find((l) => l.startsWith("lexflow_session="));
     expect(setCookie).toContain("SameSite=Lax");
   });

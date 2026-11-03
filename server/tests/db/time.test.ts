@@ -60,7 +60,7 @@ describe("工时域种子与约束", () => {
     expect(counts.timesheet_periods).toBe(3);
     expect(counts.time_entries).toBe(13); // A×4 + B×6 + C×3
     expect(counts.code_sequences).toBe(19); // 17 + CLT/MTR/PRJ/FND/EXP/LED 水位
-    expect(counts.system_config).toBe(14); // 13 + generic_request.types
+    expect(counts.system_config).toBe(15); // 14 + timesheet.step_minutes（arch/11） // 13 + generic_request.types
 
     const { db, pool } = await openDb();
     try {
@@ -80,8 +80,8 @@ describe("工时域种子与约束", () => {
         [`TS-${YEAR}-00003`, "locked"],
       ]);
       // D2/D3/D4 演示态：B 审批人=pm（主项目 manager 解析结果），C 审批人=partner（pm→partner 不得自审）
-      expect(periods[1].approver).toBe("pm@lexflow.demo");
-      expect(periods[2].approver).toBe("partner@lexflow.demo");
+      expect(periods[1].approver).toBe("wangbaozhuo@lexflow.demo");
+      expect(periods[2].approver).toBe("liangqifeng@lexflow.demo");
       expect(periods[2].lockReason).toContain("D4");
 
       // 预填样例：source=prefill_meeting 的草稿明细存在且属于 draft 周期
@@ -98,7 +98,7 @@ describe("工时域种子与约束", () => {
         .select({ valueJson: schema.systemConfig.valueJson })
         .from(schema.systemConfig)
         .where(eq(schema.systemConfig.key, "timesheet.default_approver"));
-      expect((cfg[0].valueJson as { approverEmail: string }).approverEmail).toBe("partner@lexflow.demo");
+      expect((cfg[0].valueJson as { approverEmail: string }).approverEmail).toBe("liangqifeng@lexflow.demo");
     } finally {
       await pool.end();
     }
@@ -113,7 +113,7 @@ describe("工时域种子与约束", () => {
   it("unique(user_id, period_start)：同用户同周期起日双周期必败", async () => {
     const { db, pool } = await openDb();
     try {
-      const member = await db.select({ id: users.id }).from(users).where(eq(users.email, "member@lexflow.demo"));
+      const member = await db.select({ id: users.id }).from(users).where(eq(users.email, "guanchen@lexflow.demo"));
       const period = await db
         .select({ periodStart: timesheetPeriods.periodStart })
         .from(timesheetPeriods)
@@ -139,7 +139,7 @@ describe("工时域种子与约束", () => {
         .select({ id: timesheetPeriods.id })
         .from(timesheetPeriods)
         .where(eq(timesheetPeriods.code, `TS-${YEAR}-00001`));
-      const member = await db.select({ id: users.id }).from(users).where(eq(users.email, "member@lexflow.demo"));
+      const member = await db.select({ id: users.id }).from(users).where(eq(users.email, "guanchen@lexflow.demo"));
       const projectA = await db
         .select({ id: projects.id })
         .from(projects)
@@ -206,7 +206,7 @@ describe("工时域种子与约束", () => {
   it("枚举值可写：timesheet_status 五态与 time_entry_source 四态", async () => {
     const { db, pool } = await openDb();
     try {
-      const member = await db.select({ id: users.id }).from(users).where(eq(users.email, "member@lexflow.demo"));
+      const member = await db.select({ id: users.id }).from(users).where(eq(users.email, "guanchen@lexflow.demo"));
       const statuses = ["draft", "pending_approval", "approved", "returned", "locked"] as const;
       for (const [i, status] of statuses.entries()) {
         await expect(

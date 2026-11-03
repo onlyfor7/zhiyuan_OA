@@ -87,10 +87,10 @@ async function projectIdByCode(tx: SeedTx, code: string): Promise<string> {
 }
 
 export async function seedCollab(tx: SeedTx): Promise<void> {
-  const pmId = await userIdByEmail(tx, "pm@lexflow.demo");
-  const memberId = await userIdByEmail(tx, "member@lexflow.demo");
-  const liuchangId = await userIdByEmail(tx, "liuchang@lexflow.demo");
-  const huangleiId = await userIdByEmail(tx, "huanglei@lexflow.demo");
+  const pmId = await userIdByEmail(tx, "wangbaozhuo@lexflow.demo");
+  const memberId = await userIdByEmail(tx, "guanchen@lexflow.demo");
+  const liuchangId = await userIdByEmail(tx, "zhangchen@lexflow.demo");
+  const huangleiId = await userIdByEmail(tx, "lijianwei@lexflow.demo");
   const projectAId = await projectIdByCode(tx, `PRJ-${YEAR}-00001`);
 
   // 审批策略（arch/05 §7 四条）
@@ -125,8 +125,8 @@ export async function seedCollab(tx: SeedTx): Promise<void> {
         projectId: projectAId,
         code: m1Code,
         type: "project",
-        subject: "庭前准备会议",
-        agenda: "1. 证据交换安排\n2. 证人出庭方案\n3. 庭前会议提纲分工",
+        subject: "比博思特项目启动会",
+        agenda: "1. 需求范围确认\n2. 接口联调方案\n3. 里程碑分工",
         startAt: at(addDays(TODAY, 3), 6),
         endAt: at(addDays(TODAY, 3), 8),
         location: "第一会议室",
@@ -144,7 +144,7 @@ export async function seedCollab(tx: SeedTx): Promise<void> {
       { meetingId: m1Id, userId: memberId, role: "required" },
       { meetingId: m1Id, userId: liuchangId, role: "optional" },
       { meetingId: m1Id, userId: huangleiId, role: "optional" },
-      { meetingId: m1Id, externalName: "张伟", externalOrg: "华宸贸易有限公司", role: "required", notifyContact: "zhangwei@huachen.example" },
+      { meetingId: m1Id, externalName: "张伟", externalOrg: "比博思特（虚构）", role: "required", notifyContact: "zhangwei@bibosite.example" },
     ]);
   }
 
@@ -187,9 +187,9 @@ export async function seedCollab(tx: SeedTx): Promise<void> {
       .values({
         meetingId: m2Id,
         versionNo: 1,
-        body: "本周完成证据交换材料初核；庭前会议提纲未完成，转下周跟进。",
+        body: "本周完成接口文档初核；联调计划编制未完成，转下周跟进。",
         disagreements: null,
-        risks: "证人出庭时间尚未最终确认。",
+        risks: "客户接口人时间尚未最终确认。",
         recorderId: memberId,
         createdBy: memberId,
       })
@@ -209,8 +209,8 @@ export async function seedCollab(tx: SeedTx): Promise<void> {
         projectId: projectAId,
         code: m3Code,
         type: "quality_review",
-        subject: "证据链质量复核会",
-        agenda: "1. 严重问题复核意见\n2. 补充证据安排\n3. 行动项确认",
+        subject: "数据质量复核会",
+        agenda: "1. 严重问题复核意见\n2. 数据修复安排\n3. 行动项确认",
         startAt: start,
         endAt: at(addDays(TODAY, -11), 8),
         location: "第二会议室",
@@ -236,8 +236,8 @@ export async function seedCollab(tx: SeedTx): Promise<void> {
       .values({
         meetingId: m3Id,
         versionNo: 1,
-        body: "复核结论：证据链缺口需在一周内补充证人询问笔录；文书编号问题已关闭。",
-        disagreements: "对是否追加鉴定存在分歧，转决策单跟踪。",
+        body: "复核结论：接口数据不一致需在一周内完成字段映射修复；文档编号问题已关闭。",
+        disagreements: "对是否引入第三方数据服务存在分歧，转决策单跟踪。",
         risks: "证人配合度不确定。",
         recorderId: pmId,
         confirmerId: pmId,
@@ -251,11 +251,11 @@ export async function seedCollab(tx: SeedTx): Promise<void> {
     await tx.insert(meetingActionItems).values({
       meetingId: m3Id,
       minutesVersionId,
-      title: "补充证人询问笔录",
+      title: "完成接口字段映射修复",
       ownerId: memberId,
       dueDate: fmt(addDays(TODAY, 2)),
-      deliverable: "询问笔录扫描件",
-      checkpoint: "提交前由陈立检查",
+      deliverable: "字段映射修复说明",
+      checkpoint: "提交前由王宝茁检查",
       status: "open",
       createdBy: pmId,
       updatedBy: pmId,
@@ -266,7 +266,7 @@ export async function seedCollab(tx: SeedTx): Promise<void> {
       .values({
         meetingId: m3Id,
         minutesVersionId,
-        title: "整理客户证据交接清单",
+        title: "整理客户数据交接清单",
         ownerId: liuchangId,
         dueDate: fmt(addDays(TODAY, 5)),
         status: "converted",
@@ -280,7 +280,7 @@ export async function seedCollab(tx: SeedTx): Promise<void> {
       .values({
         projectId: projectAId,
         code: `TSK-${YEAR}-00012`,
-        title: "整理客户证据交接清单",
+        title: "整理客户数据交接清单",
         assigneeId: liuchangId,
         plannedStart: fmt(TODAY),
         plannedEnd: fmt(addDays(TODAY, 5)),
@@ -310,7 +310,7 @@ export async function seedCollab(tx: SeedTx): Promise<void> {
         projectId: projectAId,
         code: t1Code,
         applicantId: memberId,
-        reason: "外地证据调取与证人访谈",
+        reason: "外地现场调研与客户访谈",
         destination: "杭州市",
         startOn: fmt(addDays(TODAY, -15)),
         endOn: fmt(addDays(TODAY, -13)),
@@ -324,7 +324,7 @@ export async function seedCollab(tx: SeedTx): Promise<void> {
     const travelId = inserted[0].id;
     await tx.insert(travelSegments).values([
       { travelRequestId: travelId, seq: 1, type: "transport", startAt: at(addDays(TODAY, -15), 0), endAt: at(addDays(TODAY, -15), 4), fromPlace: "上海", toPlace: "杭州", description: "高铁前往" },
-      { travelRequestId: travelId, seq: 2, type: "client_site", startAt: at(addDays(TODAY, -15), 6), endAt: at(addDays(TODAY, -13), 9), fromPlace: "华宸贸易杭州办事处", toPlace: null, description: "现场取证与证人访谈" },
+      { travelRequestId: travelId, seq: 2, type: "client_site", startAt: at(addDays(TODAY, -15), 6), endAt: at(addDays(TODAY, -13), 9), fromPlace: "比博思特杭州办事处", toPlace: null, description: "现场调研与客户访谈" },
       { travelRequestId: travelId, seq: 3, type: "transport", startAt: at(addDays(TODAY, -13), 10), endAt: at(addDays(TODAY, -13), 14), fromPlace: "杭州", toPlace: "上海", description: "返程" },
     ]);
     await tx.insert(travelEvents).values([
@@ -344,7 +344,7 @@ export async function seedCollab(tx: SeedTx): Promise<void> {
         projectId: projectAId,
         code: t2Code,
         applicantId: pmId,
-        reason: "异地庭审与客户会谈",
+        reason: "异地验收与客户会谈",
         destination: "北京市",
         startOn: fmt(addDays(TODAY, 7)),
         endOn: fmt(addDays(TODAY, 9)),

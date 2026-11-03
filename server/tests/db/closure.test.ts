@@ -38,7 +38,7 @@ describe("迭代 5 收口加固与全链种子", () => {
     await runSeed(TEST_DATABASE_URL);
     const { db, pool } = await openDb();
     try {
-      const member = await db.select({ id: users.id }).from(users).where(eq(users.email, "member@lexflow.demo"));
+      const member = await db.select({ id: users.id }).from(users).where(eq(users.email, "guanchen@lexflow.demo"));
       const period = await db
         .select({ id: timesheetPeriods.id })
         .from(timesheetPeriods)
@@ -191,7 +191,7 @@ describe("迭代 5 收口加固与全链种子", () => {
         .select({ status: timesheetPeriods.status })
         .from(timesheetPeriods)
         .innerJoin(users, eq(users.id, timesheetPeriods.userId))
-        .where(eq(users.email, "member@lexflow.demo"));
+        .where(eq(users.email, "guanchen@lexflow.demo"));
       expect(memberPeriods.map((p) => p.status).sort()).toEqual(["approved", "draft"]);
     } finally {
       await pool.end();

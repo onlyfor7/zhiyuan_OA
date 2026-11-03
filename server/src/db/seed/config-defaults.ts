@@ -55,7 +55,7 @@ export const SYSTEM_CONFIG_DEFAULTS: ReadonlyArray<{ key: string; value: Record<
   {
     key: CONFIG_KEY.TIMESHEET_DEFAULT_APPROVER,
     value: {
-      approverEmail: "partner@lexflow.demo",
+      approverEmail: "liangqifeng@lexflow.demo",
       note: "arch/07 §4.2：无项目明细的工时周期提交时 org 指定默认审批人",
     },
   },
@@ -71,4 +71,5 @@ export const SYSTEM_CONFIG_DEFAULTS: ReadonlyArray<{ key: string; value: Record<
       note: "arch/09 §3.2：固定核心字段，不做自由表单设计器；system_config 可扩充",
     },
   },
+  { key: CONFIG_KEY.TIMESHEET_STEP_MINUTES, value: { minutes: 30, note: "arch/11：工时填报步进分钟数，可配置" } },
 ];

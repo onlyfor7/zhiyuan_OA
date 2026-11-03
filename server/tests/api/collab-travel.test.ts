@@ -37,10 +37,10 @@ describe("迭代 2 出差域（B5/B6/B7/B8/B9/B10）", () => {
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
-    financeCookie = (await loginAs(app, "finance@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
+    financeCookie = (await loginAs(app, "guojingwen@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     projectAId = (list.json as { result: { data: { items: { id: string; code: string }[] } } })
       .result.data.items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;
@@ -339,7 +339,7 @@ describe("迭代 2 出差域（B5/B6/B7/B8/B9/B10）", () => {
     // 只提醒一次：重跑 sweep（再查一次列表触发）仍单行
     await trpc(app, "travel.list", { cookie: memberCookie, method: "GET" });
     const onceRows = await query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM notifications WHERE event_type = 'travel_return_expense' AND source_id = $1 AND recipient_id = (SELECT id FROM users WHERE email = 'member@lexflow.demo')`,
+      `SELECT count(*)::int AS n FROM notifications WHERE event_type = 'travel_return_expense' AND source_id = $1 AND recipient_id = (SELECT id FROM users WHERE email = 'guanchen@lexflow.demo')`,
       [travelId],
     );
     expect(onceRows[0].n).toBe(1);

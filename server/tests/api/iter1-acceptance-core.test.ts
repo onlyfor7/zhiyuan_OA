@@ -61,10 +61,10 @@ describe("迭代 1 验收 A1–A4/A11（arch/04 §8）", () => {
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    qualityCookie = (await loginAs(app, "quality@lexflow.demo")).cookie;
+    partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    qualityCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
     projectAId = await projectIdByCode(app, pmCookie, `PRJ-${YEAR}-00001`);
   });
 
@@ -76,7 +76,7 @@ describe("迭代 1 验收 A1–A4/A11（arch/04 §8）", () => {
     const templates = await trpc(app, "project.listTemplates", { cookie: partnerCookie, method: "GET" });
     const templateId = (
       (templates.json as { result: { data: { id: string; name: string }[] } }).result.data
-    ).find((t) => t.name === "诉讼案件标准模板")!.id;
+    ).find((t) => t.name === "技术服务标准模板")!.id;
     const matters = await trpc(app, "matter.list", { cookie: partnerCookie, method: "GET" });
     const matterId = (
       matters.json as { result: { data: { items: { id: string }[] } } }
@@ -118,7 +118,7 @@ describe("迭代 1 验收 A1–A4/A11（arch/04 §8）", () => {
       [project.id],
     );
     expect(counts[0].stages).toBe(4);
-    expect(counts[0].tasks).toBe(5); // 诉讼模板 structure.tasks（02c 落地）
+    expect(counts[0].tasks).toBe(5); // 技术服务模板 structure.tasks（02c 落地）
     expect(counts[0].checks).toBe(4);
     expect(counts[0].dirs).toBe(11);
     expect(counts[0].versions).toBe(1);

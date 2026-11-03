@@ -87,7 +87,7 @@ describe("02b 实体状态列与流程项目绑定", () => {
   it("回填等价：临时键 JSON → 行状态，回填后状态集与原 JSON 一致且键被删除", async () => {
     const { db, pool } = await openDb();
     try {
-      const pm = await db.select({ id: users.id }).from(users).where(eq(users.email, "pm@lexflow.demo"));
+      const pm = await db.select({ id: users.id }).from(users).where(eq(users.email, "wangbaozhuo@lexflow.demo"));
       const client2 = await db.select({ id: clients.id }).from(clients).where(eq(clients.code, `CLT-${YEAR}-00002`));
       const matter2 = await db
         .select({ id: matters.id })

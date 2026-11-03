@@ -58,9 +58,9 @@ describe("迭代 4 工时域（D1–D6/D10）", () => {
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     projectAId = (list.json as { result: { data: { items: { id: string; code: string }[] } } })
       .result.data.items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;
@@ -386,11 +386,11 @@ describe("迭代 4 工时域（D1–D6/D10）", () => {
 
     // timesheet_gap：把 member 一个 draft 周期的 period_end 拨到明天 → sweep 发通知
     await query(
-      `UPDATE timesheet_periods SET period_end = now()::date + 1 WHERE id = (SELECT id FROM timesheet_periods WHERE user_id = (SELECT id FROM users WHERE email='member@lexflow.demo') AND status = 'draft' ORDER BY created_at DESC LIMIT 1)`,
+      `UPDATE timesheet_periods SET period_end = now()::date + 1 WHERE id = (SELECT id FROM timesheet_periods WHERE user_id = (SELECT id FROM users WHERE email='guanchen@lexflow.demo') AND status = 'draft' ORDER BY created_at DESC LIMIT 1)`,
     );
     await trpc(app, "todo.mine", { cookie: memberCookie, method: "GET" });
     const gap = await query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM notifications WHERE event_type = 'timesheet_gap' AND recipient_id = (SELECT id FROM users WHERE email='member@lexflow.demo')`,
+      `SELECT count(*)::int AS n FROM notifications WHERE event_type = 'timesheet_gap' AND recipient_id = (SELECT id FROM users WHERE email='guanchen@lexflow.demo')`,
     );
     expect(gap[0].n).toBeGreaterThanOrEqual(1);
   });

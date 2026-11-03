@@ -45,8 +45,8 @@ describe("项目（project.list / getById / user.listProjectMembers）", () => {
   beforeAll(async () => {
     await setupDatabase();
     const app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
   });
 
   afterAll(async () => {
@@ -62,10 +62,10 @@ describe("项目（project.list / getById / user.listProjectMembers）", () => {
     // Summary 契约字段（arch/02 §4）
     const a = pmList.items.find((p) => p.code === PROJECT_A);
     expect(a).toMatchObject({
-      name: "华宸贸易合同纠纷代理·一审",
-      clientName: "华宸贸易有限公司",
-      matterName: "华宸贸易合同纠纷",
-      managerName: "陈立",
+      name: "比博思特技术服务项目",
+      clientName: "比博思特（虚构）",
+      matterName: "比博思特技术服务",
+      managerName: "王宝茁",
       lifecycleStatus: "in_progress",
       healthStatus: "normal",
       confidentialityLevel: "internal",
@@ -81,7 +81,7 @@ describe("项目（project.list / getById / user.listProjectMembers）", () => {
     expect(preparing.items).toHaveLength(0); // C 是 preparing 但 pm 不可见
     const warning = await listProjects(app, pmCookie, { filters: { health: "warning" } });
     expect(warning.items.map((p) => p.code)).toEqual([PROJECT_B]);
-    const keyword = await listProjects(app, pmCookie, { filters: { keyword: "星澜" } });
+    const keyword = await listProjects(app, pmCookie, { filters: { keyword: "金通灵" } });
     expect(keyword.items.map((p) => p.code)).toEqual([PROJECT_B]);
   });
 
@@ -150,7 +150,7 @@ describe("项目（project.list / getById / user.listProjectMembers）", () => {
     const members = (asMember.json as { result: { data: { userId: string; name: string; projectRole: string }[] } })
       .result.data;
     expect(members).toHaveLength(4);
-    expect(members.find((m) => m.name === "林晓")?.projectRole).toBe("member");
+    expect(members.find((m) => m.name === "管晨")?.projectRole).toBe("member");
 
     const denied = await trpc(app, "user.listProjectMembers", {
       input: { projectId: projectBId },

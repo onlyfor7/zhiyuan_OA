@@ -15,7 +15,7 @@ describe("工单 02c：模板任务生成（arch/04 §2.10 v1.2）", () => {
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    const partner = await loginAs(app, "partner@lexflow.demo");
+    const partner = await loginAs(app, "liangqifeng@lexflow.demo");
     partnerCookie = partner.cookie;
     partnerId = partner.user.id as string;
   });
@@ -24,14 +24,14 @@ describe("工单 02c：模板任务生成（arch/04 §2.10 v1.2）", () => {
     await closeDb();
   });
 
-  it("诉讼模板创建：任务/检查项/十一目录/v1 plan_items（含 task 项）齐备，日期落在阶段区间内", async () => {
+  it("技术服务模板创建：任务/检查项/十一目录/v1 plan_items（含 task 项）齐备，日期落在阶段区间内", async () => {
     const templates = await trpc(app, "project.listTemplates", { cookie: partnerCookie, method: "GET" });
     const templateId = (
       (templates.json as { result: { data: { id: string; name: string }[] } }).result.data as {
         id: string;
         name: string;
       }[]
-    ).find((t) => t.name === "诉讼案件标准模板")!.id;
+    ).find((t) => t.name === "技术服务标准模板")!.id;
     const matters = await trpc(app, "matter.list", { cookie: partnerCookie, method: "GET" });
     const matterId = (
       matters.json as { result: { data: { items: { id: string }[] } } }
@@ -39,7 +39,7 @@ describe("工单 02c：模板任务生成（arch/04 §2.10 v1.2）", () => {
 
     const created = await trpc(app, "project.create", {
       cookie: partnerCookie,
-      input: { templateId, matterId, name: "02c 诉讼模板任务项目", startDate: "2027-03-01" },
+      input: { templateId, matterId, name: "02c 技术服务模板任务项目", startDate: "2027-03-01" },
     });
     expect(created.status).toBe(200);
     const projectId = (created.json as { result: { data: { id: string } } }).result.data.id;
@@ -92,15 +92,15 @@ describe("工单 02c：模板任务生成（arch/04 §2.10 v1.2）", () => {
     }
 
     // assigneeRole 解析：模板「证据清单整理」assigneeRole=manager → 项目首个 manager 成员 = 创建人
-    const first = data.tasks.find((t) => t.title === "证据清单整理")!;
+    const first = data.tasks.find((t) => t.title === "需求清单整理")!;
     expect(first.assigneeId).toBe(partnerId);
     // 未指定 assigneeRole 的任务保持未分配
-    const unassigned = data.tasks.find((t) => t.title === "起诉状起草")!;
+    const unassigned = data.tasks.find((t) => t.title === "技术方案起草")!;
     expect(unassigned.assigneeId).toBeNull();
 
     // plan_items 的 task 项 refId 指向真实任务行（写入 v1，PLN-I1 只写不改）
-    const taskItem = data.items.find((i) => i.itemType === "task" && i.name === "代理意见初稿")!;
-    expect(data.tasks.some((t) => t.id === taskItem.refId && t.title === "代理意见初稿")).toBe(true);
+    const taskItem = data.items.find((i) => i.itemType === "task" && i.name === "上线方案初稿")!;
+    expect(data.tasks.some((t) => t.id === taskItem.refId && t.title === "上线方案初稿")).toBe(true);
 
     // 检查项与十一目录链路不受 tasks 影响（保持 02b 验证过的形态）
     const checklist = await trpc(app, "quality.checklist", {
@@ -163,7 +163,7 @@ describe("工单 02c：模板任务生成（arch/04 §2.10 v1.2）", () => {
     const templates = await trpc(app, "project.listTemplates", { cookie: partnerCookie, method: "GET" });
     const list = (templates.json as { result: { data: { name: string; structureJson: { tasks?: unknown[] } }[] } })
       .result.data;
-    const litigation = list.find((t) => t.name === "诉讼案件标准模板")!;
+    const litigation = list.find((t) => t.name === "技术服务标准模板")!;
     const counsel = list.find((t) => t.name === "常年法律顾问模板")!;
     expect(litigation.structureJson.tasks?.length).toBeGreaterThanOrEqual(4);
     expect(counsel.structureJson.tasks?.length).toBeGreaterThanOrEqual(1);

@@ -38,9 +38,9 @@ describe("迭代 2 会议域（B1/B2/B3/B4/B9/B10/B11）", () => {
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    liuchangCookie = (await loginAs(app, "liuchang@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    liuchangCookie = (await loginAs(app, "zhangchen@lexflow.demo")).cookie;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     projectAId = (list.json as { result: { data: { items: { id: string; code: string }[] } } })
       .result.data.items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;
@@ -83,7 +83,7 @@ describe("迭代 2 会议域（B1/B2/B3/B4/B9/B10/B11）", () => {
         ...base,
         startAt: "2027-06-01T01:00:00.000Z",
         endAt: "2027-06-01T02:00:00.000Z",
-        participants: [{ userId: memberId }, { externalName: "王证人", externalOrg: "华宸贸易", role: "optional" }],
+        participants: [{ userId: memberId }, { externalName: "王工", externalOrg: "比博思特（虚构）", role: "optional" }],
       },
     });
     expect(withExternal.status).toBe(200);
@@ -92,9 +92,9 @@ describe("迭代 2 会议域（B1/B2/B3/B4/B9/B10/B11）", () => {
     const participants = (detail.json as {
       result: { data: { participants: { userId: string | null; externalName: string | null; userName: string | null }[] } };
     }).result.data.participants;
-    const external = participants.find((p) => p.externalName === "王证人");
+    const external = participants.find((p) => p.externalName === "王工");
     expect(external?.userId).toBeNull();
-    const accounts = await query<{ n: number }>(`SELECT count(*)::int AS n FROM users WHERE name = '王证人'`);
+    const accounts = await query<{ n: number }>(`SELECT count(*)::int AS n FROM users WHERE name = '王工'`);
     expect(accounts[0].n).toBe(0);
 
     // 类型驱动默认议程（quality_review）
@@ -361,7 +361,7 @@ describe("迭代 2 会议域（B1/B2/B3/B4/B9/B10/B11）", () => {
     const asMember = await trpc(app, "meeting.getById", { cookie: memberCookie, input: { id: meetingId }, method: "GET" });
     expect(asMember.status).toBe(200);
     // 非项目成员、非参会人不可见（viewer）
-    const viewerCookie = (await loginAs(app, "viewer@lexflow.demo")).cookie;
+    const viewerCookie = (await loginAs(app, "hejing@lexflow.demo")).cookie;
     const asViewer = await trpc(app, "meeting.getById", { cookie: viewerCookie, input: { id: meetingId }, method: "GET" });
     expect(asViewer.status).toBe(404);
     void liuchangCookie;

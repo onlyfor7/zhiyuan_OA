@@ -82,11 +82,11 @@ describe("迭代 1 验收 A5–A10（arch/04 §8）", () => {
   beforeAll(async () => {
     await setupDatabase();
     app = await getApp();
-    pmCookie = (await loginAs(app, "pm@lexflow.demo")).cookie;
-    memberCookie = (await loginAs(app, "member@lexflow.demo")).cookie;
-    viewerCookie = (await loginAs(app, "viewer@lexflow.demo")).cookie;
-    archivistCookie = (await loginAs(app, "archivist@lexflow.demo")).cookie;
-    sysadminCookie = (await loginAs(app, "sysadmin@lexflow.demo")).cookie;
+    pmCookie = (await loginAs(app, "wangbaozhuo@lexflow.demo")).cookie;
+    memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
+    viewerCookie = (await loginAs(app, "hejing@lexflow.demo")).cookie;
+    archivistCookie = (await loginAs(app, "wangying@lexflow.demo")).cookie;
+    sysadminCookie = (await loginAs(app, "zhaokai@lexflow.demo")).cookie;
     projectAId = await projectIdByCode(app, pmCookie, `PRJ-${YEAR}-00001`);
   });
 
@@ -435,7 +435,7 @@ describe("迭代 1 验收 A5–A10（arch/04 §8）", () => {
     expect(pendingRows[0].n).toBe(1);
 
     // 直达对象：key 级审批人（partner）收到；申请人（member）不收到 approval_pending
-    const partnerCookie = (await loginAs(app, "partner@lexflow.demo")).cookie;
+    const partnerCookie = (await loginAs(app, "liangqifeng@lexflow.demo")).cookie;
     const partnerList = await trpc(app, "notification.listMine", { cookie: partnerCookie, method: "GET" });
     const partnerItems = (partnerList.json as { result: { data: { items: { id: string; eventType: string; sourceId: string }[] } } })
       .result.data.items;

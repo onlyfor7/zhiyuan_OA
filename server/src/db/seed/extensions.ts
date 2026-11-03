@@ -181,8 +181,8 @@ const DEFAULT_FLOWS: Array<{ name: string; bizBinding: string; spec: FlowSpec; n
   {
     name: "generic_request 默认流程",
     bizBinding: "generic_request",
-    note: "partner 单步（09b 打回裁定：全局申请单无项目上下文，project_manager 解析自审死锁；partner 全局兜底）",
-    spec: linearFlow([{ label: "管理层审批", approver: role("partner") }]),
+    note: "initiator_choice 单步（arch/11 G3：发起人指定审批人，请假流程种子示例；取代 09b 的 partner 兜底）",
+    spec: linearFlow([{ label: "发起人指定审批", approver: { kind: "initiator_choice" } }]),
   },
 ];
 
@@ -242,7 +242,7 @@ async function ensureFlow(
 
 /** 十条默认流程（策略等价迁移，09b 补 travel_change/generic_request）。minimal 档亦调用（仅默认流程，不含演示流程）。 */
 export async function seedDefaultFlows(tx: SeedTx): Promise<void> {
-  const pmId = await userIdByEmail(tx, "pm@lexflow.demo");
+  const pmId = await userIdByEmail(tx, "wangbaozhuo@lexflow.demo");
   for (const flow of DEFAULT_FLOWS) {
     // 共存与自愈（09b）：该 biz_binding 已有 enabled 全局默认流时分两种——
     // ① 同名的种子默认流（如 dev 既有旧规格行）：更新 definition_json 自愈（种子即迁移）；
@@ -275,43 +275,15 @@ export async function seedDefaultFlows(tx: SeedTx): Promise<void> {
 }
 
 export async function seedExtensions(tx: SeedTx): Promise<void> {
-  const pmId = await userIdByEmail(tx, "pm@lexflow.demo");
-  const memberId = await userIdByEmail(tx, "member@lexflow.demo");
-  const financeId = await userIdByEmail(tx, "finance@lexflow.demo");
+  const pmId = await userIdByEmail(tx, "wangbaozhuo@lexflow.demo");
+  const memberId = await userIdByEmail(tx, "guanchen@lexflow.demo");
+  const financeId = await userIdByEmail(tx, "guojingwen@lexflow.demo");
 
   // 1) 八条默认流程（策略等价迁移）+ 一条演示流程
   await seedDefaultFlows(tx);
   await ensureFlow(tx, { ...FUNDING_DEMO_FLOW, enabled: false }, pmId);
 
-  // 2) 佳力奇客户/事项（承工单 06 试用单；主数据无 UI 属已知缺口，种子提供）
-  const cltCode = `CLT-${YEAR}-00004`;
-  const cltExisting = await tx.select({ id: clients.id }).from(clients).where(eq(clients.code, cltCode));
-  if (!cltExisting[0]) {
-    await tx.insert(clients).values({
-      code: cltCode,
-      name: "佳力奇科技（虚构）",
-      confidentialityLevel: "internal",
-      createdBy: pmId,
-      updatedBy: pmId,
-    });
-  }
-  const clientId = (
-    await tx.select({ id: clients.id }).from(clients).where(eq(clients.code, cltCode))
-  )[0].id;
-  const mtrCode = `MTR-${YEAR}-00004`;
-  const mtrExisting = await tx.select({ id: matters.id }).from(matters).where(eq(matters.code, mtrCode));
-  if (!mtrExisting[0]) {
-    await tx.insert(matters).values({
-      code: mtrCode,
-      clientId,
-      name: "佳力奇咨询",
-      type: "非诉",
-      createdBy: pmId,
-      updatedBy: pmId,
-    });
-  }
-
-  // 3) 收款演示数据：项目 A（华宸）两笔 registered + 一笔 voided（更正=作废+新登记，不删行）
+  // 3) 收款演示数据：项目 A（比博思特）两笔 registered + 一笔 voided（更正=作废+新登记，不删行）
   const projectA = await tx
     .select({ id: projects.id })
     .from(projects)
@@ -326,8 +298,8 @@ export async function seedExtensions(tx: SeedTx): Promise<void> {
       amountCents: 500000,
       receivedOn: fmt(addDays(TODAY, -20)),
       referenceNo: "BK20261008-001",
-      payerName: "华宸贸易有限公司",
-      note: "一审代理费首期到账",
+      payerName: "比博思特（虚构）",
+      note: "技术服务费首期到账",
       status: "registered" as const,
       voidReason: null,
     },
@@ -336,7 +308,7 @@ export async function seedExtensions(tx: SeedTx): Promise<void> {
       amountCents: 300000,
       receivedOn: fmt(addDays(TODAY, -8)),
       referenceNo: "BK20261020-002",
-      payerName: "华宸贸易有限公司",
+      payerName: "比博思特（虚构）",
       note: "专项服务费到账",
       status: "registered" as const,
       voidReason: null,
@@ -346,7 +318,7 @@ export async function seedExtensions(tx: SeedTx): Promise<void> {
       amountCents: 200000,
       receivedOn: fmt(addDays(TODAY, -15)),
       referenceNo: "BK20261010-003",
-      payerName: "华宸贸易有限公司",
+      payerName: "比博思特（虚构）",
       note: "重复登记冲正（原单作废，不删行）",
       status: "voided" as const,
       voidReason: "重复登记：与 RCV-00001 系同笔回款",
