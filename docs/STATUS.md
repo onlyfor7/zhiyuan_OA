@@ -64,8 +64,8 @@
 | 工单 | 会话 | 状态 | 认领人 | 日期 | 备注 |
 |---|---|---|---|---|---|
 | 00 总览 | — | 已发布 | 架构 | 2026-10-30 | 设计：docs/arch/11（v1.0 已冻结） |
-| 01 名单种子替换 | 数据 | **待验收** | 数据会话 | 2026-10-30 | 验收命令全绿 226/226（见交接记录置顶条） |
-| 02 扩展能力后端 | 后端 | 未认领 | | | 待 01 通过 |
+| 01 名单种子替换 | 数据 | **通过** | 数据会话 | 2026-10-30 | 架构会话已验收（22 用户/五项目/旧名清零/双角色/initiator_choice 种子就位） |
+| 02 扩展能力后端 | 后端 | 未认领 | | | 已解锁 |
 | 03 体验深化前端接入 | 前端 | 未认领 | | | 待 02 通过 |
 | 04 prod 发布 | 部署 | 未认领 | | | 待 03 通过 |
 | 05 迭代 8 验收 + 手册 v1.2 | 测试 | 未认领 | | | 收口，待 04 通过 |
@@ -206,6 +206,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-10-30｜架构｜迭代8-01｜**工单 01（名单种子替换）验收通过。** 独立复核：226/226 绿（43 文件零回归）、typecheck exit 0、seed 幂等；DB 逐项——22 用户全部新名单（旧演示名 0 残留）、梁奇烽双角色（partner+quality_lead）在位、五项目按用户原文命名、配置 15 键、请假流含 initiator_choice 节点。其交接记录称「dev 库新旧并存 34 用户」已过期——我实测当前 dev 为 22 用户干净态（最终重跑种子已清），无需后端开工前再重置。涟漪修复（16 处语义级断言随名单更新）认定契约连带，接受。**解锁工单 02（后端会话·扩展能力）。**
 
 - 2026-10-30｜数据｜迭代8-01｜**工单 01 完成，转待验收（名单种子全量替换，arch/11 G1）。**① **名单入库（22 用户，口令统一 Demo@2026，full/minimal 双档）**：合伙人+质量=梁奇烽（user_roles 双挂 partner+quality_lead，23 行角色分配）；负责人 7 人=王宝茁/王家玉/孙浩祥/廖益敏/霍达/毛振宇/李洁；成员 10 人=管晨/张琛/李见微/赵凤学/陈玥/田伊铭/牛琛琛/曹佳妮/李硕/刘明乐；财务=郭静文；档案=王颖；sysadmin=赵凯（保留）；viewer=何静（保留）。组织 3 部门按名单就近：诉讼业务部=技术类负责人+成员、非诉业务部=霍达+曹佳妮/李硕/刘明乐+毛振宇/李洁、综合管理部=梁奇烽/郭静文/王颖/赵凯/何静。**邮箱=姓名拼音全小写@lexflow.demo（无重复）**。② **五配套客户/事项/项目**（PRJ-00001~00005）：比博思特技术服务（王宝茁，成员 管晨/张琛/李见微）、金通灵技术服务（王家玉，成员 **王宝茁**/赵凤学）、佳力奇技术服务（孙浩祥，成员 田伊铭）、合规运作规则引擎上市公司 1.0（廖益敏，成员 陈玥/牛琛琛，at_risk）、GD 法律服务（霍达，成员 曹佳妮/李硕/刘明乐，public）——**权限布局语义保持**：王宝茁可见 A+B（B 为成员）、管晨仅 A、佳力奇 C 对二者不可见（工单 00 场景 1/2 不破，测试已同步）。十一目录改由 index 统一为 5 项目各建（55 套）；治理域 A/B 治理数据、A 全链闭环（核销/归档/授权）、会议/出差/收款演示全部平移到新主体，旧法律叙事（华宸/星澜/恒岳/佳力奇旧/起诉/庭审/证据链/财产保全）**种子侧全清**。③ **shared 只增不改**：FLOW_APPROVER_KIND 增 `initiator_choice`（G3 发起人指定）；CONFIG_KEY 增 `TIMESHEET_STEP_MINUTES`（默认 30 已入 system_config，总键数 15）；**条件操作符按字段类型分组常量**（`FLOW_CONDITION_FIELD_TYPES`+`FLOW_CONDITION_OPERATORS`）——**字段类型映射表定稿**：amount_cents=number（操作符 gte/lte/between）；confidentiality/level/borrow/request_type=text（eq/contains）；存量流程 JSON 的 `>=`/`==` 为旧符号，后端 02 编译层需归一（gte/eq）或双形态兼容。④ **请假流程种子改 [initiator_choice] 单步**（generic_request 默认流，取代 09b 的 partner 兜底；等价断言同步）。⑤ **涟漪（api 测试 16 处语义级修正，均已注释）**：邮箱机械映射 12 个（pm→wangbaozhuo、member→guanchen、partner/quality→liangqifeng、finance→guojingwen、archivist→wangying、sysadmin→zhaokai、viewer→hejing、liuchang→zhangchen、huanglei→lijianwei、xubin→zhaofengxue、mayue→tianyiming）；**会签子步测试改按 approverId 匹配**（不假设 2001/2002 分配顺序）；C 项目（佳力奇）partner 不可见→overview 改用 sunhaoxiang cookie（finance-budget/iter3-ledger）；B 预算对普通成员同形 404→aggB0 改用 wangjiayu cookie；搜索关键词 华宸→比博思特（member 可见集内）；模板名 诉讼案件标准模板→技术服务标准模板；外部参与人 王证人→王工；人名断言 陈立→王宝茁等。db 侧计数：users 22/roles 8/orgs 4/user_roles 23/clients 5/matters 5/projects 5/members 16/config 15/dirs 55/stages 6/tasks 12/plan_versions 2/plan_items 20/flows 11。怎么验证：`npm run test -w @lexflow/server`✓ **226/226（43 文件：db 41+api 185）**、根 `npm run typecheck`✓ exit 0、`db:seed`×2 幂等、db:generate 无漂移。提交：`iter8/data-user-list` 分支 `[数据]` 前缀 commit（52 文件）。**待办/交接**：⑴ **dev 库未重置**（按工单「既有库由部署重置」归迭代 8 工单 04；当前 dev 为旧名单+新名单并存 34 用户，建议 02 后端开工前先请部署重置 dev，否则联调数据混乱）；⑵ 后端 02：`initiator_choice` kind 的解析（发起人提交时指定 approver 白名单）、新操作符归一、TIMESHEET_STEP_MINUTES 读取；⑶ 请假发起表单的「选择审批人」下拉归前端 03（G3）。
 
