@@ -39,7 +39,8 @@ describe("工单 02b：参照数据端点 / 立项权限门 / plan_items.name / 
   });
 
   it("user.list：任意登录用户可调，最小字段 + status=active + keyword 过滤", async () => {
-    const result = await trpc(app, "user.list", { cookie: pmCookie, method: "GET" });
+    // limit 100 取全量：默认 limit 20 在 22 用户种子下按 created_at DESC+id DESC 分页，同刻种子 uuid 决胜致首页成员随机缺席（06b 取证：F2 偶发根源之一）
+    const result = await trpc(app, "user.list", { cookie: pmCookie, method: "GET", input: { limit: 100 } });
     expect(result.status).toBe(200);
     const data = (result.json as {
       result: { data: { items: { id: string; name: string; email: string; orgUnitName: string | null }[] } };

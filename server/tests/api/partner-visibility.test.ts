@@ -174,42 +174,43 @@ describe("迭代8-06：partner 全局只读可见 + 写边界不变", () => {
     expect(checkItemId).toBeTruthy();
 
     // ---- partner（非成员）：每类写路径一律 404（可见≠可写）----
-    const p404: Array<Promise<{ status: number }>> = [
+    // 06b 修稳：并发 17 写曾致套件偶发挂起（120s 超时，round-8 复现）——改串行逐条断言，断言内容与强度不变
+    const p404: Array<[string, () => Promise<{ status: number }>]> = [
       // 任务 改/转/派
-      trpc(app, "task.update", { cookie: partnerCookie, input: { id: taskId, rowVersion: 0, title: "partner 改任务" } }),
-      trpc(app, "task.transition", { cookie: partnerCookie, input: { id: taskId, action: "start", rowVersion: 0 } }),
-      trpc(app, "task.assign", { cookie: partnerCookie, input: { id: taskId, assigneeId: memberUserId } }),
+      ["task.update", () => trpc(app, "task.update", { cookie: partnerCookie, input: { id: taskId, rowVersion: 0, title: "partner 改任务" } })],
+      ["task.transition", () => trpc(app, "task.transition", { cookie: partnerCookie, input: { id: taskId, action: "start", rowVersion: 0 } })],
+      ["task.assign", () => trpc(app, "task.assign", { cookie: partnerCookie, input: { id: taskId, assigneeId: memberUserId } })],
       // 会议 改/转/签到
-      trpc(app, "meeting.update", { cookie: partnerCookie, input: { id: meetingId, rowVersion: 0, subject: "partner 改会议" } }),
-      trpc(app, "meeting.transition", { cookie: partnerCookie, input: { id: meetingId, action: "cancel", reason: "partner 越权" } }),
-      trpc(app, "meeting.recordAttendance", { cookie: partnerCookie, input: { id: meetingId, entries: [{ participantId: meetingRow[0].participant_id, attendance: "attended" }] } }),
+      ["meeting.update", () => trpc(app, "meeting.update", { cookie: partnerCookie, input: { id: meetingId, rowVersion: 0, subject: "partner 改会议" } })],
+      ["meeting.transition", () => trpc(app, "meeting.transition", { cookie: partnerCookie, input: { id: meetingId, action: "cancel", reason: "partner 越权" } })],
+      ["meeting.recordAttendance", () => trpc(app, "meeting.recordAttendance", { cookie: partnerCookie, input: { id: meetingId, entries: [{ participantId: meetingRow[0].participant_id, attendance: "attended" }] } })],
       // 决策 改/意见/决定/核验
-      trpc(app, "decision.update", { cookie: partnerCookie, input: { id: decisionId, rowVersion: 0, title: "partner 改决策" } }),
-      trpc(app, "decision.submitOpinions", { cookie: partnerCookie, input: { id: decisionId, pmOpinion: "partner 意见" } }),
-      trpc(app, "decision.decide", {
+      ["decision.update", () => trpc(app, "decision.update", { cookie: partnerCookie, input: { id: decisionId, rowVersion: 0, title: "partner 改决策" } })],
+      ["decision.submitOpinions", () => trpc(app, "decision.submitOpinions", { cookie: partnerCookie, input: { id: decisionId, pmOpinion: "partner 意见" } })],
+      ["decision.decide", () => trpc(app, "decision.decide", {
         cookie: partnerCookie,
         input: { id: decisionId, finalOption: "a", finalReason: "partner 决定", conditions: "无", checkpoints: [{ point: "检查点", date: "2027-03-01", owner_id: memberUserId }], rowVersion: 0 },
-      }),
-      trpc(app, "decision.verify", { cookie: partnerCookie, input: { id: decisionId, note: "partner 核验" } }),
+      })],
+      ["decision.verify", () => trpc(app, "decision.verify", { cookie: partnerCookie, input: { id: decisionId, note: "partner 核验" } })],
       // 质量 改/派/处理/复核/重开/checkItem
-      trpc(app, "quality.update", { cookie: partnerCookie, input: { id: issueId, rowVersion: 0, title: "partner 改问题" } }),
-      trpc(app, "quality.assign", { cookie: partnerCookie, input: { id: issueId, handlerId: memberUserId, reviewerId: managerUserId } }),
-      trpc(app, "quality.submitHandling", { cookie: partnerCookie, input: { id: issueId, note: "partner 处理" } }),
-      trpc(app, "quality.review", { cookie: partnerCookie, input: { id: issueId, action: "pass" } }),
-      trpc(app, "quality.reopen", { cookie: partnerCookie, input: { id: issueId, note: "partner 重开" } }),
-      trpc(app, "quality.checkItem", { cookie: partnerCookie, input: { id: checkItemId, status: "passed" } }),
+      ["quality.update", () => trpc(app, "quality.update", { cookie: partnerCookie, input: { id: issueId, rowVersion: 0, title: "partner 改问题" } })],
+      ["quality.assign", () => trpc(app, "quality.assign", { cookie: partnerCookie, input: { id: issueId, handlerId: memberUserId, reviewerId: managerUserId } })],
+      ["quality.submitHandling", () => trpc(app, "quality.submitHandling", { cookie: partnerCookie, input: { id: issueId, note: "partner 处理" } })],
+      ["quality.review", () => trpc(app, "quality.review", { cookie: partnerCookie, input: { id: issueId, action: "pass" } })],
+      ["quality.reopen", () => trpc(app, "quality.reopen", { cookie: partnerCookie, input: { id: issueId, note: "partner 重开" } })],
+      ["quality.checkItem", () => trpc(app, "quality.checkItem", { cookie: partnerCookie, input: { id: checkItemId, status: "passed" } })],
       // 非成员项目报销建单（insertItems 逐项门）
-      trpc(app, "expense.create", {
+      ["expense.create", () => trpc(app, "expense.create", {
         cookie: partnerCookie,
         input: {
           reason: "partner 越权报销",
           items: [{ projectId: projectAId, date: "2027-01-02", category: "transport", amountCents: 100, description: "越权明细" }],
         },
-      }),
+      })],
     ];
-    const denied = await Promise.all(p404);
-    for (let i = 0; i < denied.length; i++) {
-      expect(denied[i].status, `partner 写路径 #${i + 1} 应 404`).toBe(404);
+    for (const [name, call] of p404) {
+      const r = await call();
+      expect(r.status, `partner 写路径 ${name} 应 404`).toBe(404);
     }
 
     // ---- member 写通对照（管晨=项目 A 成员）----
