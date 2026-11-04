@@ -278,6 +278,24 @@
 .p9a-queue-card.slim { padding: 8px 10px; margin-bottom: 0; }
 .p9a-delay-body { overflow-y: auto; display: grid; gap: 10px; align-content: start; }
 
+/* v1.6：迷你日历挂件 + 快捷入口左上密集流排 + 脉搏 6 卡 240px 自适应紧凑 */
+.p9a-q-greet { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; }
+.p9a-greet-main { display: flex; flex-direction: column; min-width: 0; }
+.p9a-greet-main .p9a-mini-metrics { margin-top: auto; }
+.p9a-cal { width: 208px; flex: 0 0 auto; display: grid; gap: 6px; align-content: start; }
+.p9a-cal-head { font-size: 12px; font-weight: 600; color: var(--ink); }
+.p9a-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.p9a-cal-wd { font-size: 10px; color: var(--muted); text-align: center; padding: 2px 0; }
+.p9a-cal-day { position: relative; font-size: 11px; text-align: center; padding: 3px 0; border-radius: 6px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.p9a-cal-day.today { background: var(--blue); color: #fff; font-weight: 600; }
+.p9a-cal-dot { position: absolute; left: 50%; bottom: 1px; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: var(--orange); }
+.p9a-cal-day.today .p9a-cal-dot { background: #fff; }
+.p9a-quick-fill { justify-content: flex-start; align-content: flex-start; align-items: flex-start; }
+.p9a-quick-fill .p9a-quick-icon { padding: 8px 12px; }
+.p9a-pulse-4 { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); grid-template-rows: none; }
+.p9a-pulse-card.compact { padding: 8px 10px; gap: 4px; }
+.p9a-placeholder-icon { display: inline-block; margin-bottom: 10px; }
+
 @media (max-width: 820px) {
   .p9a-groups { display: none; }
   .p9a-topbar { grid-template-columns: 1fr auto; }

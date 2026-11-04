@@ -1,9 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  AlertTriangle, Banknote, Calendar, CheckCircle2, CheckSquare, Clock,
-  FileEdit, FileText, FolderPlus, ShieldAlert, TrendingUp, Wrench,
-  type LucideIcon,
-} from "lucide-react";
+import { FileText, Wrench, type LucideIcon } from "lucide-react";
 
 /**
  * 迭代 9a 演示面板：T-C 驾驶舱三行固定 grid（§1.3）/ T-A 列表工作台（筛选固定+表内滚动+分页固定）
@@ -57,7 +53,11 @@ function IconBlock({ icon: Icon, tone, size = 32 }: { icon: LucideIcon; tone: To
 }
 
 /* T-C 驾驶舱样例：固定三行 grid（§1.3 v1.3 卡片图标化） */
-/* v1.5 §1.3 驾驶舱 2×2 四象限定稿（铺满视口：行 36%/64%、列 3fr/2fr） */
+/* v1.6 §1.3/§4.4：四象限细节修订 + 全局图标注册表唯一源 */
+import { DOMAIN_ICONS, type DomainKey } from "../../lib/icons";
+import { DomainIconBlock } from "../../lib/DomainIconBlock";
+
+/** 问候卡实时时钟（秒级走动 + 日期星期 + 分时段问候） */
 function LiveClock() {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -76,13 +76,47 @@ function LiveClock() {
   );
 }
 
-const QUICK_ALL: Array<{ key: string; label: string; icon: LucideIcon }> = [
-  { key: "project", label: "新建项目", icon: FolderPlus },
-  { key: "receipt", label: "登记收款", icon: Banknote },
-  { key: "request", label: "发起申请", icon: FileEdit },
-  { key: "lead", label: "新建线索", icon: TrendingUp },
-  { key: "invoice", label: "开具发票", icon: FileText },
-  { key: "report", label: "写周报", icon: Calendar },
+/** 迷你日历挂件：当月月历、今天高亮、有待办/会议的日期带小圆点（静态示意） */
+function MiniCalendar() {
+  const [now] = useState(() => new Date());
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7; // 周一=0
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = now.getDate();
+  const marked = new Set([3, 8, 12, 15, 21, 26].filter((d) => d <= daysInMonth));
+  const cells: Array<number | null> = [
+    ...Array.from({ length: firstWeekday }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  const week = ["一", "二", "三", "四", "五", "六", "日"];
+  return (
+    <div className="p9a-cal" aria-label="迷你日历（示意）">
+      <div className="p9a-cal-head">
+        {year} 年 {month + 1} 月
+      </div>
+      <div className="p9a-cal-grid" role="grid">
+        {week.map((w) => (
+          <span key={w} className="p9a-cal-wd">{w}</span>
+        ))}
+        {cells.map((d, i) => (
+          <span key={i} className={`p9a-cal-day ${d === today ? "today" : ""}`}>
+            {d ?? ""}
+            {d !== null && marked.has(d) ? <i className="p9a-cal-dot" aria-hidden="true" /> : null}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const QUICK_ALL: Array<{ key: string; label: string; domain: DomainKey }> = [
+  { key: "project", label: "新建项目", domain: "project" },
+  { key: "receipt", label: "登记收款", domain: "finance" },
+  { key: "request", label: "发起申请", domain: "approval" },
+  { key: "lead", label: "新建线索", domain: "lead" },
+  { key: "invoice", label: "开具发票", domain: "finance" },
+  { key: "report", label: "写周报", domain: "report" },
 ];
 const QUICK_KEY = "p9a-quick-config";
 
@@ -114,62 +148,68 @@ function CockpitDemo() {
     setDragIdx(null);
   };
 
+  // 默认 6 张（v1.6）：信息行合并为单行、卡片紧凑
   const projects = [
     { name: "比博思特技术服务项目", code: "PRJ-2026-00001", badge: "进行中", tone: "green" as Tone, pct: 62, stage: "执行阶段", overdue: 1, updated: "10 分钟前" },
     { name: "金通灵技术服务项目", code: "PRJ-2026-00002", badge: "进行中", tone: "green" as Tone, pct: 45, stage: "启动阶段", overdue: 0, updated: "1 小时前" },
     { name: "佳力奇技术服务项目", code: "PRJ-2026-00003", badge: "进行中", tone: "green" as Tone, pct: 78, stage: "验收阶段", overdue: 2, updated: "昨天" },
     { name: "合规运作规则引擎上市公司 1.0", code: "PRJ-2026-00004", badge: "风险", tone: "orange" as Tone, pct: 30, stage: "执行阶段", overdue: 5, updated: "3 小时前" },
+    { name: "GD 法律服务", code: "PRJ-2026-00005", badge: "进行中", tone: "green" as Tone, pct: 55, stage: "执行阶段", overdue: 0, updated: "2 小时前" },
+    { name: "常法顾问年度服务（样例）", code: "PRJ-2026-00006", badge: "筹备", tone: "blue" as Tone, pct: 10, stage: "筹备阶段", overdue: 0, updated: "昨天" },
   ];
-  const todoGroups: Array<{ type: string; tone: Tone; icon: LucideIcon; items: Array<{ title: string; project: string; ago: string }> }> = [
-    { type: "审批", tone: "blue", icon: CheckSquare, items: [
+  // 待办分组：组头与条目均带 §4.4 注册表类型图标（approval/meeting/time/quality/finance）
+  const todoGroups: Array<{ domain: DomainKey; items: Array<{ title: string; project: string; ago: string }> }> = [
+    { domain: "approval", items: [
       { title: "报销单待财务审批", project: "比博思特", ago: "10 分钟前" },
       { title: "差旅借款会签", project: "金通灵", ago: "32 分钟前" },
       { title: "工时周期解锁审批", project: "佳力奇", ago: "2 小时前" },
     ] },
-    { type: "会议", tone: "green", icon: Calendar, items: [
+    { domain: "meeting", items: [
       { title: "周会纪要待确认", project: "比博思特", ago: "1 小时前" },
     ] },
-    { type: "工时", tone: "purple", icon: Clock, items: [
+    { domain: "time", items: [
       { title: "上周工时逾期未交", project: "个人", ago: "昨天" },
     ] },
-    { type: "质量", tone: "orange", icon: ShieldAlert, items: [
+    { domain: "quality", items: [
       { title: "严重质量问题复核", project: "佳力奇", ago: "昨天" },
     ] },
-    { type: "财务", tone: "blue", icon: Banknote, items: [
+    { domain: "finance", items: [
       { title: "合同付款计划核对", project: "比博思特", ago: "3 小时前" },
     ] },
   ];
-  const chips = ["全部", "审批", "会议", "工时", "质量", "财务"];
-  const countBy = (t: string) => todoGroups.find((g) => g.type === t)?.items.length ?? 0;
-  const visibleGroups = todoGroups.filter((g) => chip === "全部" || g.type === chip);
-  const steps: Array<{ label: string; icon: LucideIcon; tone: Tone }> = [
-    { label: "原因", icon: FileText, tone: "blue" },
-    { label: "影响", icon: AlertTriangle, tone: "orange" },
-    { label: "方案", icon: Wrench, tone: "purple" },
-    { label: "决策", icon: CheckCircle2, tone: "green" },
+  const chips: Array<"全部" | DomainKey> = ["全部", "approval", "meeting", "time", "quality", "finance"];
+  const countBy = (t: string) => todoGroups.find((g) => g.domain === t)?.items.length ?? 0;
+  const visibleGroups = todoGroups.filter((g) => chip === "全部" || g.domain === chip);
+  const steps: Array<{ label: string; domain: DomainKey | null; icon: LucideIcon | null; tone: Tone }> = [
+    { label: "原因", domain: null, icon: FileText, tone: "blue" },
+    { label: "影响", domain: "risk", icon: null, tone: "orange" },
+    { label: "方案", domain: null, icon: Wrench, tone: "purple" },
+    { label: "决策", domain: "decision", icon: null, tone: "green" },
   ];
   const total = todoGroups.reduce((n, g) => n + g.items.length, 0);
 
   return (
     <div className="p9a-tc2">
-      {/* 左上 · 问候卡：实时时钟+日期星期+问候+姓名·职位·部门·角色徽标+指标 mini 条 */}
+      {/* 左上 · 问候卡：实时时钟 + 姓名职位部门角色徽标 + 指标 mini 条 + 迷你日历挂件（v1.6） */}
       <div className="p9a-q p9a-q-greet">
-        <LiveClock />
-        <h1>早上好，梁奇烽。</h1>
-        <p className="p9a-person-line">
-          <strong>梁奇烽</strong> · 合伙人 · 综合管理部
-          <span className="p9a-role-badge">合伙人</span>
-          <span className="p9a-role-badge alt">质量负责人</span>
-        </p>
-        <p className="context-note">项目组合与待处理事项来自实时聚合（§1.3 v1.5 四象限定稿 · 职位为原型静态示意）。</p>
-        <div className="p9a-mini-metrics">
-          {[["项目", 5], ["待批", 6], ["待决策", 3], ["预警", 1]].map(([l, v]) => (
-            <span key={l as string}><strong>{v}</strong>{l}</span>
-          ))}
+        <div className="p9a-greet-main">
+          <LiveClock />
+          <h1>早上好，梁奇烽。</h1>
+          <p className="p9a-person-line">
+            <strong>梁奇烽</strong> · 合伙人 · 综合管理部
+            <span className="p9a-role-badge">合伙人</span>
+            <span className="p9a-role-badge alt">质量负责人</span>
+          </p>
+          <div className="p9a-mini-metrics">
+            {[["项目", 5], ["待批", 6], ["待决策", 3], ["预警", 1]].map(([l, v]) => (
+              <span key={l as string}><strong>{v}</strong>{l}</span>
+            ))}
+          </div>
         </div>
+        <MiniCalendar />
       </div>
 
-      {/* 右上 · 快捷入口：可自定义（齿轮配置浮层：勾选显隐+拖拽排序+localStorage） */}
+      {/* 右上 · 快捷入口：左上对齐密集流排（禁居中，v1.6）+ 可自定义 */}
       <div className="p9a-q p9a-q-quick">
         <div className="p9a-q-head">
           <span className="section-label">QUICK ENTRY · 快捷入口（可自定义）</span>
@@ -182,7 +222,7 @@ function CockpitDemo() {
             const q = QUICK_ALL.find((x) => x.key === c.key)!;
             return (
               <button className="p9a-quick-icon" key={q.key}>
-                <q.icon size={22} />
+                <DomainIconBlock domain={q.domain} size={34} iconSize={18} />
                 <span>{q.label}</span>
               </button>
             );
@@ -204,7 +244,7 @@ function CockpitDemo() {
                 >
                   <span className="p9a-drag" aria-hidden="true">⋮⋮</span>
                   <input type="checkbox" checked={c.visible} aria-label={`显示${q.label}`} onChange={() => toggleVisible(i)} />
-                  <q.icon size={15} />
+                  <DomainIconBlock domain={q.domain} size={22} iconSize={14} />
                   <span>{q.label}</span>
                 </div>
               );
@@ -213,9 +253,9 @@ function CockpitDemo() {
         ) : null}
       </div>
 
-      {/* 左下 · 项目脉搏：默认 4 卡 2×2 铺满 + 「···显示全部(N)」 */}
+      {/* 左下 · 项目脉搏：默认 6 张、auto-fill 240px 自适应、紧凑卡（v1.6） */}
       <div className="p9a-q p9a-q-pulse">
-        <span className="section-label">PROJECT PULSE · 项目脉搏（默认 4 卡铺满）</span>
+        <span className="section-label">PROJECT PULSE · 项目脉搏（默认 6 张 · auto-fill 240px）</span>
         <div className="p9a-pulse-4">
           {projects.map((p) => (
             <button className="p9a-pulse-card compact" key={p.code}>
@@ -224,7 +264,7 @@ function CockpitDemo() {
                 <strong>{p.name}</strong>
                 <em className={`p9a-badge-${p.tone}`}>{p.badge}</em>
               </span>
-              <small className="p9a-pulse-meta">{p.code} · 当前阶段 {p.stage} · 逾期任务 {p.overdue} · 更新 {p.updated}</small>
+              <small className="p9a-pulse-meta">{p.code} · {p.stage} · 逾期 {p.overdue} · {p.updated}</small>
               <span className="p9a-progress"><i style={{ width: `${p.pct}%` }} /><b>{p.pct}%</b></span>
             </button>
           ))}
@@ -232,7 +272,7 @@ function CockpitDemo() {
         <button className="p9a-show-all">··· 显示全部（{12}）</button>
       </div>
 
-      {/* 右下 · 待办清单：页签（待办/延期治理）+ chips 快筛 + 类型分组折叠（计数）+ 区内滚动 */}
+      {/* 右下 · 待办清单：页签 + chips + 类型分组（注册表图标）折叠计数 + 区内滚动 */}
       <div className="p9a-q p9a-q-todo">
         <div className="p9a-q-head">
           <div className="p9a-mini-tabs" role="tablist">
@@ -247,7 +287,7 @@ function CockpitDemo() {
             <div className="p9a-chips">
               {chips.map((c) => (
                 <button key={c} className={chip === c ? "active" : ""} onClick={() => setChip(c)}>
-                  {c}{c !== "全部" ? ` ${countBy(c)}` : ` ${total}`}
+                  {c === "全部" ? `全部 ${total}` : `${DOMAIN_ICONS[c].label} ${countBy(c)}`}
                 </button>
               ))}
             </div>
@@ -256,22 +296,23 @@ function CockpitDemo() {
         {todoTab === "todo" ? (
           <div className="p9a-scroll-list p9a-todo-scroll">
             {visibleGroups.map((g) => {
-              const isCollapsed = collapsedGroups[g.type] ?? false;
+              const isCollapsed = collapsedGroups[g.domain] ?? false;
               return (
-                <section className="p9a-todo-group" key={g.type}>
+                <section className="p9a-todo-group" key={g.domain}>
                   <button
                     className="p9a-todo-group-head"
                     aria-expanded={!isCollapsed}
-                    onClick={() => setCollapsedGroups((c) => ({ ...c, [g.type]: !isCollapsed }))}
+                    onClick={() => setCollapsedGroups((c) => ({ ...c, [g.domain]: !isCollapsed }))}
                   >
-                    <IconBlock icon={g.icon} tone={g.tone} size={24} />
-                    <strong>{g.type}</strong>
+                    <DomainIconBlock domain={g.domain} size={24} />
+                    <strong>{DOMAIN_ICONS[g.domain].label}</strong>
                     <span className="count-badge neutral">{g.items.length}</span>
                     <span className="p9a-collapse-arrow">{isCollapsed ? "▸" : "▾"}</span>
                   </button>
                   {!isCollapsed
                     ? g.items.map((it) => (
                         <div className="p9a-queue-card slim" key={it.title}>
+                          <DomainIconBlock domain={g.domain} size={20} iconSize={12} />
                           <div className="p9a-queue-main">
                             <strong>{it.title}</strong>
                             <small>{it.project} · {it.ago}</small>
@@ -289,7 +330,7 @@ function CockpitDemo() {
             <div className="p9a-steps">
               {steps.map((s, i) => (
                 <div className="p9a-step-node" key={s.label}>
-                  <IconBlock icon={s.icon} tone={s.tone} size={36} />
+                  {s.domain ? <DomainIconBlock domain={s.domain} size={36} iconSize={18} /> : <IconBlock icon={s.icon!} tone={s.tone} size={36} />}
                   <span>{s.label}</span>
                   {i < steps.length - 1 ? <i className="p9a-step-line" aria-hidden="true" /> : null}
                 </div>
@@ -302,6 +343,7 @@ function CockpitDemo() {
     </div>
   );
 }
+
 
 
 /* T-A 列表工作台样例：筛选条固定 + 表格内滚动 + 分页条固定 */
