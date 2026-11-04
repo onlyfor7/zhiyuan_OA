@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, ChevronDown, Search } from "lucide-react";
+import { Bell, ChevronDown, ChevronRight, Search } from "lucide-react";
 
 import { NAV_TREE, PERSONA_LABEL, type DemoTarget, type NavGroup } from "./nav-tree";
 import { DemoPanel } from "./DemoPages";
@@ -7,15 +7,21 @@ import { FormsPanel } from "./FormParadigms";
 import "./p9a.css";
 
 /**
- * 迭代 9a 平台壳高保真原型（/preview-9a 隔离，静态示意）。
- * 品牌「因诺智元业务管理平台」（arch/12 §1.1）；顶栏 8 组 mega menu（§2.1 功能树逐字、§2.2 交互规范）；
- * 视口锁定：主区 calc(100vh-56px) overflow:hidden（H1/H2 由 T-A/T-C 样例页证明）。
+ * 迭代 9a 平台壳原型 v2（arch/12 v1.2 用户裁定修订）：
+ * §2.2 级联气泡菜单（替代 mega 面板）+ §4.1 视觉折中（白底/去描边/净行/柔影/圆角 8）。
+ * 视口锁定 H1/H2、密度 token、微交互 M1–M7 全部保留。
  */
 
 interface DemoState {
   target: DemoTarget;
   label: string;
   groupKey: string;
+}
+
+interface OpenState {
+  groupKey: string;
+  /** 一级面板悬停的二级分组序号（无分组组恒 null） */
+  sectionIdx: number | null;
 }
 
 function BrandMark() {
@@ -28,107 +34,241 @@ function BrandMark() {
   );
 }
 
-function MegaMenu({
+/** §2.2：级联气泡——一级面板固定悬浮顶栏下方；二级右侧飞出；指针移出链 200ms 关闭 */
+function CascadeGroup({
   group,
   open,
   active,
-  onToggle,
+  onOpen,
+  onOpenSection,
   onClose,
   onPick,
 }: {
   group: NavGroup;
-  open: boolean;
+  open: OpenState | null;
   active: boolean;
-  onToggle: () => void;
+  onOpen: (key: string) => void;
+  onOpenSection: (key: string, si: number) => void;
   onClose: () => void;
-  onPick: (item: { name: string; route: string; demo: DemoTarget }) => void;
+  onPick: (item: { name: string; route: string; demo: DemoTarget }, groupKey: string) => void;
 }) {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const sections = group.sections.filter((sec) => sec.items.length > 0);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const l1Ref = useRef<HTMLDivElement>(null);
+  const l2Ref = useRef<HTMLDivElement>(null);
+  const [l1Pos, setL1Pos] = useState<{ left: number; top: number } | null>(null);
+  const [l2Pos, setL2Pos] = useState<{ left: number; top: number } | null>(null);
+  const closeTimer = useRef<number | null>(null);
+  const isOpen = open?.groupKey === group.key;
+  const hoverSection = isOpen ? open.sectionIdx : null;
+  const ungrouped = group.sections.length === 1 && group.sections[0].name === "";
+  const sections = group.sections;
 
+  const cancelClose = () => {
+    if (closeTimer.current) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = window.setTimeout(() => onClose(), 200);
+  };
+
+  const openGroup = () => {
+    cancelClose();
+    onOpen(group.key);
+  };
+
+  // 一级面板定位：贴顶栏下缘 +4px，不遮顶栏不推内容
   useEffect(() => {
-    if (!open) return;
-    const first = panelRef.current?.querySelector<HTMLElement>("[role=menuitem]");
-    first?.focus();
-    const onDoc = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) onClose();
-    };
+    if (!isOpen || !triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    const barBottom = triggerRef.current.closest(".p9a-topbar")?.getBoundingClientRect().bottom ?? r.bottom;
+    setL1Pos({ left: Math.max(8, Math.min(r.left, window.innerWidth - 320)), top: barBottom + 4 });
+  }, [isOpen]);
+
+  // 二级面板定位：一级右侧，行顶对齐
+  useEffect(() => {
+    if (hoverSection === null || !l1Ref.current) {
+      setL2Pos(null);
+      return;
+    }
+    const row = l1Ref.current.querySelectorAll<HTMLElement>("[data-section]")[hoverSection];
+    if (!row) {
+      setL2Pos(null);
+      return;
+    }
+    const r = row.getBoundingClientRect();
+    const l1Right = l1Ref.current.getBoundingClientRect().right;
+    const left = l1Right + 2;
+    setL2Pos({ left: Math.min(left, window.innerWidth - 340), top: r.top });
+  }, [hoverSection]);
+
+  // 键盘：Enter/Space 开（触发钮原生）；↑↓ 移动；→ 进子级；← 回父级；Esc 关闭回焦点
+  useEffect(() => {
+    if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      const items = [...(panelRef.current?.querySelectorAll<HTMLElement>("[role=menuitem]") ?? [])];
+      const l1 = l1Ref.current;
+      if (!l1) return;
+      const items = [...l1.querySelectorAll<HTMLElement>("[data-section], [data-leaf]")];
       const idx = items.indexOf(document.activeElement as HTMLElement);
       if (e.key === "Escape") {
         e.stopPropagation();
         onClose();
-        btnRef.current?.focus();
+        triggerRef.current?.focus();
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
         (items[idx + 1] ?? items[0])?.focus();
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         (items[idx - 1] ?? items[items.length - 1])?.focus();
-      } else if (e.key === "Home") {
-        e.preventDefault();
-        items[0]?.focus();
-      } else if (e.key === "End") {
-        e.preventDefault();
-        items[items.length - 1]?.focus();
+      } else if (e.key === "ArrowRight") {
+        const el = document.activeElement as HTMLElement;
+        const sec = el?.dataset.section;
+        if (sec !== undefined) {
+          e.preventDefault();
+          onOpenSection(group.key, Number(sec));
+          queueMicrotask(() => {
+            requestAnimationFrame(() => {
+              l2Ref.current?.querySelector<HTMLElement>("[data-leaf]")?.focus();
+            });
+          });
+        }
+      } else if (e.key === "ArrowLeft") {
+        if (l2Ref.current?.contains(document.activeElement)) {
+          e.preventDefault();
+          l1.querySelectorAll<HTMLElement>("[data-section]")[hoverSection ?? 0]?.focus();
+        }
       }
     };
-    document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey, true);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey, true);
-    };
-  }, [open, onClose]);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [isOpen, group.key, hoverSection, onClose, onOpen, onOpenSection]);
+
+  const pickItem = (item: { name: string; route: string; demo: DemoTarget }) => {
+    cancelClose();
+    onPick(item, group.key);
+    onClose();
+    triggerRef.current?.focus();
+  };
 
   return (
-    <div className="p9a-dd" ref={rootRef}>
+    <div className="p9a-dd" onMouseLeave={scheduleClose} onMouseEnter={cancelClose}>
       <button
-        ref={btnRef}
+        ref={triggerRef}
         className={`p9a-dd-trigger ${active ? "active" : ""}`}
         aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={onToggle}
+        aria-expanded={isOpen}
+        onMouseEnter={() => window.setTimeout(() => { if (!isOpen) openGroup(); }, 120)}
+        onFocus={openGroup}
+        onClick={openGroup}
       >
         {group.label}
         <ChevronDown size={13} aria-hidden="true" />
       </button>
-      {open ? (
-        <div className="p9a-mega" role="menu" ref={panelRef} aria-label={`${group.label}菜单`}>
-          {sections.map((sec) => (
-            <div className="p9a-mega-col" key={sec.name || "_"}>
-              {sec.name ? <span className="p9a-mega-head">{sec.name}</span> : null}
-              {sec.items.map((item) => (
+      {isOpen && l1Pos ? (
+        <div
+          className="p9a-bubble p9a-bubble-l1"
+          role="menu"
+          aria-label={`${group.label}菜单`}
+          ref={l1Ref}
+          style={{ left: l1Pos.left, top: l1Pos.top }}
+        >
+          {sections.map((sec, si) =>
+            ungrouped ? (
+              sec.items.map((item) => (
                 <button
                   key={item.route + item.name}
                   role="menuitem"
-                  className="p9a-mega-item"
-                  onClick={() => {
-                    onPick({ name: item.name, route: item.route, demo: item.demo });
-                    onClose();
-                  }}
+                  data-leaf
+                  className="p9a-bubble-leaf"
+                  onClick={() => pickItem(item)}
                 >
                   <strong>{item.name}</strong>
                   <small>{item.desc}</small>
                 </button>
-              ))}
-            </div>
+              ))
+            ) : (
+              <button
+                key={sec.name}
+                role="menuitem"
+                data-section={si}
+                className={`p9a-bubble-section ${hoverSection === si ? "hover" : ""}`}
+                aria-haspopup={sec.items.length > 0 ? "menu" : undefined}
+                aria-expanded={hoverSection === si}
+                onMouseEnter={() => {
+                  cancelClose();
+                  onOpenWithSection(si);
+                }}
+                onFocus={() => onOpenWithSection(si)}
+              >
+                <span>{sec.name}</span>
+                <ChevronRight size={13} aria-hidden="true" />
+              </button>
+            ),
+          )}
+        </div>
+      ) : null}
+      {isOpen && l2Pos && hoverSection !== null && sections[hoverSection] ? (
+        <div
+          className="p9a-bubble p9a-bubble-l2"
+          role="menu"
+          aria-label={sections[hoverSection].name}
+          ref={l2Ref}
+          style={{ left: l2Pos.left, top: l2Pos.top }}
+          onMouseEnter={cancelClose}
+        >
+          {sections[hoverSection].items.map((item) => (
+            <button
+              key={item.route + item.name}
+              role="menuitem"
+              data-leaf
+              className="p9a-bubble-leaf"
+              onClick={() => pickItem(item)}
+            >
+              <strong>{item.name}</strong>
+              <small>{item.desc}</small>
+            </button>
           ))}
         </div>
       ) : null}
     </div>
   );
+
+  function onOpenWithSection(si: number) {
+    cancelClose();
+    onOpenSection(group.key, si);
+  }
 }
 
 export default function Shell9a() {
   const [persona, setPersona] = useState("sysadmin");
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [open, setOpen] = useState<OpenState | null>(null);
   const [demo, setDemo] = useState<DemoState>({ target: { kind: "t-c" }, label: "驾驶舱", groupKey: "overview" });
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const closeMenus = useCallback(() => setOpenMenu(null), []);
+  const appRef = useRef<HTMLDivElement>(null);
+
+  const onOpen = useCallback((key: string) => setOpen((prev) => ({ groupKey: key, sectionIdx: prev?.groupKey === key ? prev.sectionIdx : null })), []);
+  const onOpenSection = useCallback((key: string, si: number) => setOpen({ groupKey: key, sectionIdx: si }), []);
+  const onClose = useCallback(() => setOpen(null), []);
+  const closeChain = onClose;
+  const pick = useCallback(
+    (item: { name: string; route: string; demo: DemoTarget }, groupKey: string) => {
+      setDemo({ target: item.demo, label: item.name, groupKey });
+      setDrawerOpen(false);
+    },
+    [],
+  );
+
+  // 点击面板外关闭
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = () => {
+      if (!document.querySelector(".p9a-bubble:hover, .p9a-dd:hover")) onClose();
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open, onClose]);
 
   const visibleGroups = NAV_TREE
     .map((g) => ({
@@ -141,13 +281,8 @@ export default function Shell9a() {
     .filter((g) => !g.roles || g.roles.includes(persona))
     .filter((g) => g.sections.length > 0);
 
-  const pick = (item: { name: string; route: string; demo: DemoTarget }, groupKey: string) => {
-    setDemo({ target: item.demo, label: item.name, groupKey });
-    setDrawerOpen(false);
-  };
-
   return (
-    <div className="p9a-app">
+    <div className="p9a-app" ref={appRef}>
       <span className="preview-badge" role="note">原型预览 · 静态示意 · 未接入真实数据</span>
       <div className="ux-persona-bar p9a-persona">
         <span>演示角色（角色过滤）：</span>
@@ -167,16 +302,17 @@ export default function Shell9a() {
             <span>业务管理平台</span>
           </div>
         </div>
-        <nav className="p9a-groups" aria-label="一级功能组（mega menu）">
+        <nav className="p9a-groups" aria-label="一级功能组（级联气泡）">
           {visibleGroups.map((g) => (
-            <MegaMenu
+            <CascadeGroup
               key={g.key}
               group={g}
-              open={openMenu === g.key}
+              open={open}
               active={demo.groupKey === g.key}
-              onToggle={() => setOpenMenu(openMenu === g.key ? null : g.key)}
-              onClose={closeMenus}
-              onPick={(item) => pick(item, g.key)}
+              onOpen={onOpen}
+              onOpenSection={onOpenSection}
+              onClose={closeChain}
+              onPick={pick}
             />
           ))}
         </nav>
@@ -195,7 +331,7 @@ export default function Shell9a() {
         </div>
       </header>
 
-      {/* H1：主区视口锁定，零页面级滚动 */}
+      {/* H1：主区视口锁定 */}
       <main className="p9a-main">
         {demo.target.kind === "t-c" ? <DemoPanel kind="t-c" title={demo.label} /> : null}
         {demo.target.kind === "t-a" ? <DemoPanel kind="t-a" title={demo.label} /> : null}
@@ -227,7 +363,7 @@ export default function Shell9a() {
                     <button
                       key={item.route + item.name}
                       className={demo.label === item.name ? "current" : ""}
-                      onClick={() => pick({ name: item.name, route: item.route, demo: item.demo }, g.key)}
+                      onClick={() => pick(item, g.key)}
                     >
                       {item.name}
                     </button>

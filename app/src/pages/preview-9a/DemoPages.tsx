@@ -62,7 +62,7 @@ function CockpitDemo() {
       </div>
       <div className="p9a-tc-row2">
         <div className="p9a-panel">
-          <span className="section-label">PROJECT PULSE · 项目脉搏（模块内滚动）</span>
+          <span className="section-label">PROJECT PULSE · 项目脉搏（净行列表·模块内滚动）</span>
           <div className="p9a-scroll-list">
             {["比博思特技术服务项目", "金通灵技术服务项目", "佳力奇技术服务项目", "合规运作规则引擎上市公司 1.0", "GD 法律服务"].map((n, i) => (
               <div className="p9a-pulse-row" key={n}>
@@ -80,7 +80,7 @@ function CockpitDemo() {
             ))}
           </div>
         </div>
-        <div className="p9a-panel">
+        <div className="p9a-panel aggregated">
           <span className="section-label">TODO QUEUE · 待处理队列（模块内滚动）</span>
           <div className="p9a-scroll-list">
             {["报销单待财务审批", "差旅借款会签", "线索转化确认", "合同付款计划核对", "工时周期解锁审批"].map((n) => (
@@ -93,11 +93,11 @@ function CockpitDemo() {
         </div>
       </div>
       <div className="p9a-tc-row3">
-        <div className="p9a-panel">
+        <div className="p9a-panel aggregated">
           <span className="section-label">DELAY GOVERNANCE · 延期治理</span>
           <p className="context-note">每一次变化都有书面原因、责任人和恢复检查点，并自动进入项目档案。</p>
         </div>
-        <div className="p9a-panel">
+        <div className="p9a-panel aggregated">
           <span className="section-label">QUICK ENTRY · 快捷入口</span>
           <div className="p9a-quick">
             <button className="secondary-action">新建项目</button>
