@@ -76,7 +76,7 @@ kbd { font-family: "SFMono-Regular", Consolas, monospace; font-size: 10px; borde
   html, body { overflow: hidden; height: 100dvh; }
   .concept-app { height: 100dvh; display: flex; flex-direction: column; }
   .topbar { flex: 0 0 72px; position: relative; }
-  .app-body.no-rail { flex: 1 1 auto; min-height: 0; height: auto; grid-template-columns: minmax(0, 1fr); }
+  .app-body.no-rail { flex: 1 1 auto; min-height: 0; height: auto; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
   .main-workspace { height: 100%; overflow-y: auto; min-width: 0; }
 }
 .project-rail { background: #171c24; color: #d7dce4; padding: 24px 14px 18px; display: flex; flex-direction: column; border-right: 1px solid var(--line-dark); }

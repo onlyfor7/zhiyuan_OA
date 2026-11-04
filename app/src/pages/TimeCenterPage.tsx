@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, Copy, Download, Lock,
   LockOpen, Plus, Timer, Unlock, X,
@@ -19,7 +20,8 @@ import {
   type TimeEntryRow,
 } from "../api/time";
 import { useRail } from "../components/shell-rail";
-import { businessDetailsOf } from "../lib/trpc";
+import { FormDialog } from "../components/FormDialog";
+import { businessDetailsOf, useTRPC } from "../lib/trpc";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
 import { formatHours, formatMinutes, TIMESHEET_STATUS_LABEL, TIME_ACTIVITY_LABEL, TIME_SOURCE_LABEL } from "../lib/labels";
 
@@ -54,6 +56,142 @@ function addDays(dateStr: string, days: number): string {
   const d = new Date(`${dateStr}T00:00:00`);
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+/** 9a §5/02b：工时「快速填报」F1 弹窗——走既有 time 端点（myPeriod 取周周期 + saveEntries 覆盖式追加），页级批量填报保留 */
+function QuickEntryDialog({
+  meProjects,
+  onClose,
+  onNotice,
+}: {
+  meProjects: Array<{ id: string; name: string }>;
+  onClose: () => void;
+  onNotice: (message: string) => void;
+}) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const mutations = useTimeMutations();
+  const [projectId, setProjectId] = useState(meProjects[0]?.id ?? "");
+  const [workDate, setWorkDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [hours, setHours] = useState(1);
+  const [activityType, setActivityType] = useState<TimeEntryInput["activityType"]>("professional_work");
+  const [description, setDescription] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  const submit = async () => {
+    setError(null);
+    if (!projectId) {
+      setError("请选择项目。");
+      return;
+    }
+    if (!hours || hours <= 0) {
+      setError("时长须大于 0（0.5 小时步进）。");
+      return;
+    }
+    setPending(true);
+    try {
+      const weekStart = mondayOf(new Date(`${workDate}T00:00:00`));
+      const data = await queryClient.fetchQuery(trpc.time.myPeriod.queryOptions({ periodStart: weekStart }));
+      const target = data.period;
+      if (!target || (target.status !== "draft" && target.status !== "returned")) {
+        setError("该周工时周期不可编辑（已提交/已批准/已锁定），请在工时中心切换到对应周期处理。");
+        return;
+      }
+      const entries = (data.entries ?? []).map((e) => ({
+        projectId: e.projectId,
+        taskId: e.taskId,
+        meetingId: e.meetingId,
+        travelId: e.travelId,
+        activityType: e.activityType,
+        workDate: e.workDate,
+        durationMinutes: e.durationMinutes,
+        description: e.description ?? undefined,
+        billable: e.billable,
+      }));
+      entries.push({
+        projectId,
+        taskId: null,
+        meetingId: null,
+        travelId: null,
+        activityType,
+        workDate,
+        durationMinutes: Math.round(hours * 60),
+        description: description.trim(),
+        billable: true,
+      });
+      mutations.saveEntries.mutate(
+        { periodId: target.id, entries, idempotencyKey: newIdempotencyKey() },
+        {
+          onSuccess: () => {
+            onNotice(`已填报 ${workDate} ${hours} 小时（${target.code}，提交前可在周日历中继续编辑）。`);
+            onClose();
+          },
+          onError: (err) => setError(rootErrorMessage(err)),
+        },
+      );
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <FormDialog title="快速填报工时" eyebrow="TIME · F1 弹窗（0.5h 步进）" onClose={onClose}>
+      <label className="form-field">
+        <span>项目 *</span>
+        <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+          {meProjects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="owner-line">
+        <label className="form-field">
+          <span>日期 *</span>
+          <input type="date" value={workDate} onChange={(e) => setWorkDate(e.target.value)} />
+        </label>
+        <label className="form-field">
+          <span>时长（小时，0.5 步进）*</span>
+          <input
+            type="number"
+            min="0.5"
+            step="0.5"
+            value={hours}
+            onChange={(e) => setHours(Math.max(0.5, Math.round(Number(e.target.value) * 2) / 2))}
+          />
+        </label>
+        <label className="form-field">
+          <span>活动类型</span>
+          <select value={activityType} onChange={(e) => setActivityType(e.target.value as TimeEntryInput["activityType"])}>
+            {TIME_ACTIVITY_TYPE.map((t) => (
+              <option key={t} value={t}>
+                {TIME_ACTIVITY_LABEL[t]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <label className="form-field">
+        <span>说明</span>
+        <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="做了什么（选填）" />
+      </label>
+      {error ? (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div className="drawer-actions">
+        <button className="secondary-action" onClick={onClose}>
+          取消
+        </button>
+        <button className="primary-action" disabled={pending || mutations.saveEntries.isPending} onClick={() => void submit()}>
+          {pending || mutations.saveEntries.isPending ? "保存中…" : "保存填报"}
+        </button>
+      </div>
+    </FormDialog>
+  );
 }
 
 interface RowDraft extends TimeEntryInput {
@@ -103,10 +241,12 @@ export default function TimeCenterPage() {
   const [unlockReason, setUnlockReason] = useState("");
   const [prefillMeetingId, setPrefillMeetingId] = useState("");
   const [prefillTravelId, setPrefillTravelId] = useState("");
+  const [quickOpen, setQuickOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const period = myPeriod.data?.period ?? null;
+  const meProjects = (me.data?.projects ?? []).map((p) => ({ id: p.id, name: p.name }));
   const entries = useMemo(() => myPeriod.data?.entries ?? [], [myPeriod.data]);
   const validate = useValidatePeriod(period?.id ?? null, validateOpen);
   const mySummary = useMyTimeSummary({ from: weekStart, to: addDays(weekStart, 6) });
@@ -177,6 +317,14 @@ export default function TimeCenterPage() {
       {period?.status === "locked" ? (
         <p className="archive-banner small">该周期已锁定：明细只读。解锁需 time.unlock 专门授权并填写理由（留审计）。</p>
       ) : null}
+      {quickOpen ? (
+        <QuickEntryDialog
+          meProjects={meProjects}
+          onClose={() => setQuickOpen(false)}
+          onNotice={(m) => setNotice(m)}
+        />
+      ) : null}
+
       {period?.status === "approved" ? (
         <p className="archive-banner small" style={{ background: "#e8f4ef", color: "#2f6b57", borderColor: "#bfe0d2" }}>
           该周期已批准：明细只读，可锁定归档。
@@ -193,6 +341,9 @@ export default function TimeCenterPage() {
             列表视图
           </button>
         </div>
+        <button className="primary-action" onClick={() => setQuickOpen(true)}>
+          快速填报
+        </button>
         {period && !readOnly ? (
           <button className="secondary-action" onClick={() => run(() => setValidateOpen(true))}>
             校验（阻止/警告）
