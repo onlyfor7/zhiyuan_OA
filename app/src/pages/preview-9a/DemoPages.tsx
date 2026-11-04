@@ -54,7 +54,7 @@ function IconBlock({ icon: Icon, tone, size = 32 }: { icon: LucideIcon; tone: To
 
 /* T-C 驾驶舱样例：固定三行 grid（§1.3 v1.3 卡片图标化） */
 /* v1.6 §1.3/§4.4：四象限细节修订 + 全局图标注册表唯一源 */
-import { DOMAIN_ICONS, type DomainKey } from "../../lib/icons";
+import { DOMAIN_ICONS, domainColor, type DomainKey } from "../../lib/icons";
 import { DomainIconBlock } from "../../lib/DomainIconBlock";
 
 /** 问候卡实时时钟（秒级走动 + 日期星期 + 分时段问候） */
@@ -76,22 +76,50 @@ function LiveClock() {
   );
 }
 
-/** 迷你日历挂件：当月月历、今天高亮、有待办/会议的日期带小圆点（静态示意） */
+/** v1.7 迷你日历+日程联动：圆点按 §4.4 语义色分型（多类型至多 3 点）；点击日期→下方联动区列当日安排（默认今天，空态「当日无安排」） */
+interface ScheduleItem {
+  domain: DomainKey;
+  title: string;
+  project: string;
+  time: string;
+}
+const SCHEDULE_DEMO: Record<number, ScheduleItem[]> = {
+  4: [
+    { domain: "meeting", title: "比博思特项目周会", project: "比博思特", time: "10:00 – 11:00" },
+    { domain: "task", title: "起诉材料用印截止", project: "金通灵", time: "17:00 截止" },
+  ],
+  8: [
+    { domain: "travel", title: "客户现场服务出差（赴苏州）", project: "比博思特", time: "08:30 – 18:00" },
+    { domain: "meeting", title: "合同评审会", project: "GD 法律服务", time: "14:00 – 15:00" },
+    { domain: "risk", title: "里程碑：需求确认书交付", project: "佳力奇", time: "全天" },
+  ],
+  12: [
+    { domain: "task", title: "尽调报告初稿提交", project: "合规运作 1.0", time: "12:00 截止" },
+  ],
+  21: [
+    { domain: "meeting", title: "月度经营分析会", project: "全所", time: "09:30 – 11:30" },
+    { domain: "travel", title: "出庭（上海中院）", project: "金通灵", time: "13:30 – 16:00" },
+    { domain: "risk", title: "里程碑：验收节点", project: "佳力奇", time: "全天" },
+    { domain: "task", title: "周报提交", project: "个人", time: "18:00 截止" },
+  ],
+};
+
 function MiniCalendar() {
   const [now] = useState(() => new Date());
+  const [selected, setSelected] = useState<number>(now.getDate());
   const year = now.getFullYear();
   const month = now.getMonth();
   const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7; // 周一=0
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = now.getDate();
-  const marked = new Set([3, 8, 12, 15, 21, 26].filter((d) => d <= daysInMonth));
   const cells: Array<number | null> = [
     ...Array.from({ length: firstWeekday }, () => null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
   const week = ["一", "二", "三", "四", "五", "六", "日"];
+  const schedule = SCHEDULE_DEMO[selected] ?? [];
   return (
-    <div className="p9a-cal" aria-label="迷你日历（示意）">
+    <div className="p9a-cal" aria-label="迷你日历与当日日程（示意）">
       <div className="p9a-cal-head">
         {year} 年 {month + 1} 月
       </div>
@@ -99,12 +127,46 @@ function MiniCalendar() {
         {week.map((w) => (
           <span key={w} className="p9a-cal-wd">{w}</span>
         ))}
-        {cells.map((d, i) => (
-          <span key={i} className={`p9a-cal-day ${d === today ? "today" : ""}`}>
-            {d ?? ""}
-            {d !== null && marked.has(d) ? <i className="p9a-cal-dot" aria-hidden="true" /> : null}
-          </span>
-        ))}
+        {cells.map((d, i) => {
+          const items = d !== null ? (SCHEDULE_DEMO[d] ?? []) : [];
+          const dots = items.slice(0, 3);
+          return (
+            <button
+              key={i}
+              className={`p9a-cal-day ${d === today ? "today" : ""} ${d === selected ? "selected" : ""}`}
+              disabled={d === null}
+              aria-label={d !== null ? `${month + 1}月${d}日` : undefined}
+              onClick={() => d !== null && setSelected(d)}
+            >
+              {d ?? ""}
+              {dots.length > 0 ? (
+                <span className="p9a-cal-dots" aria-hidden="true">
+                  {dots.map((it, di) => (
+                    <i key={di} className="p9a-cal-dot" style={{ background: domainColor(it.domain) }} />
+                  ))}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+      <div className="p9a-schedule" aria-live="polite">
+        <span className="section-label">{month + 1} 月 {selected} 日 · 当日安排（{schedule.length}）</span>
+        <div className="p9a-schedule-list">
+          {schedule.length === 0 ? (
+            <p className="p9a-schedule-empty">当日无安排</p>
+          ) : (
+            schedule.map((it, i) => (
+              <div className="p9a-schedule-row" key={i}>
+                <DomainIconBlock domain={it.domain} size={22} iconSize={13} />
+                <div className="p9a-queue-main">
+                  <strong>{it.title}</strong>
+                  <small>{it.project} · {it.time}</small>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
@@ -200,6 +262,7 @@ function CockpitDemo() {
             <span className="p9a-role-badge">合伙人</span>
             <span className="p9a-role-badge alt">质量负责人</span>
           </p>
+          <p className="context-note">项目组合与待处理事项来自实时聚合（§1.3 v1.7 · 职位为原型静态示意）。</p>
           <div className="p9a-mini-metrics">
             {[["项目", 5], ["待批", 6], ["待决策", 3], ["预警", 1]].map(([l, v]) => (
               <span key={l as string}><strong>{v}</strong>{l}</span>

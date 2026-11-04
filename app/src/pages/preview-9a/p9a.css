@@ -279,17 +279,32 @@
 .p9a-delay-body { overflow-y: auto; display: grid; gap: 10px; align-content: start; }
 
 /* v1.6：迷你日历挂件 + 快捷入口左上密集流排 + 脉搏 6 卡 240px 自适应紧凑 */
-.p9a-q-greet { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; }
-.p9a-greet-main { display: flex; flex-direction: column; min-width: 0; }
-.p9a-greet-main .p9a-mini-metrics { margin-top: auto; }
-.p9a-cal { width: 208px; flex: 0 0 auto; display: grid; gap: 6px; align-content: start; }
+/* v1.7 问候卡双区：左 45% 时钟/身份/指标纵向宽松撑满；右 55% 月历+日程联动 */
+.p9a-q-greet { display: grid; grid-template-columns: 45fr 55fr; gap: 16px; padding: 10px 14px; }
+.p9a-greet-main { display: flex; flex-direction: column; min-width: 0; justify-content: space-evenly; }
+.p9a-greet-main .p9a-mini-metrics { margin-top: 0; }
+.p9a-cal { min-width: 0; display: grid; gap: 5px; align-content: start; grid-template-rows: auto auto minmax(0, 1fr); }
 .p9a-cal-head { font-size: 12px; font-weight: 600; color: var(--ink); }
-.p9a-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.p9a-cal-wd { font-size: 10px; color: var(--muted); text-align: center; padding: 2px 0; }
-.p9a-cal-day { position: relative; font-size: 11px; text-align: center; padding: 3px 0; border-radius: 6px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.p9a-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+.p9a-cal-wd { font-size: 10px; color: var(--muted); text-align: center; padding: 1px 0; }
+.p9a-cal-day {
+  position: relative; font-size: 10.5px; text-align: center; padding: 2px 0 6px; border-radius: 6px;
+  color: var(--ink); font-variant-numeric: tabular-nums; border: 0; background: transparent; cursor: pointer;
+}
+.p9a-cal-day:hover:not(:disabled) { background: #f4f6f9; }
+.p9a-cal-day:disabled { cursor: default; }
 .p9a-cal-day.today { background: var(--blue); color: #fff; font-weight: 600; }
-.p9a-cal-dot { position: absolute; left: 50%; bottom: 1px; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: var(--orange); }
-.p9a-cal-day.today .p9a-cal-dot { background: #fff; }
+.p9a-cal-day.selected:not(.today) { box-shadow: inset 0 0 0 1.5px var(--blue); }
+/* 语义色分型圆点（§4.4），多类型至多 3 点 */
+.p9a-cal-dots { position: absolute; left: 0; right: 0; bottom: 2px; display: flex; justify-content: center; gap: 2px; }
+.p9a-cal-dot { width: 4px; height: 4px; border-radius: 50%; }
+/* 日程联动区：默认今天，空态「当日无安排」，区内滚动 */
+.p9a-schedule { min-height: 0; display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #eef0f3; padding-top: 6px; }
+.p9a-schedule-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; gap: 4px; align-content: start; }
+.p9a-schedule-empty { color: var(--muted); font-size: 12px; margin: 4px 0; }
+.p9a-schedule-row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 8px; background: #f8f9fb; }
+.p9a-schedule-row .p9a-queue-main strong { font-size: 12px; font-weight: 500; }
+.p9a-schedule-row .p9a-queue-main small { font-size: 11px; }
 .p9a-quick-fill { justify-content: flex-start; align-content: flex-start; align-items: flex-start; }
 .p9a-quick-fill .p9a-quick-icon { padding: 8px 12px; }
 .p9a-pulse-4 { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); grid-template-rows: none; }
