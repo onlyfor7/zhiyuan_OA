@@ -66,17 +66,32 @@
 
 /* T-C 驾驶舱：固定三行 grid（§1.3） */
 .p9a-tc { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 12px; }
-.p9a-tc-row1 { display: grid; grid-template-columns: minmax(260px, 1fr) 2fr; gap: 12px; align-items: stretch; }
+/* v1.4 行1：问候卡方形靠左 + 指标横排居中（min-width+nowrap，超宽横滚）+ 快捷入口靠右 */
+.p9a-tc-row1 { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: stretch; }
+.p9a-greet-card {
+  min-width: 230px; max-width: 260px; padding: 14px 16px; background: #fff; border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06);
+  display: grid; gap: 4px; align-content: center;
+}
 .p9a-greet { padding: 14px 4px; }
 .p9a-greet h1 { font-size: 20px; margin: 4px 0; font-weight: 600; }
 .p9a-greet p { color: var(--muted); font-size: 12px; margin: 0; }
-/* 指标带=真正聚合区块：白卡无边框仅柔影 */
-.p9a-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; overflow-x: auto; }
-.p9a-metric { background: #fff; border-radius: 10px; padding: 10px 12px; display: grid; gap: 2px; align-content: center; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06); }
-.p9a-metric span { font-size: 11px; color: var(--muted); }
+/* 指标带：小卡均分剩余宽，min-width+标签 nowrap（修 v3 竖排换行），放不下横滚条带 */
+.p9a-metrics { display: flex; gap: 8px; overflow-x: auto; align-items: stretch; padding-bottom: 2px; }
+.p9a-metric {
+  flex: 1 0 118px; min-width: 118px; background: #fff; border-radius: 10px; padding: 10px 12px;
+  display: flex; gap: 10px; align-items: center; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06);
+}
+.p9a-metric-text { display: grid; gap: 1px; min-width: 0; }
+.p9a-metric-text .p9a-count { font-size: 22px; line-height: 1.2; }
+.p9a-metric-text span { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.p9a-quick-right { margin-top: 0; }
 .p9a-count { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.p9a-tc-row2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; min-height: 0; }
-.p9a-tc-row3 { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+/* v1.4 行2：脉搏 auto-fill 300px 铺满左中 + 待办右列固定 380px */
+.p9a-tc-row2 { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 12px; min-height: 0; }
+.p9a-tc-row3 { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.p9a-delay-strip { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.p9a-delay-strip .context-note { margin: 0; flex-basis: 100%; }
 .p9a-tc-row2 .p9a-panel, .p9a-tc-row3 .p9a-panel { min-height: 0; display: flex; flex-direction: column; }
 /* 待办队列=聚合卡；项目脉搏=净行列表 */
 .p9a-tc-row2 .p9a-panel.aggregated, .p9a-tc-row3 .p9a-panel.aggregated { background: #fff; border-radius: 10px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06); }
@@ -167,10 +182,7 @@
 
 /* v1.3 §1.3/§4.3：摘要面卡片图标化（圆角 12 无边框柔影 hover 上浮 2px；胶囊按钮） */
 .p9a-iconblock { display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; flex: 0 0 auto; }
-.p9a-metric { grid-template-columns: auto 1fr; gap: 10px; align-content: center; }
-.p9a-metric .p9a-count { font-size: 22px; }
-.p9a-metric span:not(.p9a-iconblock) { font-size: 12px; color: var(--muted); }
-.p9a-pulse-grid { grid-template-columns: 1fr 1fr; gap: 10px; align-content: start; }
+.p9a-pulse-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; align-content: start; }
 .p9a-pulse-card {
   display: grid; gap: 6px; text-align: left; padding: 12px; border: 0; cursor: pointer;
   background: #fff; border-radius: 12px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06);

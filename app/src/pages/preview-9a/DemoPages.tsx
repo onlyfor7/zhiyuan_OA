@@ -98,26 +98,34 @@ function CockpitDemo() {
   return (
     <div className="p9a-tc">
       <div className="p9a-tc-row1">
-        <div className="p9a-greet">
+        <div className="p9a-greet p9a-greet-card">
           <span className="eyebrow">FRIDAY, 08 NOV 2026</span>
           <h1>早上好，梁奇烽。</h1>
-          <p>项目组合与待处理事项来自实时聚合（T-C 样例 · §1.3 v1.3 卡片图标化）。</p>
+          <p>项目组合与待处理事项来自实时聚合（T-C 样例 · §1.3 v1.4 四区重排）。</p>
         </div>
         <div className="p9a-metrics">
           {metrics.map((m) => (
             <div className="p9a-metric" key={m.label}>
               <IconBlock icon={m.icon} tone={m.tone} />
-              <div>
+              <div className="p9a-metric-text">
                 <CountUp value={m.value} />
                 <span>{m.label}</span>
               </div>
             </div>
           ))}
         </div>
+        <div className="p9a-quick-icons p9a-quick-right">
+          {quick.map((q) => (
+            <button className="p9a-quick-icon" key={q.label}>
+              <q.icon size={22} />
+              <span>{q.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
       <div className="p9a-tc-row2">
         <div className="p9a-panel">
-          <span className="section-label">PROJECT PULSE · 项目脉搏（2 列卡网格·模块内滚动）</span>
+          <span className="section-label">PROJECT PULSE · 项目脉搏（auto-fill 300px 卡网格铺满·模块内滚动）</span>
           <div className="p9a-scroll-list p9a-pulse-grid">
             {projects.concat(Array.from({ length: 6 }, (_, i) => ({
               name: `滚动样例项目 ${i + 7}`, code: `PRJ-2026-0000${i + 7}`, badge: "进行中·正常", tone: "green" as Tone, mgr: "负责人", pct: 20 + i * 10,
@@ -150,8 +158,8 @@ function CockpitDemo() {
         </div>
       </div>
       <div className="p9a-tc-row3">
-        <div className="p9a-panel aggregated">
-          <span className="section-label">DELAY GOVERNANCE · 延期治理（步骤条）</span>
+        <div className="p9a-panel aggregated p9a-delay-strip">
+          <span className="section-label">DELAY GOVERNANCE · 延期治理（步骤条横贯）</span>
           <div className="p9a-steps">
             {steps.map((s, i) => (
               <div className="p9a-step-node" key={s.label}>
@@ -162,17 +170,6 @@ function CockpitDemo() {
             ))}
           </div>
           <p className="context-note">每一次变化都有书面原因、责任人和恢复检查点，并自动进入项目档案。</p>
-        </div>
-        <div className="p9a-panel aggregated">
-          <span className="section-label">QUICK ENTRY · 快捷入口（图标按钮组）</span>
-          <div className="p9a-quick-icons">
-            {quick.map((q) => (
-              <button className="p9a-quick-icon" key={q.label}>
-                <q.icon size={22} />
-                <span>{q.label}</span>
-              </button>
-            ))}
-          </div>
         </div>
       </div>
     </div>
