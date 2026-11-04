@@ -5,7 +5,7 @@ import { ERROR_CODE } from "@lexflow/shared";
 import { changeRequests, planItems, planVersions } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
-import { requireProjectRead } from "../../services/access";
+import { requireProjectMember, requireProjectRead } from "../../services/access";
 import * as engine from "../../services/approval/engine";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
@@ -78,7 +78,7 @@ export async function createChange(
   user: SessionUser,
   input: CreateChangeInput,
 ): Promise<{ id: string; code: string }> {
-  await requireProjectRead(db, user, input.projectId);
+  await requireProjectMember(db, user, input.projectId);
   const targetItems = await snapshotTargets(db, input.projectId, input.targetItems);
   const code = await nextCode("CHG", db);
   const [cr] = await db
@@ -108,7 +108,7 @@ export async function updateChange(
 ): Promise<void> {
   const [cr] = await db.select().from(changeRequests).where(eq(changeRequests.id, input.id)).limit(1);
   if (!cr) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "延期申请不存在或无权访问");
-  await requireProjectRead(db, user, cr.projectId);
+  await requireProjectMember(db, user, cr.projectId);
   if (cr.status !== "draft") {
     throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "仅草稿可修改（已提交申请须撤回后修改）");
   }
@@ -187,7 +187,7 @@ export async function submitChange(
 ) {
   const [cr] = await db.select().from(changeRequests).where(eq(changeRequests.id, input.id)).limit(1);
   if (!cr) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "延期申请不存在或无权访问");
-  await requireProjectRead(db, user, cr.projectId);
+  await requireProjectMember(db, user, cr.projectId);
   if (cr.createdBy !== user.id) {
     throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "仅申请人可提交");
   }
@@ -234,7 +234,7 @@ export async function withdrawChange(
 ) {
   const [cr] = await db.select().from(changeRequests).where(eq(changeRequests.id, input.id)).limit(1);
   if (!cr) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "延期申请不存在或无权访问");
-  await requireProjectRead(db, user, cr.projectId);
+  await requireProjectMember(db, user, cr.projectId);
   if (cr.status !== "pending_approval") {
     throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "仅审批中的申请可撤回");
   }

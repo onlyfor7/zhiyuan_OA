@@ -5,7 +5,7 @@ import { ERROR_CODE } from "@lexflow/shared";
 import { decisions, meetingActionItems, meetingMinutes, meetingParticipants, meetings, tasks } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
-import { requireProjectRead } from "../../services/access";
+import { requireProjectMember } from "../../services/access";
 import { notify } from "../../modules/notify";
 import { linkMaterialFiles, linkSourceByDirKey } from "../governance/archive";
 import type { DbOrTx } from "../../trpc/context";
@@ -42,7 +42,7 @@ export async function saveMinutesDraft(
   },
 ) {
   const meeting = await requireMeetingVisible(db, user, input.meetingId);
-  await requireProjectRead(db, user, meeting.projectId);
+  await requireProjectMember(db, user, meeting.projectId);
   if (meeting.status === "cancelled") {
     throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "已取消会议不可整理纪要");
   }
@@ -98,7 +98,7 @@ export async function submitMinutesConfirm(
   input: { meetingId: string; versionNo: number; confirmerId: string },
 ) {
   const meeting = await requireMeetingVisible(db, user, input.meetingId);
-  await requireProjectRead(db, user, meeting.projectId);
+  await requireProjectMember(db, user, meeting.projectId);
   const [minutes] = await db
     .select()
     .from(meetingMinutes)
@@ -226,7 +226,7 @@ export async function addActionItem(
   },
 ) {
   const meeting = await requireMeetingVisible(db, user, input.meetingId);
-  await requireProjectRead(db, user, meeting.projectId);
+  await requireProjectMember(db, user, meeting.projectId);
   const [item] = await db
     .insert(meetingActionItems)
     .values({
@@ -254,7 +254,7 @@ export async function convertActionItem(
   const [item] = await db.select().from(meetingActionItems).where(eq(meetingActionItems.id, input.id)).limit(1);
   if (!item) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "行动项不存在");
   const meeting = await requireMeetingVisible(db, user, item.meetingId);
-  await requireProjectRead(db, user, meeting.projectId);
+  await requireProjectMember(db, user, meeting.projectId);
 
   // 幂等：已转换 → 返回既有任务（重复转换被拦截，B3）
   if (item.status === "converted" && item.convertedTaskId) {
@@ -317,7 +317,7 @@ export async function escalateToDecision(
   input: { meetingId: string; minutesVersionId?: string; title: string; context: string },
 ) {
   const meeting = await requireMeetingVisible(db, user, input.meetingId);
-  await requireProjectRead(db, user, meeting.projectId);
+  await requireProjectMember(db, user, meeting.projectId);
   let context = input.context;
   if (input.minutesVersionId) {
     const [version] = await db

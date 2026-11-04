@@ -14,7 +14,7 @@ import {
 } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
-import { requireProjectRead } from "../../services/access";
+import { requireProjectMember, requireProjectRead } from "../../services/access";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
 import { cursorCondition, encodeCursor, nowIso } from "../governance/util";
@@ -251,7 +251,7 @@ export async function createMeeting(
   user: SessionUser,
   input: CreateMeetingInput,
 ): Promise<{ id: string; code: string }> {
-  await requireProjectRead(db, user, input.projectId);
+  await requireProjectMember(db, user, input.projectId);
   validateMeetingTimes(input.startAt, input.endAt);
   if (input.participants.length === 0) {
     throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "至少一名参与人", {

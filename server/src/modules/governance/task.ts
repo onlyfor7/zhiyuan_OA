@@ -5,7 +5,7 @@ import { ERROR_CODE } from "@lexflow/shared";
 import { milestones, projectMembers, stages, tasks, users } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
-import { requireProjectRead } from "../../services/access";
+import { requireProjectMember, requireProjectRead } from "../../services/access";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
 import { cursorCondition, encodeCursor, nowIso } from "./util";
@@ -119,7 +119,7 @@ export async function createTask(
   user: SessionUser,
   input: CreateTaskInput,
 ): Promise<{ id: string; code: string }> {
-  await requireProjectRead(db, user, input.projectId); // 成员即可建任务（arch/03 §3 本人业务创建）
+  await requireProjectMember(db, user, input.projectId); // 成员即可建任务（arch/03 §3 本人业务创建）
   if (input.plannedEnd < input.plannedStart) {
     throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "计划完成日不能早于开始日", {
       plannedEnd: ["计划完成日不能早于开始日"],

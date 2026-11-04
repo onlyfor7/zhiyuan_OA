@@ -5,7 +5,7 @@ import { ERROR_CODE } from "@lexflow/shared";
 import { archiveDirectories, archiveLinks, changeRequests, decisions, expenseReports, projects, qualityIssues, tasks, users, weeklyReports } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
-import { can, requireProjectRead } from "../../services/access";
+import { can, requireProjectMember, requireProjectRead } from "../../services/access";
 import { notify } from "../../modules/notify";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
@@ -160,7 +160,7 @@ export async function generateDraft(
   user: SessionUser,
   input: { projectId: string; periodStart: string; periodEnd: string },
 ) {
-  await requireProjectRead(db, user, input.projectId);
+  await requireProjectMember(db, user, input.projectId);
   await requireReportManager(db, user, input.projectId);
   if (input.periodEnd < input.periodStart) {
     throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "期间结束日不能早于开始日", {

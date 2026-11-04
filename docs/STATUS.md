@@ -66,7 +66,7 @@
 | 03 体验深化前端接入 | 前端 | **通过** | 前端会话 | 2026-10-30 | 架构会话已验收（IA v2 无左栏+设计器大画布截图核验、四道门 253 全绿） |
 | 04 prod 发布 | 部署 | **通过** | 部署会话 | 2026-11-03 | 架构会话已验收（三服务 healthy、22 用户五项目、旧名清零、王宝茁可见其两项目） |
 | 05 迭代 8 验收 + 手册 v1.2 | 测试 | **通过** | 测试会话 | 2026-11-03 | arch/11 G1–G10 取证 7/7 绿（15 截图）；253 零回归；E2E-01~16 名单迁移后 16/16；375px 不回归；手册 v1.2；**处置 prod server 镜像过期缺陷**（--no-cache 重建，G3 恢复）——迭代 8 收口 |
-| 06 partner 全局只读可见（观察项修复） | 后端 | 待认领 | — | 2026-11-03 | 用户裁定推翻原补种方案：梁奇烽是一把手可见任何项目 → 改 access 服务 partner 全局只读（project.read+archive.read），不加成员行；含 prod 不删卷发布 |
+| 06 partner 全局只读可见（观察项修复） | 后端 | **待验收** | 后端会话 | 2026-11-03 | access 三处放行+17 写门收 requireProjectMember；四道门 257/257；prod 双镜像 --no-cache 重建，iter8-acceptance 8/8（新 G5b）+e2e-01~16 16/16 全绿 |
 
 ## 迭代 7 工单状态
 
@@ -205,6 +205,7 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-11-03｜后端｜迭代8-06｜**工单 06（partner 全局只读可见 + 探针清理 + prod 发布）完成，转待验收。** **access 三处放行**（arch/03 §2.2 v1.1）：`can(PROJECT_READ)` partner→true；`projectScopeFilter` partner→恒真（保持 SQL 级）；`canReadFile` partner→true（含下载/预览）。**写边界收紧（看得到 ≠ 管得了）**：审计发现 `requireProjectRead` 被 17 处写路径当成员门复用（task.create/change 全链/decision.create/meeting.create/minutes 五写/travel.create/funding.create/plan 两 transition/quality.create/report.generateDraft/archive.linkItem/time 预填）， partner 放行 project.read 会顺带打开这些写——新增 `requireProjectMember`（成员∪有效授权，旧语义原样）并切换该 17 处；`project.manage` 未动仍项目内 manager。**前端**：ProjectSpacePage 非成员 partner 头部显示「我的角色：合伙人（全局只读）」。**测试**：新 `tests/api/partner-visibility.test.ts` 4 用例（partner 列表全量 5 项目/佳力奇 C 详情 200+member 越权 404+member 可见集仍 1/partner 下载非成员项目文件 200+member·viewer 404/partner 写四路径全 404）；e2e iter8-acceptance 新增 G5b（合伙人 5 项目+进 C 空间 200+合伙人头部+王宝茁 2/管晨 1 不回归）。**探针清理**：e2e/probe-i8*.cjs 三文件删除；prod 库「探针-kind」未发布草稿流删除（比博思特出差流历史版本未动）。**prod 发布（不删卷/不重置/会话不清）**：server+web 双镜像 `DOCKER_BUILDKIT=0 --no-cache` 重建复起（web 须重建——合伙人头部为前端改动，首跑仅重建 server 时 G5b 头部断言失败已实证并纠正）。**验收逐条**：server vitest **234/234**（45 文件；既有 230 零回归+4 新）✓；根 typecheck/build exit 0✓；根 test **257/257**（234+23）✓；iter8-acceptance **8/8**（prod :8080 含新 G5b）✓；e2e-01~16 **16/16** 不回归✓；prod 三服务 healthy✓。分支 `iter8/server-partner-visibility`。**复测路径**：梁奇烽 liangqifeng/Demo@2026 登 prod :8080 → 项目 5 个全见 → 进佳力奇空间头部「合伙人」；管晨 guanchen 对佳力奇 getById 仍 404。
 - 2026-11-03｜架构｜迭代8-06改版｜**用户裁定：梁奇烽为合伙人一把手，可看到任何项目**——原工单 06（数据会话·补 2 条 project_members）作废，改写为后端会话微工单：access 服务 partner 全局只读（can(PROJECT_READ)/projectScopeFilter/canReadFile 三处放行，与既有 audit.read 含 partner 同级；project.manage 与全部写操作边界不变；不加成员行、不改种子、prod 不删卷发布）。已登记契约冻结：arch/03 §2.2 v1.1。工单文件更名 06-后端会话-partner全局可见.md。实测依据：requireProjectRead 58 处调用遍及全部项目子域，partner 放行后自然穿透只读；getById 的 myRole 对非成员返回 null、前端已兜底（随棒补「合伙人」显示）。**当前解锁：迭代 8 工单 06（后端会话）。**
 
 - 2026-11-03｜架构｜迭代8收口｜**迭代 8（体验深化）正式关闭。** 终审：四道门实测全绿（根 test 253/253=server 230+app 23、typecheck/build exit 0）；arch/11 G1–G10 由测试会话逐条取证 7/7（15 截图 D:\tmp\shots-iter8-accept\）；e2e 核心链 16/16；375px 零溢出；手册 v1.2 已同步 IA v2/新名单/小时制/设计器新形态。**观察项裁定——梁奇烽项目列表为空：属种子布局缺陷**（新名单未给 partner 任何 project_members 行，违背 arch/03 §2.2 管理层按管辖范围可见的设计意图；非权限实现问题）。已发微工单 06（数据会话）：补梁奇烽 比博思特+GD 法律服务 成员身份，dev/prod 加性补种不重置。迭代总览表重复陈旧行（6/2/3/4 残影）已勘误清除。三份 e2e/probe-i8*.cjs 临时探针随 06 一并清理。**迭代 0–8 全部通过。**

@@ -259,6 +259,35 @@ test("G5 项目内审批流（绑定出差走项目流+停用回退+越权 404�
   await shot(page, "G5-项目空间审批流页签");
 });
 
+test("G5b partner 全局可见（arch/03 §2.2 v1.1：全量 5 项目/非成员项目空间 200+合伙人头部/不回归）", async ({ page }) => {
+  // 梁奇烽（partner）：项目列表 5 个全部可见
+  await login(page, "liangqifeng@lexflow.demo");
+  await page.goto(`${B}/projects`);
+  await page.waitForSelector("text=LEXFLOW", { timeout: 15_000 });
+  await page.waitForTimeout(900);
+  const partnerCnt = await page.evaluate(() => document.body.innerText.match(/已加载 (\d+) 个/)?.[1] ?? "");
+  expect(Number(partnerCnt)).toBe(5);
+  await shot(page, "G5b-合伙人项目列表五项目");
+  // 进入佳力奇（C，非成员项目）空间：200 + 头部显示合伙人
+  await page.getByText("佳力奇技术服务项目").first().click();
+  await page.waitForTimeout(900);
+  expect(page.url()).toMatch(/\/projects\/[0-9a-f-]+\//);
+  const header = await page.evaluate(() => document.querySelector(".project-title-row")?.textContent ?? "");
+  expect(header).toContain("合伙人");
+  await shot(page, "G5b-合伙人进非成员项目空间");
+  // 不回归：王宝茁仍 2 个、管晨仍 1 个
+  await login(page, "wangbaozhuo@lexflow.demo");
+  await page.goto(`${B}/projects`);
+  await page.waitForSelector("text=LEXFLOW");
+  await page.waitForTimeout(800);
+  expect(Number(await page.evaluate(() => document.body.innerText.match(/已加载 (\d+) 个/)?.[1] ?? ""))).toBe(2);
+  await login(page, "guanchen@lexflow.demo");
+  await page.goto(`${B}/projects`);
+  await page.waitForSelector("text=LEXFLOW");
+  await page.waitForTimeout(800);
+  expect(Number(await page.evaluate(() => document.body.innerText.match(/已加载 (\d+) 个/)?.[1] ?? ""))).toBe(1);
+});
+
 test("G6-G10 细节项", async ({ page }) => {
   await ensureProjectA(page);
   await login(page, "guanchen@lexflow.demo");

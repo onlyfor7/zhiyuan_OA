@@ -4,7 +4,7 @@ import { ERROR_CODE } from "@lexflow/shared";
 
 import { milestones, planItems, planVersions, stages, tasks } from "../../db/schema";
 import { BusinessError } from "../../lib/errors";
-import { requireProjectRead } from "../../services/access";
+import { requireProjectMember, requireProjectRead } from "../../services/access";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
 import { dayString, nowIso } from "./util";
@@ -212,7 +212,7 @@ export async function transitionStage(
 ) {
   const [stage] = await db.select().from(stages).where(eq(stages.id, stageId)).limit(1);
   if (!stage) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "阶段不存在或无权访问");
-  await requireProjectRead(db, user, stage.projectId);
+  await requireProjectMember(db, user, stage.projectId);
 
   const today = dayString();
   const updates: Record<string, unknown> = { updatedBy: user.id, updatedAt: nowIso() };
@@ -263,7 +263,7 @@ export async function transitionMilestone(
   if (!milestone) {
     throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "里程碑不存在或无权访问");
   }
-  await requireProjectRead(db, user, milestone.projectId);
+  await requireProjectMember(db, user, milestone.projectId);
 
   if (action !== "reach" && action !== "miss") {
     throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "非法的里程碑动作", {

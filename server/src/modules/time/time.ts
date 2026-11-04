@@ -5,7 +5,7 @@ import { CONFIG_KEY, ERROR_CODE, type TimeActivityType } from "@lexflow/shared";
 import { approvalInstances, meetings, projects, systemConfig, timeEntries, timesheetPeriods, travelRequests, travelSegments, users } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
-import { requireProjectRead } from "../../services/access";
+import { requireProjectMember } from "../../services/access";
 import * as engine from "../../services/approval/engine";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
@@ -170,7 +170,7 @@ async function validateEntryShapes(
       }
     }
     if (entry.projectId) {
-      await requireProjectRead(db, user, entry.projectId); // 逐行鉴权
+      await requireProjectMember(db, user, entry.projectId); // 逐行鉴权
     }
   }
 }

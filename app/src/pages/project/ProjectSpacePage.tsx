@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link, NavLink, Outlet } from "react-router";
 import { ChevronRight } from "lucide-react";
 
+import { useMe } from "../../api/auth";
 import { useProject, useProjectOverview } from "../../api/project";
 import { NotConnected } from "../../components/NotConnected";
 import { useSpaceParams } from "./space-context";
@@ -55,6 +56,7 @@ export default function ProjectSpacePage(): ReactNode {
   const { projectId } = useSpaceParams();
   const project = useProject(projectId);
   const overview = useProjectOverview(projectId);
+  const me = useMe();
 
   if (project.isPending) return <SpaceFallback />;
   if (project.isError) throw project.error;
@@ -73,6 +75,7 @@ export default function ProjectSpacePage(): ReactNode {
           <p>
             {p.matterName} · 负责人 {p.managerName} · 密级 {CONFIDENTIALITY_LABEL[p.confidentialityLevel]}
             {p.myRole ? ` · 我的角色：${PROJECT_ROLE_LABEL[p.myRole] ?? p.myRole}` : ""}
+            {!p.myRole && me.data?.globalRoles?.includes("partner") ? " · 我的角色：合伙人（全局只读）" : ""}
           </p>
         </div>
         <div className="title-actions">

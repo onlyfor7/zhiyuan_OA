@@ -11,7 +11,7 @@ import {
   weeklyReports,
 } from "../../db/schema";
 import { BusinessError } from "../../lib/errors";
-import { requireProjectRead } from "../../services/access";
+import { requireProjectMember, requireProjectRead } from "../../services/access";
 import * as engine from "../../services/approval/engine";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
@@ -203,7 +203,7 @@ export async function linkItem(
     .where(eq(archiveDirectories.id, input.directoryId))
     .limit(1);
   if (!dir) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "目录不存在或无权访问");
-  await requireProjectRead(db, user, dir.projectId);
+  await requireProjectMember(db, user, dir.projectId);
 
   if (input.fileVersionId) {
     const [version] = await db

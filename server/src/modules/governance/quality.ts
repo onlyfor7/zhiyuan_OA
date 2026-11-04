@@ -5,7 +5,7 @@ import { ERROR_CODE, type QualityEventAction, type QualitySeverity } from "@lexf
 import { qualityCheckItems, qualityIssueEvents, qualityIssues, users } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
-import { requireProjectRead } from "../../services/access";
+import { requireProjectMember, requireProjectRead } from "../../services/access";
 import { notify } from "../../modules/notify";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
@@ -60,7 +60,7 @@ export async function createIssue(
   user: SessionUser,
   input: CreateIssueInput,
 ): Promise<{ id: string; code: string }> {
-  await requireProjectRead(db, user, input.projectId);
+  await requireProjectMember(db, user, input.projectId);
   const code = await nextCode("QLT", db);
   const [issue] = await db
     .insert(qualityIssues)

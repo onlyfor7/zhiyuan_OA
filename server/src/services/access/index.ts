@@ -10,6 +10,7 @@ import type { SessionUser } from "../../modules/auth/session";
  * 权限服务（arch/03 §2/§3/§5）。
  * 迭代 0 实现 project.read、archive.read（文件）、admin.config；
  * 迭代 1 增补：audit.read（sysadmin/archivist/partner）、project.manage（项目内 manager 角色）。
+ * 迭代 8（arch/03 §2.2 v1.1）：partner 全局只读（project.read/archive.read 放行），写操作经 requireProjectMember 守边界。
  * 其余已注册动作一律默认拒绝（false），随业务迭代扩充。
  * 列表用 SQL 级过滤（projectScopeFilter），禁止查出后内存过滤。
  */
@@ -58,6 +59,8 @@ export async function can(
   switch (action) {
     case PERMISSION.PROJECT_READ: {
       if (resource.type !== "project") return false;
+      // arch/03 §2.2 v1.1（迭代8 用户裁定）：partner 全局只读可见（看得到 ≠ 管得了；写操作另有成员门）
+      if (user.globalRoles.includes("partner")) return true;
       if (user.projectRoles.has(resource.projectId)) return true;
       return hasActiveGrant(db, user.id, "project", resource.projectId, action);
     }
@@ -92,6 +95,18 @@ export async function requireProjectRead(db: DbOrTx, user: SessionUser, projectI
 }
 
 /**
+ * 项目成员门（写操作专用，arch/03 §2.2 v1.1 边界）：成员 ∪ 有效授权——不含 partner 全局只读。
+ * project.read 自迭代 8 起对 partner 全局放行（读），凡以「可读」兼作「可写」门槛的创建/编辑/提交
+ * 路径一律改用本门，保证 partner 看得到 ≠ 管得了。
+ */
+export async function requireProjectMember(db: DbOrTx, user: SessionUser, projectId: string): Promise<void> {
+  const member =
+    user.projectRoles.has(projectId) ||
+    (await hasActiveGrant(db, user.id, "project", projectId, PERMISSION.PROJECT_READ));
+  if (!member) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "项目不存在或无权访问");
+}
+
+/**
  * 文件读取（archive.read）：
  * 上传人本人 ∨ 来源项目成员（经 file_objects.source_*，arch/04 §2.1 落地）∨ 有效 AccessGrant（file 范围
  * 精确到文件 / project 范围覆盖来源项目；到期与撤销即时失效，arch/03 §7）。
@@ -113,6 +128,8 @@ export async function canReadFile(
   const fileObject = rows[0];
   if (!fileObject) return false;
   if (fileObject.createdBy === user.id) return true;
+  // arch/03 §2.2 v1.1：partner 全局只读（含文件下载/预览），与 audit.read 同级
+  if (user.globalRoles.includes("partner")) return true;
 
   if (fileObject.sourceType === "project" && fileObject.sourceId) {
     if (user.projectRoles.has(fileObject.sourceId)) return true;
@@ -143,9 +160,11 @@ export async function canReadFile(
 
 /**
  * 项目可见范围（SQL 条件，供列表/搜索直接拼 where）：
- * 本人是成员的项目 ∪ 有效授权（active、未过期、含 project.read）的项目（arch/03 §2）。
+ * 本人是成员的项目 ∪ 有效授权（active、未过期、含 project.read）的项目（arch/03 §2）；
+ * arch/03 §2.2 v1.1：partner 恒真（全局只读可见，SQL 级放行不内存过滤）。
  */
 export function projectScopeFilter(user: SessionUser): SQL {
+  if (user.globalRoles.includes("partner")) return sql`true`;
   return sql`(${projects.id} IN (
       SELECT project_id FROM project_members WHERE user_id = ${user.id}
     ) OR ${projects.id} IN (

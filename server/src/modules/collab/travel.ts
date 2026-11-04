@@ -12,7 +12,7 @@ import {
 } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
-import { can, requireProjectRead } from "../../services/access";
+import { can, requireProjectMember, requireProjectRead } from "../../services/access";
 import * as engine from "../../services/approval/engine";
 import { notify } from "../../modules/notify";
 import { linkMaterialFiles, linkSourceByDirKey } from "../governance/archive";
@@ -229,7 +229,7 @@ export async function createTravel(
   user: SessionUser,
   input: CreateTravelInput,
 ): Promise<{ id: string; code: string }> {
-  await requireProjectRead(db, user, input.projectId);
+  await requireProjectMember(db, user, input.projectId);
   validateTravelFields(input);
   validateSegments(input.segments);
   const code = await nextCode("TRV", db);
