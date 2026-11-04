@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, ChevronDown, ChevronRight, Search } from "lucide-react";
+import { BarChart3, Bell, Building2, Calculator, ChevronDown, ChevronRight, Clock, Search, Users } from "lucide-react";
 
 import { NAV_TREE, PERSONA_LABEL, type DemoTarget, type NavGroup } from "./nav-tree";
 import { DemoPanel } from "./DemoPages";
@@ -340,6 +340,13 @@ export default function Shell9a() {
         {demo.target.kind === "forms" ? <FormsPanel title={demo.label} /> : null}
         {demo.target.kind === "placeholder" ? (
           <section className="p9a-placeholder-card">
+            <span className="p9a-iconblock p9a-placeholder-icon" aria-hidden="true">
+              {demo.target.domain.includes("CRM") ? <Users size={22} /> :
+                demo.target.domain.includes("报表") ? <BarChart3 size={22} /> :
+                demo.target.domain.includes("财务") ? <Calculator size={22} /> :
+                demo.target.domain.includes("基础信息") ? <Building2 size={22} /> :
+                <Clock size={22} />}
+            </span>
             <span className="section-label">即将上线 · {demo.target.domain}</span>
             <h1>{demo.label}</h1>
             <p>{demo.target.note}</p>

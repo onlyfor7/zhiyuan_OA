@@ -1,4 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  AlertTriangle, Banknote, Briefcase, Calendar, CheckCircle2, CheckSquare, Clock,
+  FileEdit, FileText, Folder, FolderPlus, Play, ShieldAlert, TrendingUp, Wrench,
+  type LucideIcon,
+} from "lucide-react";
 
 /**
  * 迭代 9a 演示面板：T-C 驾驶舱三行固定 grid（§1.3）/ T-A 列表工作台（筛选固定+表内滚动+分页固定）
@@ -37,56 +42,108 @@ function CountUp({ value, suffix = "" }: { value: number; suffix?: string }) {
   );
 }
 
-/* T-C 驾驶舱样例：三行固定 grid（§1.3） */
+/* v1.3 §1.3/§4.3：摘要面全部卡片图标化（数据密度页 T-A 保持净行表格不动） */
+
+type Tone = "blue" | "green" | "orange" | "purple";
+const TONE_BG: Record<Tone, string> = { blue: "#eff4ff", green: "#ecfdf5", orange: "#fff4ec", purple: "#f4efff" };
+const TONE_FG: Record<Tone, string> = { blue: "#2563eb", green: "#059669", orange: "#ea580c", purple: "#7c3aed" };
+
+function IconBlock({ icon: Icon, tone, size = 32 }: { icon: LucideIcon; tone: Tone; size?: number }) {
+  return (
+    <span className="p9a-iconblock" style={{ width: size, height: size, background: TONE_BG[tone], color: TONE_FG[tone] }} aria-hidden="true">
+      <Icon size={size >= 40 ? 22 : 18} />
+    </span>
+  );
+}
+
+/* T-C 驾驶舱样例：固定三行 grid（§1.3 v1.3 卡片图标化） */
 function CockpitDemo() {
-  const metrics = [
-    ["项目总数", 5], ["进行中", 4], ["健康度预警", 1], ["待我审批", 6],
-    ["待决策", 3], ["本周会议", 5], ["出差中", 2], ["本周已批工时", 38], ["收款净额(元)", 6000],
-  ] as const;
+  const metrics: Array<{ label: string; value: number; icon: LucideIcon; tone: Tone }> = [
+    { label: "项目总数", value: 5, icon: Folder, tone: "blue" },
+    { label: "进行中", value: 4, icon: Play, tone: "green" },
+    { label: "健康度预警", value: 1, icon: AlertTriangle, tone: "orange" },
+    { label: "待我审批", value: 6, icon: CheckSquare, tone: "purple" },
+    { label: "待决策", value: 3, icon: TrendingUp, tone: "blue" },
+    { label: "本周会议", value: 5, icon: Calendar, tone: "green" },
+    { label: "出差中", value: 2, icon: Briefcase, tone: "orange" },
+    { label: "本周已批工时", value: 38, icon: Clock, tone: "purple" },
+    { label: "收款净额(元)", value: 6000, icon: Banknote, tone: "blue" },
+  ];
+  const projects = [
+    { name: "比博思特技术服务项目", code: "PRJ-2026-00001", badge: "进行中·正常", tone: "green" as Tone, mgr: "王宝茁", pct: 62 },
+    { name: "金通灵技术服务项目", code: "PRJ-2026-00002", badge: "进行中·正常", tone: "green" as Tone, mgr: "王家玉", pct: 45 },
+    { name: "佳力奇技术服务项目", code: "PRJ-2026-00003", badge: "进行中·正常", tone: "green" as Tone, mgr: "孙浩祥", pct: 78 },
+    { name: "合规运作规则引擎上市公司 1.0", code: "PRJ-2026-00004", badge: "进行中·风险", tone: "orange" as Tone, mgr: "廖益敏", pct: 30 },
+    { name: "GD 法律服务", code: "PRJ-2026-00005", badge: "进行中·正常", tone: "green" as Tone, mgr: "霍达", pct: 55 },
+    { name: "滚动样例项目 6", code: "PRJ-2026-00006", badge: "筹备", tone: "blue" as Tone, mgr: "毛振宇", pct: 10 },
+  ];
+  const todos: Array<{ title: string; project: string; ago: string; icon: LucideIcon; tone: Tone }> = [
+    { title: "报销单待财务审批", project: "比博思特", ago: "10 分钟前", icon: CheckSquare, tone: "blue" },
+    { title: "差旅借款会签", project: "金通灵", ago: "32 分钟前", icon: Briefcase, tone: "green" },
+    { title: "线索转化确认", project: "CRM", ago: "1 小时前", icon: TrendingUp, tone: "purple" },
+    { title: "合同付款计划核对", project: "比博思特", ago: "3 小时前", icon: Banknote, tone: "orange" },
+    { title: "严重质量问题复核", project: "佳力奇", ago: "昨天", icon: ShieldAlert, tone: "orange" },
+  ];
+  const steps: Array<{ label: string; icon: LucideIcon; tone: Tone }> = [
+    { label: "原因", icon: FileText, tone: "blue" },
+    { label: "影响", icon: AlertTriangle, tone: "orange" },
+    { label: "方案", icon: Wrench, tone: "purple" },
+    { label: "决策", icon: CheckCircle2, tone: "green" },
+  ];
+  const quick: Array<{ label: string; icon: LucideIcon }> = [
+    { label: "新建项目", icon: FolderPlus },
+    { label: "登记收款", icon: Banknote },
+    { label: "发起申请", icon: FileEdit },
+  ];
   return (
     <div className="p9a-tc">
       <div className="p9a-tc-row1">
         <div className="p9a-greet">
           <span className="eyebrow">FRIDAY, 08 NOV 2026</span>
           <h1>早上好，梁奇烽。</h1>
-          <p>项目组合与待处理事项来自实时聚合（T-C 样例 · 行高按 1440×900 标定）。</p>
+          <p>项目组合与待处理事项来自实时聚合（T-C 样例 · §1.3 v1.3 卡片图标化）。</p>
         </div>
         <div className="p9a-metrics">
-          {metrics.map(([label, v]) => (
-            <div className="p9a-metric" key={label}>
-              <span>{label}</span>
-              <CountUp value={v} />
+          {metrics.map((m) => (
+            <div className="p9a-metric" key={m.label}>
+              <IconBlock icon={m.icon} tone={m.tone} />
+              <div>
+                <CountUp value={m.value} />
+                <span>{m.label}</span>
+              </div>
             </div>
           ))}
         </div>
       </div>
       <div className="p9a-tc-row2">
         <div className="p9a-panel">
-          <span className="section-label">PROJECT PULSE · 项目脉搏（净行列表·模块内滚动）</span>
-          <div className="p9a-scroll-list">
-            {["比博思特技术服务项目", "金通灵技术服务项目", "佳力奇技术服务项目", "合规运作规则引擎上市公司 1.0", "GD 法律服务"].map((n, i) => (
-              <div className="p9a-pulse-row" key={n}>
-                <span className={`p9a-dot ${i === 3 ? "pulse warn" : "ok"}`} />
-                <strong>{n}</strong>
-                <small>{["进行中·正常", "进行中·正常", "进行中·正常", "进行中·风险", "进行中·正常"][i]}</small>
-              </div>
-            ))}
-            {Array.from({ length: 15 }, (_, i) => (
-              <div className="p9a-pulse-row" key={i}>
-                <span className="p9a-dot ok" />
-                <strong>滚动样例行 {i + 6}</strong>
-                <small>演示模块内滚动（H2）</small>
-              </div>
+          <span className="section-label">PROJECT PULSE · 项目脉搏（2 列卡网格·模块内滚动）</span>
+          <div className="p9a-scroll-list p9a-pulse-grid">
+            {projects.concat(Array.from({ length: 6 }, (_, i) => ({
+              name: `滚动样例项目 ${i + 7}`, code: `PRJ-2026-0000${i + 7}`, badge: "进行中·正常", tone: "green" as Tone, mgr: "负责人", pct: 20 + i * 10,
+            }))).map((p) => (
+              <button className="p9a-pulse-card" key={p.code}>
+                <span className="p9a-pulse-head">
+                  <i className={`p9a-dot ${p.tone === "orange" ? "pulse warn" : "ok"}`} />
+                  <strong>{p.name}</strong>
+                </span>
+                <small className="p9a-pulse-meta">{p.code} · <em className={`p9a-badge-${p.tone}`}>{p.badge}</em> · 负责人 {p.mgr}</small>
+                <span className="p9a-progress"><i style={{ width: `${p.pct}%` }} /></span>
+              </button>
             ))}
           </div>
         </div>
         <div className="p9a-panel aggregated">
-          <span className="section-label">TODO QUEUE · 待处理队列（模块内滚动）</span>
+          <span className="section-label">TODO QUEUE · 待办卡队列（模块内滚动）</span>
           <div className="p9a-scroll-list">
-            {["报销单待财务审批", "差旅借款会签", "线索转化确认", "合同付款计划核对", "工时周期解锁审批"].map((n) => (
-              <div className="p9a-queue-row" key={n}>
-                <strong>{n}</strong>
-                <button className="text-action">去处理</button>
+            {todos.map((t) => (
+              <div className="p9a-queue-card" key={t.title}>
+                <IconBlock icon={t.icon} tone={t.tone} size={40} />
+                <div className="p9a-queue-main">
+                  <strong>{t.title}</strong>
+                  <small>{t.project} · {t.ago}</small>
+                </div>
+                <button className="p9a-pill">去处理</button>
               </div>
             ))}
           </div>
@@ -94,15 +151,27 @@ function CockpitDemo() {
       </div>
       <div className="p9a-tc-row3">
         <div className="p9a-panel aggregated">
-          <span className="section-label">DELAY GOVERNANCE · 延期治理</span>
+          <span className="section-label">DELAY GOVERNANCE · 延期治理（步骤条）</span>
+          <div className="p9a-steps">
+            {steps.map((s, i) => (
+              <div className="p9a-step-node" key={s.label}>
+                <IconBlock icon={s.icon} tone={s.tone} size={36} />
+                <span>{s.label}</span>
+                {i < steps.length - 1 ? <i className="p9a-step-line" aria-hidden="true" /> : null}
+              </div>
+            ))}
+          </div>
           <p className="context-note">每一次变化都有书面原因、责任人和恢复检查点，并自动进入项目档案。</p>
         </div>
         <div className="p9a-panel aggregated">
-          <span className="section-label">QUICK ENTRY · 快捷入口</span>
-          <div className="p9a-quick">
-            <button className="secondary-action">新建项目</button>
-            <button className="secondary-action">登记收款</button>
-            <button className="secondary-action">发起申请</button>
+          <span className="section-label">QUICK ENTRY · 快捷入口（图标按钮组）</span>
+          <div className="p9a-quick-icons">
+            {quick.map((q) => (
+              <button className="p9a-quick-icon" key={q.label}>
+                <q.icon size={22} />
+                <span>{q.label}</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>
