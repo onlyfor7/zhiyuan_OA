@@ -230,6 +230,8 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-11-05｜架构｜迭代9a-02b走查记｜02b 截图核验：顶栏 8 触发器单行横排 1920 无溢出（b2-topbar）、四象限 1920 铺满。**观察项（不阻塞，随 03 或后续打磨）**：问候语与时段 eyebrow 不一致——00:44 时 eyebrow「夜深了」但问候「早上好」，分时段问候语边界值需对齐（ eyebrow 与问候语同一时刻函数产出）。
+
 - 2026-11-04｜架构｜迭代9a-02通过｜**工单 02（平台壳全量接入）验收通过。** 实测：根四道门 258/258 全绿（typecheck/build 亲测 exit 0）；截图核验——级联气泡真实壳（经营→预算与费用→三级飞出）、四象限驾驶舱接真实数据（王宝茁 2 项目 22%/33% 进度、日程联动「接口文档核对」、赵凯空态正确）、会议创建 F2 弹窗、占位卡。**裁定**：项目空间内表单（任务/延期/授权/纪要/经费/预算）保留页级（理由成立，arch/12 §5 v1.8 已修订）；会议/出差/报销弹窗化达标。**留尾出 02b 微工单**（工时快填 F1 漏项/M5 行浮现全站铺开/模块级滚动精调/顶栏组按钮折行 polish），03 验收依赖 02+02b 双过。**当前解锁：9a-02b（前端会话）。**
 
 - 2026-11-04｜前端｜迭代9a-02b｜**工单 02b（接入收尾打磨）完成，转待验收。** 分支 iter9a/shell-full 续用。四项收尾：① **工时快速填报 F1**（02 漏项补齐）：工时中心工具栏「快速填报」→F1 Dialog（项目/日期/时长 0.5 步进/活动类型/说明）——提交走**既有 time 端点**（按日期算周一→time.myPeriod 取周周期→校验 draft/returned→saveEntries 覆盖式追加，零新端点）；**实测真实提交成功**：「已填报 2026-11-04 1.5 小时（TS-2026-00007）」；锁定周期给出引导错误。页级批量填报保留。② **M5 行内动作浮现全站**：.grant-row/.report-row 的 text-action/row-ops 默认 opacity 0、hover/focus-within 浮现（收款「作废」实测 0→1，真鼠标 Input.dispatch）；常驻按钮列让位紧凑净行。③ **模块级滚动精调**：02 走查未发现的工作台 rail 布局真缺陷修复——governance 旧规 `.app-body.no-rail{grid-template-columns:1fr}`（迭代 8 留）把 context-rail 挤成第二行、主区被压 483px；改为 `minmax(0,1fr) auto / 单行 1fr` 后主栏+rail 并排满高（实测 bodyRows 828px 单轨）；workbench/approvals/archive 抽查主区 overflow auto 在位。④ **顶栏组按钮单行横排**：触发器 flex-wrap nowrap+svg flex-none+组容器 nowrap；实测 8 触发器 btnH 36px、图标垂直居中（svgTopDelta 11px），1280/1440/1920 三档无溢出。质量门：app 四道门全绿（tsc/eslint 0/build/vitest 23/23）+根四道门（typecheck/build/migrate/test 235+23=258 全绿零回归）；截图 4 张（D:\tmp\shots-iter9a-full\：b2-quick-entry/b2-m5-receipts/b2-topbar/b2-scroll-layout）。
