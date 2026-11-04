@@ -72,8 +72,8 @@ export default function LoginPage() {
             <span />
           </div>
           <div>
-            <strong>LEXFLOW</strong>
-            <span>律所项目治理平台</span>
+            <strong>因诺智元</strong>
+            <span>业务管理平台</span>
           </div>
         </div>
         <div className="login-card-body">

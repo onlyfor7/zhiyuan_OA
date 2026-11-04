@@ -14,7 +14,7 @@ const MeetingNewPage = lazy(() => import("./pages/MeetingNewPage"));
 const MeetingsPage = lazy(() => import("./pages/MeetingsPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
-const Shell9a = lazy(() => import("./pages/preview-9a/Shell9a"));
+const ComingSoonPage = lazy(() => import("./pages/ComingSoonPage"));
 const AdminCenterPage = lazy(() => import("./pages/admin/AdminCenterPage"));
 const FlowDesignerPage = lazy(() => import("./pages/admin/FlowDesignerPage"));
 const RequestsPage = lazy(() => import("./pages/RequestsPage"));
@@ -64,7 +64,7 @@ export default function App() {
     <Suspense fallback={<div className="page-loader" role="status">正在加载…</div>}>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/preview-9a" element={<Shell9a />} />
+      <Route path="/coming-soon" element={<ComingSoonPage />} />
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="/cockpit" replace />} />
         <Route path="/cockpit" element={<CockpitPage />} />

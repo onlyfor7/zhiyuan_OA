@@ -16,9 +16,10 @@ export function useTravelList(input: {
     | "completed"
     | "closed"
     | "cancelled";
+  limit?: number;
 }) {
   const trpc = useTRPC();
-  return useQuery(trpc.travel.list.queryOptions({ limit: 50, ...input }));
+  return useQuery(trpc.travel.list.queryOptions({ limit: 20, ...input }));
 }
 
 export function useTravel(id: string | null) {

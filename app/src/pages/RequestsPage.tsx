@@ -47,7 +47,8 @@ export default function RequestsPage() {
   const isPrivileged = (me.data?.globalRoles ?? []).includes("partner") || (me.data?.globalRoles ?? []).includes("sysadmin");
   const [scope, setScope] = useState<"mine" | "all">("mine");
   const [typeFilter, setTypeFilter] = useState("");
-  const list = useRequestList(scope === "mine" || !isPrivileged ? { mine: true } : {});
+  const [limit, setLimit] = useState(20);
+  const list = useRequestList({ ...(scope === "mine" || !isPrivileged ? { mine: true } : {}), limit });
   const types = useRequestTypes();
   const typeItems = types.data?.items ?? [];
   const typeLabel = (key: string) => typeItems.find((i) => i.key === key)?.label ?? key;
@@ -129,6 +130,11 @@ export default function RequestsPage() {
             </Link>
           ))
         )}
+        {items.length >= limit ? (
+          <button className="secondary-action" disabled={list.isFetching} onClick={() => setLimit((l) => l + 20)}>
+            {list.isFetching ? "加载中…" : "加载更多"}
+          </button>
+        ) : null}
       </div>
     </div>
   );

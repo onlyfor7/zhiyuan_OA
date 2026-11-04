@@ -8,7 +8,8 @@ import { useMe } from "../api/auth";
 import { useUnreadCount } from "../api/notification";
 import { SearchPalette } from "./SearchPalette";
 import { MobileNavDrawer } from "./MobileNavDrawer";
-import { AvatarMenu, GroupNav } from "./TopNav";
+import { AvatarMenu } from "./TopNav";
+import { CascadeNav } from "./CascadeNav";
 import type { ShellContextValue } from "./shell-rail";
 import { isAccessDeniedOrGone, isAuthRequired, queryClient } from "../lib/trpc";
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
@@ -122,8 +123,6 @@ export default function AppShell() {
   }
 
   const data = me.data;
-  const firstProjectId = data.projects[0]?.id;
-  const ganttTo = firstProjectId ? `/projects/${firstProjectId}/plan` : "/projects";
   const from = location.pathname + location.search;
 
   if (data.mustChangePassword && location.pathname !== "/settings") {
@@ -136,11 +135,11 @@ export default function AppShell() {
         <Link to="/cockpit" className="brand" aria-label="LEXFLOW 驾驶舱">
           <BrandMark />
           <div>
-            <strong>LEXFLOW</strong>
-            <span>律所项目治理平台</span>
+            <strong>因诺智元</strong>
+            <span>业务管理平台</span>
           </div>
         </Link>
-        <GroupNav ganttTo={ganttTo} globalRoles={data.globalRoles} />
+        <CascadeNav globalRoles={data.globalRoles} />
         <div className="top-actions">
           <button className="search-trigger" onClick={() => setSearchOpen(true)}>
             <Search size={16} />
@@ -167,7 +166,7 @@ export default function AppShell() {
       </header>
       {searchOpen ? <SearchPalette onClose={() => setSearchOpen(false)} /> : null}
       <Toaster position="bottom-right" richColors closeButton />
-      <MobileNavDrawer open={navOpen} ganttTo={ganttTo} globalRoles={data.globalRoles} onClose={() => setNavOpen(false)} />
+      <MobileNavDrawer open={navOpen} globalRoles={data.globalRoles} onClose={() => setNavOpen(false)} />
       <div className="app-body no-rail">
         <main className="main-workspace">
           <AccessErrorBoundary key={location.pathname} from={from}>

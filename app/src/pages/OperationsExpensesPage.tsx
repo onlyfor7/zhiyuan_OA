@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router";
-import { ChevronRight, Download, Plus } from "lucide-react";
+import { ChevronRight, Download } from "lucide-react";
 
 import { useMe } from "../api/auth";
 import {
@@ -14,6 +14,8 @@ import { useTRPC } from "../lib/trpc";
 import { formatYuan } from "../api/reference";
 import { BudgetBar } from "../components/finance";
 import { useRail } from "../components/shell-rail";
+import { CreateInDialog } from "../components/CreateInDialog";
+import ExpenseNewPage from "./ExpenseNewPage";
 import { EXPENSE_CATEGORY_LABEL, EXPENSE_STATUS_LABEL } from "../lib/labels";
 import type { RouterOutputs } from "../lib/trpc";
 
@@ -114,10 +116,8 @@ export default function OperationsExpensesPage() {
             <Download size={15} />
             {exporting ? "导出中…" : "导出 CSV"}
           </button>
-          <Link to={`/expenses/new${projectId ? `?projectId=${projectId}` : ""}`} className="primary-action">
-            <Plus size={15} />
-            新建报销
-          </Link>
+          {/* 9a §5：创建走弹窗（页级路由 /expenses/new 保留深链） */}
+          <CreateInDialog label="新建报销" title="新建费用报销" eyebrow="F2 · 抽屉范式（明细行）" form={ExpenseNewPage} />
         </div>
       </div>
       <BudgetBar aggregate={stats.data} />

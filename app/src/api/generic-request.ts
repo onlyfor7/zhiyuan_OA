@@ -12,9 +12,9 @@ export function useRequestTypes() {
 
 type RequestStatus = "draft" | "pending_approval" | "approved" | "rejected" | "withdrawn";
 
-export function useRequestList(input: { mine?: boolean; requestType?: string; status?: RequestStatus }) {
+export function useRequestList(input: { mine?: boolean; requestType?: string; status?: RequestStatus; limit?: number }) {
   const trpc = useTRPC();
-  return useQuery(trpc.genericRequest.list.queryOptions({ limit: 50, ...input }));
+  return useQuery(trpc.genericRequest.list.queryOptions({ limit: 20, ...input }));
 }
 
 export function useRequest(id: string | null) {

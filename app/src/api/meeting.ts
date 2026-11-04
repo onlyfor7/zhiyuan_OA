@@ -8,9 +8,10 @@ export function useMeetingList(input: {
   projectId?: string;
   mine?: boolean;
   status?: "planned" | "completed" | "cancelled";
+  limit?: number;
 }) {
   const trpc = useTRPC();
-  return useQuery(trpc.meeting.list.queryOptions({ limit: 50, ...input }));
+  return useQuery(trpc.meeting.list.queryOptions({ limit: 20, ...input }));
 }
 
 export function useMeeting(id: string | null) {

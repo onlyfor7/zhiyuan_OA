@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { CalendarDays, ChevronRight, Plus } from "lucide-react";
+import { CalendarDays, ChevronRight } from "lucide-react";
 
 import { useMeetingList } from "../api/meeting";
 import { useRail } from "../components/shell-rail";
 import { formatDateTime } from "../lib/trpc";
 import { ListSkeleton } from "../components/feedback";
+import { CreateInDialog } from "../components/CreateInDialog";
+import MeetingNewPage from "./MeetingNewPage";
 import "../lib/trpc";
 import { MEETING_STATUS_LABEL, MEETING_TYPE_LABEL, MINUTES_STATUS_LABEL } from "../lib/labels";
 import type { RouterOutputs } from "../lib/trpc";
@@ -41,7 +43,8 @@ export default function MeetingsPage() {
   const projectId = params.get("projectId") ?? undefined;
   const [mine, setMine] = useState(true);
   const [status, setStatus] = useState("");
-  const list = useMeetingList(projectId ? { projectId } : mine ? { mine: true } : {});
+  const [limit, setLimit] = useState(20);
+  const list = useMeetingList({ ...(projectId ? { projectId } : mine ? { mine: true } : {}), limit });
   const filtered = list.data?.items.filter((m) => !status || m.status === status);
 
   if (list.isPending) return <ListSkeleton rows={5} />;
@@ -55,10 +58,8 @@ export default function MeetingsPage() {
           <h1>会议中心</h1>
           <p>{projectId ? "项目内全部会议" : "我参与或我组织的会议"}；列表按项目权限过滤。</p>
         </div>
-        <Link to={`/meetings/new${projectId ? `?projectId=${projectId}` : ""}`} className="primary-action">
-          <Plus size={15} />
-          创建会议
-        </Link>
+        {/* 9a §5：创建走弹窗（页级路由 /meetings/new 保留深链） */}
+        <CreateInDialog label="创建会议" title="新建会议" eyebrow="F2 · 弹窗范式" form={MeetingNewPage} />
       </div>
       <div className="quality-toolbar">
         <div className="audit-tabs inline-tabs">
@@ -112,6 +113,11 @@ export default function MeetingsPage() {
             </Link>
           ))
         )}
+      {list.data && list.data.items.length >= limit ? (
+          <button className="secondary-action" disabled={list.isFetching} onClick={() => setLimit((l) => l + 20)}>
+            {list.isFetching ? "加载中…" : "加载更多"}
+          </button>
+        ) : null}
       </div>
     </div>
   );

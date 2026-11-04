@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import { ChevronDown } from "lucide-react";
 
-import { buildNavGroups, activeGroupKey, type TopNavItem } from "./topnav-config";
 import { FormDialog } from "./FormDialog";
 import { DensitySwitch } from "./density";
 import { useTableDensity } from "../lib/tableDensity";
@@ -87,51 +86,6 @@ function Dropdown({
         </div>
       ) : null}
     </div>
-  );
-}
-
-/** 五组下拉导航（桌面顶栏） */
-export function GroupNav({ ganttTo, globalRoles }: { ganttTo: string; globalRoles: string[] }) {
-  const location = useLocation();
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
-  const close = useCallback(() => setOpenMenu(null), []);
-  const activeKey = activeGroupKey(location.pathname);
-  const groups = buildNavGroups(ganttTo)
-    .map((g) => ({ ...g, items: g.items.filter((i) => !i.roles || i.roles.some((r) => globalRoles.includes(r))) }))
-    .filter((g) => g.items.length > 0);
-
-  return (
-    <nav className="ux-groups topnav-groups" aria-label="系统导航（分组下拉）">
-      {groups.map((g) => {
-        const menuKey = `grp:${g.key}`;
-        const itemActive = (item: TopNavItem) =>
-          item.match ? location.pathname.startsWith(item.match.split("?")[0]) : false;
-        return (
-          <Dropdown
-            key={g.key}
-            label={g.label}
-            open={openMenu === menuKey}
-            onToggle={() => setOpenMenu(openMenu === menuKey ? null : menuKey)}
-            onClose={close}
-            active={activeKey === g.key}
-          >
-            {(closeMenu) =>
-              g.items.map((item) => (
-                <Link
-                  key={item.label}
-                  role="menuitem"
-                  to={item.to}
-                  className={itemActive(item) ? "current" : ""}
-                  onClick={closeMenu}
-                >
-                  {item.label}
-                </Link>
-              ))
-            }
-          </Dropdown>
-        );
-      })}
-    </nav>
   );
 }
 

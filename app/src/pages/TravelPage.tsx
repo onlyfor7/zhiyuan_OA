@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { ChevronRight, MapPin, Plus } from "lucide-react";
+import { ChevronRight, MapPin } from "lucide-react";
 
 import { useTravelList } from "../api/travel";
 import { useRail } from "../components/shell-rail";
 import { TRAVEL_STATUS_LABEL } from "../lib/labels";
 import { ListSkeleton } from "../components/feedback";
+import { CreateInDialog } from "../components/CreateInDialog";
+import TravelNewPage from "./TravelNewPage";
 import "../lib/labels";
 import type { RouterOutputs } from "../lib/trpc";
 
@@ -40,7 +42,8 @@ export default function TravelPage() {
   const projectId = params.get("projectId") ?? undefined;
   const [mine, setMine] = useState(true);
   const [status, setStatus] = useState("");
-  const list = useTravelList(projectId ? { projectId } : mine ? { mine: true } : {});
+  const [limit, setLimit] = useState(20);
+  const list = useTravelList({ ...(projectId ? { projectId } : mine ? { mine: true } : {}), limit });
   const filtered = list.data?.items.filter((t) => !status || t.status === status);
 
   if (list.isPending) return <ListSkeleton rows={5} />;
@@ -54,10 +57,8 @@ export default function TravelPage() {
           <h1>出差中心</h1>
           <p>{projectId ? "项目内全部出差单" : "我申请与我相关的出差单"}；按申请人/负责人/审批人/财务范围过滤。</p>
         </div>
-        <Link to={`/travel/new${projectId ? `?projectId=${projectId}` : ""}`} className="primary-action">
-          <Plus size={15} />
-          新建出差申请
-        </Link>
+        {/* 9a §5：创建走弹窗（页级路由 /travel/new 保留深链） */}
+        <CreateInDialog label="新建出差申请" title="新建出差申请" eyebrow="F2 · 弹窗范式" form={TravelNewPage} />
       </div>
       <div className="quality-toolbar">
         <div className="audit-tabs inline-tabs">
@@ -109,6 +110,11 @@ export default function TravelPage() {
             </Link>
           ))
         )}
+      {list.data && list.data.items.length >= limit ? (
+          <button className="secondary-action" disabled={list.isFetching} onClick={() => setLimit((l) => l + 20)}>
+            {list.isFetching ? "加载中…" : "加载更多"}
+          </button>
+        ) : null}
       </div>
     </div>
   );

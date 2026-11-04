@@ -1,64 +1,145 @@
-/** 迭代 7 新 IA 导航配置（arch/10 §1.1 逐字）与路由分组命中 */
+/** 迭代 9a 新 IA 导航树（arch/12 §2.1 逐字；级联气泡 §2.2）；占位项走 /coming-soon */
 
-export interface TopNavItem {
+export interface NavLeaf {
   to: string;
   label: string;
-  /** 子串命中即视为该组当前（组内高亮） */
-  match?: string;
+  desc: string;
   /** 角色白名单；缺省全角色可见 */
   roles?: string[];
 }
-export interface TopNavGroup {
+export interface NavSection {
+  name: string;
+  items: NavLeaf[];
+  /** 角色白名单（作用于整个二级分组） */
+  roles?: string[];
+}
+export interface NavGroup {
   key: string;
   label: string;
-  items: TopNavItem[];
+  sections: NavSection[];
+  roles?: string[];
 }
 
-/** member/viewer 不见收款台账（其余角色可见，服务端仍同形 404 兜底） */
-export const RECEIPTS_ROLES = ["sysadmin", "partner", "project_manager", "quality_lead", "finance", "archivist"];
+/** CRM/报表域可见角色（arch/12 §11：member 默认不可见客户域） */
+const CRM_ROLES = ["sysadmin", "partner", "finance", "project_manager", "quality_lead", "archivist"];
 
-export function buildNavGroups(ganttTo: string): TopNavGroup[] {
-  return [
-    { key: "overview", label: "总览", items: [
-      { to: "/cockpit", label: "驾驶舱", match: "/cockpit" },
-      { to: "/workbench", label: "我的工作台", match: "/workbench" },
+const CS = (domain: string, title: string, sub?: string) =>
+  `/coming-soon?domain=${domain}&title=${encodeURIComponent(title)}${sub ? `&sub=${encodeURIComponent(sub)}` : ""}`;
+
+export const NAV_TREE: NavGroup[] = [
+  { key: "overview", label: "总览", sections: [
+    { name: "", items: [
+      { to: "/cockpit", label: "驾驶舱", desc: "2×2 四象限：问候日程卡/快捷入口/项目脉搏/待办清单" },
+      { to: "/workbench", label: "我的工作台", desc: "我的待办与通知聚合" },
+      { to: "/notifications", label: "通知中心", desc: "按类型分组折叠 + 展开更多" },
+      { to: "/search", label: "全局搜索", desc: "分组结果 + 每类 ≤5" },
     ] },
-    { key: "project", label: "项目", items: [
-      { to: "/projects", label: "项目全周期", match: "/projects" },
-      { to: ganttTo, label: "甘特计划", match: "/plan" },
+  ] },
+  { key: "crm", label: "客户", roles: CRM_ROLES, sections: [
+    { name: "线索与商机", items: [
+      { to: CS("lead", "线索池"), label: "线索池", desc: "T-A：筛选+表格+行尾动作；新建线索 F1" },
+      { to: CS("opportunity", "商机管理"), label: "商机管理", desc: "T-A 表格/看板切换，拖拽改阶段" },
+      { to: CS("customer", "跟进记录"), label: "跟进记录", desc: "多态跟进时间线" },
     ] },
-    { key: "collab", label: "协同", items: [
-      { to: "/meetings", label: "会议中心", match: "/meetings" },
-      { to: "/travel", label: "出差中心", match: "/travel" },
-      { to: "/requests", label: "申请单", match: "/requests" },
+    { name: "客户与合同", items: [
+      { to: CS("customer", "客户列表"), label: "客户列表", desc: "T-A：级别徽标+在管项目数+合同额+应收余额" },
+      { to: CS("customer", "客户详情"), label: "客户详情", desc: "T-B：概况/联系人/商机/合同/项目/往来文件" },
+      { to: CS("contract", "合同管理"), label: "合同管理", desc: "T-A+行内回款进度条；详情 F2 抽屉含付款计划" },
     ] },
-    { key: "ops", label: "经营", items: [
-      { to: "/operations/time", label: "工时中心", match: "/operations/time" },
-      { to: "/operations/budget", label: "预算管理", match: "/operations/budget" },
-      { to: "/operations/expenses", label: "费用中心", match: "/operations/expenses" },
-      { to: "/operations/receipts", label: "收款台账", match: "/operations/receipts", roles: RECEIPTS_ROLES },
-      { to: "/approvals", label: "审批中心", match: "/approvals" },
+  ] },
+  { key: "project", label: "项目", sections: [
+    { name: "", items: [
+      { to: "/projects", label: "项目全周期", desc: "T-A 列表工作台" },
+      { to: "/projects/new", label: "新建项目", desc: "F4 分步 Stepper" },
+      { to: CS("project", "项目模板", "既有 /admin 模板页签迁入"), label: "项目模板", desc: "模板库管理" },
+      { to: "/projects", label: "项目空间", desc: "T-B：14 页签沿用" },
     ] },
-    { key: "gov", label: "治理", items: [
-      { to: "/quality", label: "质量中心", match: "/quality" },
-      { to: "/decisions", label: "决策中心", match: "/decisions" },
-      { to: "/archive", label: "档案中心", match: "/archive" },
-      { to: "/audit", label: "权限审计", match: "/audit", roles: ["sysadmin", "partner"] },
-      { to: "/admin", label: "系统配置中心", match: "/admin", roles: ["sysadmin"] },
+  ] },
+  { key: "collab", label: "协同", sections: [
+    { name: "会议与出差", items: [
+      { to: "/meetings", label: "会议", desc: "会议中心" },
+      { to: "/travel", label: "出差", desc: "出差中心" },
     ] },
-    { key: "office", label: "办公", items: [
-      { to: "/requests", label: "我的申请单", match: "/requests" },
-      { to: "/notifications", label: "通知中心", match: "/notifications" },
+    { name: "审议与质量", items: [
+      { to: "/approvals", label: "审批中心", desc: "待我审批 + 我申请的" },
+      { to: "/decisions", label: "决策", desc: "决策中心" },
+      { to: "/quality", label: "质量", desc: "质量中心" },
+      { to: CS("report", "周报"), label: "周报", desc: "项目空间页签入口 + 汇总" },
     ] },
-  ];
-}
+  ] },
+  { key: "ops", label: "经营", sections: [
+    { name: "预算与费用", items: [
+      { to: "/operations/budget", label: "预算经费", desc: "预算与经费" },
+      { to: "/operations/expenses", label: "费用报销", desc: "费用中心；新建报销 F2 抽屉" },
+      { to: "/operations/funding/new", label: "经费申请", desc: "经费申请链" },
+    ] },
+    { name: "收款与核算", items: [
+      { to: "/operations/receipts", label: "收款台账", desc: "收款登记/冲正" },
+      { to: CS("finance", "应收管理"), label: "应收管理", desc: "T-A：账龄分桶徽标+行内登记收款" },
+      { to: CS("finance", "发票管理"), label: "发票管理", desc: "开具发票 F2 抽屉；红冲=voided+冲正" },
+      { to: CS("finance", "项目核算"), label: "项目核算", desc: "T-C：收入三块/成本三块/毛利横条" },
+    ] },
+    { name: "工时", items: [
+      { to: "/operations/time", label: "工时中心", desc: "页级批量填报 + 快速填报 F1" },
+    ] },
+  ] },
+  { key: "reports", label: "报表", roles: CRM_ROLES, sections: [
+    { name: "报表目录", items: [
+      { to: CS("report", "报表工作台", "预定义目录+筛选+导出（9e）"), label: "报表工作台", desc: "T-C：左目录树+右侧说明卡" },
+    ] },
+    { name: "项目类", items: [
+      { to: CS("report", "项目健康度汇总"), label: "项目健康度汇总", desc: "健康度矩阵+延期分布" },
+      { to: CS("report", "项目进度与延期"), label: "项目进度与延期", desc: "延期明细+恢复检查点" },
+      { to: CS("report", "项目收支核算表"), label: "项目收支核算表", desc: "收入/成本/毛利三栏" },
+    ] },
+    { name: "财务类", items: [
+      { to: CS("report", "收款账龄分析"), label: "收款账龄分析", desc: "账龄分桶+客户维度" },
+      { to: CS("report", "费用类别分析"), label: "费用类别分析", desc: "类别 8 值分布" },
+      { to: CS("report", "月度收支汇总"), label: "月度收支汇总", desc: "月度收/支/净额趋势" },
+    ] },
+    { name: "人事工时类", items: [
+      { to: CS("report", "工时汇总"), label: "工时汇总", desc: "按人/项目/部门三视角" },
+      { to: CS("report", "利用率分析"), label: "利用率分析", desc: "人员利用率（成本率折算）" },
+    ] },
+    { name: "客户类", items: [
+      { to: CS("report", "商机漏斗"), label: "商机漏斗", desc: "五阶段转化" },
+      { to: CS("report", "客户贡献排行"), label: "客户贡献排行", desc: "贡献=合同额/回款" },
+    ] },
+  ] },
+  { key: "office", label: "办公", sections: [
+    { name: "", items: [
+      { to: "/requests", label: "我的申请单", desc: "请假/用章/通用申请；自选审批人" },
+      { to: "/requests", label: "申请单详情", desc: "流程节点图进度" },
+    ] },
+  ] },
+  { key: "gov", label: "治理", sections: [
+    { name: "档案与审计", items: [
+      { to: "/archive", label: "档案总库", desc: "档案中心" },
+      { to: "/audit", label: "权限审计", desc: "审计日志", roles: ["sysadmin", "partner"] },
+    ] },
+    { name: "组织管理", roles: ["sysadmin"], items: [
+      { to: CS("org", "公司信息", "9b：开票抬头/合同水印引用"), label: "公司信息", desc: "单记录：开票抬头引用" },
+      { to: CS("org", "部门维护", "9b：org_units 树化"), label: "部门维护", desc: "T-D：部门树+右侧详情" },
+      { to: CS("org", "员工信息", "9b：users 增岗位列"), label: "员工信息", desc: "T-A：员工名录；新建/编辑 F3" },
+    ] },
+    { name: "系统配置", roles: ["sysadmin"], items: [
+      { to: "/admin", label: "审批流中心", desc: "系统级+项目内两区" },
+      { to: CS("settings", "项目模板", "既有 /admin 模板页签"), label: "项目模板", desc: "模板库" },
+      { to: CS("settings", "编号与字典", "既有 /admin 编号规则页签"), label: "编号与字典", desc: "编号规则+字典" },
+      { to: CS("settings", "系统参数", "既有 /admin 系统参数页签"), label: "系统参数", desc: "白名单配置键" },
+    ] },
+  ] },
+];
 
 export function activeGroupKey(pathname: string): string | null {
-  if (pathname.startsWith("/cockpit") || pathname.startsWith("/workbench")) return "overview";
+  if (pathname.startsWith("/cockpit") || pathname.startsWith("/workbench") || pathname.startsWith("/notifications") || pathname.startsWith("/search")) return "overview";
+  if (pathname.startsWith("/coming-soon") && pathname.includes("domain=lead")) return "crm";
   if (pathname.startsWith("/projects")) return "project";
-  if (pathname.startsWith("/meetings") || pathname.startsWith("/travel") || pathname.startsWith("/requests")) return "collab";
-  if (pathname.startsWith("/operations") || pathname.startsWith("/approvals") || pathname.startsWith("/expenses")) return "ops";
-  if (["/quality", "/decisions", "/archive", "/audit", "/admin"].some((p) => pathname.startsWith(p))) return "gov";
-  if (pathname.startsWith("/notifications")) return "office";
+  if (["/meetings", "/travel", "/approvals", "/decisions", "/quality"].some((p) => pathname.startsWith(p))) return "collab";
+  if (pathname.startsWith("/operations") || pathname.startsWith("/receipts")) return "ops";
+  if (pathname.startsWith("/coming-soon") && pathname.includes("domain=report")) return "reports";
+  if (pathname.startsWith("/requests")) return "office";
+  if (["/archive", "/audit", "/admin", "/settings"].some((p) => pathname.startsWith(p)) || (pathname.startsWith("/coming-soon") && (pathname.includes("domain=org") || pathname.includes("domain=settings")))) return "gov";
+  if (pathname.startsWith("/coming-soon")) return "reports";
   return null;
 }
