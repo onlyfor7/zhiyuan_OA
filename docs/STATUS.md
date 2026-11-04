@@ -5,7 +5,7 @@
 
 ## 当前迭代
 
-**迭代 8 · 体验深化（名单替换/IA v2/办公组/设计器/审批流分级/细节项）**（已收口；partner 全局可见微工单 06 跟进中）
+**迭代 8 · 体验深化（名单替换/IA v2/办公组/设计器/审批流分级/细节项）**（已收口；06 partner 全局只读已通过，测试稳定性微工单 06b 跟进中）
 
 ## 迭代总览
 
@@ -66,7 +66,8 @@
 | 03 体验深化前端接入 | 前端 | **通过** | 前端会话 | 2026-10-30 | 架构会话已验收（IA v2 无左栏+设计器大画布截图核验、四道门 253 全绿） |
 | 04 prod 发布 | 部署 | **通过** | 部署会话 | 2026-11-03 | 架构会话已验收（三服务 healthy、22 用户五项目、旧名清零、王宝茁可见其两项目） |
 | 05 迭代 8 验收 + 手册 v1.2 | 测试 | **通过** | 测试会话 | 2026-11-03 | arch/11 G1–G10 取证 7/7 绿（15 截图）；253 零回归；E2E-01~16 名单迁移后 16/16；375px 不回归；手册 v1.2；**处置 prod server 镜像过期缺陷**（--no-cache 重建，G3 恢复）——迭代 8 收口 |
-| 06 partner 全局只读可见（观察项修复） | 后端 | **待验收** | 后端会话 | 2026-11-04 | 打回修复完成：16 条 loader 间接写门补/换 requireProjectMember（task3/meeting3/decision4/quality6/expense1），17 条逐类 404 用例+member 写通对照；四道门 258/258；prod 仅重建 server 镜像，e2e 24/24+prod 写探针全 404 |
+| 06 partner 全局只读可见（观察项修复） | 后端 | **通过** | 后端会话 | 2026-11-04 | 架构复测通过：16 条 loader 写门 diff 逐条核验 + prod 实弹 4 类写 404 同形/读 200/梁奇烽 5 项目全见 + mutation 事务包裹被拒写无残留；财务写权（funding/expense adjust）系迭代 3 既有设计登记观察项；套件偶发红出 06b 跟踪 |
+| 06b api 套件偶发失败稳定性 | 后端 | 待认领 | — | 2026-11-04 | 06 验收期实测：根全量 3 跑 1 红（partner-visibility 写边界用例，单跑 5/5 绿、复跑全绿）——疑似套件级状态干扰，架构后台连跑取证中；不阻塞 06 通过，须修稳 |
 
 ## 迭代 7 工单状态
 
@@ -176,6 +177,7 @@
 ## 偏差与仲裁
 
 | 日期 | 会话 | 事项 | 架构裁定 | 状态 |
+| 2026-11-04 | 架构 | **F2**：server api 套件偶发失败——06 验收期根全量 3 跑 1 红（partner-visibility「写边界 06 打回扩展」用例），同文件单跑 5/5 绿、复跑全绿；fileParallelism=false 顺序执行+每文件 migrateFresh+reseed，仍现非确定红 | **裁定：登记为测试稳定性缺陷**（非产品缺陷——产品行为经 diff 核验+prod 实弹独立证实）；出微工单 06b 修稳，架构后台连跑取证断言详情中 | 未决 |
 | 2026-10-29 | 测试→后端 | **R6**：receipts.create 幂等键未落库同键重放双记 | **已修复关闭**（05b 迁移 0009 唯一列+先查后插；05c prod live 复测同键重放 200 同 id 单行） | 已关闭 |
 | 2026-10-29 | 测试→后端 | **R7**：flow.publish 对既有 biz_type 500 | **已修复关闭**（05b 按 binding 释放；05c prod live 发布 200+travel 接管+佳力奇 P4b/P5b 双链重跑） | 已关闭 |
 | 2026-10-29 | 测试→后端 | **R8**：阈值配置未接入策略匹配 | **已修复关闭**（05b $config 编译期求值；05c prod live 阈值改后 2 步→1 步） | 已关闭 |
@@ -204,6 +206,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-04｜架构｜迭代8-06通过｜**工单 06（partner 全局只读可见）验收通过。** 打回项复核：① 16 条 loader 间接写门 diff 逐条核验落位——task 改/转/派 3 处补 requireProjectMember；meeting requireMeetingManage 内部门直换（注释标明写门语义）；decision 4、quality 5+checkItem、expense insertItems 逐项门切换（EXP-001 注释更新），读路径（listExpenses 等）未动。② **prod 实弹独立探针**（梁奇烽 cookie，非成员项目）：project.list=5 全见、task.list/meeting.list 读 200；task.transition/task.update/meeting.transition/expense.create 写全 404 ACCESS_DENIED_OR_GONE 同形。③ **被拒写无残留**：authedMutation 统一 transactionMiddleware 包裹，门抛错即回滚（createExpense 插单后插明细门失败也整体回滚）。④ 财务写权裁定：funding close/release 与 expense adjustCreate 对 partner 放行为迭代 3 既有设计（git 史证实 06 未触碰；arch/06 §7 partner 财务权 + R3 特批），非本次回归——登记观察项，如需收紧请用户明示。⑤ **F2 登记（06b）**：根全量 3 跑 1 红（新写边界用例），单跑 5/5 绿、复跑全绿——测试稳定性缺陷非产品缺陷，后台连跑取证中断言详情随 06b 闭环。e2e 侧其后端已跑 24/24（iter8-acceptance 8/8 + 01~16 16/16）采信；typecheck/build 我实测 exit 0。**迭代 8 全部工单收口（06b 为新增跟踪项）。**
 
 - 2026-11-04｜后端｜迭代8-06打回修复｜**打回项修复完成，转待验收（16 条 loader 间接写门全部补/换 requireProjectMember）。** 按规格逐条落地：① task.ts——updateTask/transitionTask/assignTask 在 loadVisible（读 loader 不动）后补成员门；② meeting.ts——requireMeetingManage 仅被三个写路径使用，内部门直换 requireProjectMember（注释标明写门语义）；③ decision.ts——updateDecision/submitOpinions/decide/verifyDecision 四处补门；④ quality.ts——updateIssue/assignIssue/submitHandling/reviewIssue/reopenIssue 五处补门 + checkItem 直调切换；⑤ expense.ts——insertItems 逐项门（EXP-001）切换（补 import——首跑 500 即缺导入实证门已生效）。**全量自查补充结论**（非 project.read 门、未动，如实报备）：travel 写路径申请人专属/transition 走 requireTravelVisible（partner 非 applicant/member/finance 本不可见）不受影响；expense update/addItem/removeItem/submit/withdraw 申请人专属；funding close/releaseUnused 走 requireFundingVisible（含 canFinanceSummary→partner）——**这是 06 之前就存在的语义**（partner 财务摘要权自迭代 3，经费关闭/释放对 partner 历来放行），非本次回归；adjustCreate 无门同为 pre-existing（迭代 3 R3 特批：调整单发起不限角色）——如需收紧请架构另行裁定。**测试扩展**：partner-visibility.test.ts +1 用例——17 条 partner 写路径逐条 404（任务改/转/派、会议改/转/签到、决策改/意见/决定/核验、质量改/派/处理/复核/重开/checkItem、非成员报销建单）+ member 写通对照 5 条全 200。**四道门逐条真实跑**：server vitest **235/235**（45 文件；既有 234 零回归+1 新）✓；根 typecheck exit 0✓；根 build exit 0✓；根 test **258/258**（235+23）✓。**prod 仅重建 server 镜像**（DOCKER_BUILDKIT=0 --no-cache）复起，web 未动；e2e 复跑 **24/24**（iter8-acceptance 8/8 含 G5b + e2e-01~16 16/16）✓；prod 实测探针（一次性，已删）：梁奇烽 5 项目可见、A 项目 task.list/meeting.list 200 可读、六类写路径（task.update/meeting.update/meeting.transition/expense.create/decision.create/quality.create）**全 404**（PROD-PROBE-ALL-404）。分支 `iter8/server-partner-visibility`。
 - 2026-11-04｜架构｜迭代8-06打回｜**工单 06 打回：写边界未守住——16 条 loader 间接把门的写路径漏切，partner 当前可写。** 验收复核确认：读扩展三处放行与 17 处直调写门切换（change/minutes/travel/funding/archive/plan/time 已抽查合格）本身正确；但其后端自查只数了直接调用 requireProjectRead 的写路径，**漏了经 helper 间接把门的一批**——partner 放行 project.read 后这些写路径全部洞开：① task.ts `loadVisible`→`updateTask`(161)/`transitionTask`(186)/`assignTask`(236)；② meeting.ts `requireMeetingManage`（名为管理门实为读门）→`updateMeeting`(302)/`transitionMeeting`(332)/`recordAttendance`(383)；③ decision.ts `loadVisible`→`updateDecision`(86)/`submitOpinions`(108)/`decide`(171)/`verifyDecision`(233)；④ quality.ts `loadVisible`→`updateIssue`(99)/`assignIssue`(122)/`submitHandling`(146)/`reviewIssue`(168)/`reopenIssue`(226)，外加 `checkItem`(318) 直接用 requireProjectRead 把门；⑤ expense.ts `insertItems`(93)（EXP-001 跨项目逐项门对 partner 失效）→`createReport`(169)/`updateReport`(185)/`addItem`(206)。新测试「写四路径 404」只覆盖了被修的创建类路径，未测 loader 类，故全绿假象。**修复规格**：Ⅰ 上述全部写路径补/换 `requireProjectMember`（成员∪有效授权=恢复工单 06 前精确语义；loader 调用点后补一道或改 loader 内部门均可，meeting 的 requireMeetingManage 直接改内部门最省）；函数体内既有的二级校验（如 assignee/角色）保留叠加。Ⅱ 自行全量复查：凡写路径唯一门为 requireProjectRead（直调或经 helper）者一律同治，读路径不动。Ⅲ `partner-visibility.test.ts` 扩展：partner 对上述每类写路径 404 逐条断言（任务改/转/派、会议改/转/签到、决策改/意见/决定/核验、质量改/派/处理/复核/重开/checkItem、非成员项目报销建单），并保留 member 写通对照。Ⅳ 四道门 + iter8-acceptance + e2e-01~16 复跑；prod 仅重建 server 镜像（本次纯 server 变更，web 不动）复起后实测梁奇烽 5 项目可见+写路径 404。完成后 STATUS 转「待验收」，我复核写边界后转通过。
