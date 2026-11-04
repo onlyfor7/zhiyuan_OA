@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  AlertTriangle, Banknote, Briefcase, Calendar, CheckCircle2, CheckSquare, Clock,
-  FileEdit, FileText, Folder, FolderPlus, Play, ShieldAlert, TrendingUp, Wrench,
+  AlertTriangle, Banknote, Calendar, CheckCircle2, CheckSquare, Clock,
+  FileEdit, FileText, FolderPlus, ShieldAlert, TrendingUp, Wrench,
   type LucideIcon,
 } from "lucide-react";
 
@@ -57,124 +57,252 @@ function IconBlock({ icon: Icon, tone, size = 32 }: { icon: LucideIcon; tone: To
 }
 
 /* T-C 驾驶舱样例：固定三行 grid（§1.3 v1.3 卡片图标化） */
+/* v1.5 §1.3 驾驶舱 2×2 四象限定稿（铺满视口：行 36%/64%、列 3fr/2fr） */
+function LiveClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const week = ["日", "一", "二", "三", "四", "五", "六"][now.getDay()];
+  const hh = now.getHours();
+  const greet = hh < 6 ? "夜深了" : hh < 12 ? "早上好" : hh < 14 ? "中午好" : hh < 18 ? "下午好" : "晚上好";
+  return (
+    <div className="p9a-clock">
+      <strong>{pad(now.getHours())}:{pad(now.getMinutes())}:{pad(now.getSeconds())}</strong>
+      <span>{now.getFullYear()}-{pad(now.getMonth() + 1)}-{pad(now.getDate())} 星期{week} · {greet}</span>
+    </div>
+  );
+}
+
+const QUICK_ALL: Array<{ key: string; label: string; icon: LucideIcon }> = [
+  { key: "project", label: "新建项目", icon: FolderPlus },
+  { key: "receipt", label: "登记收款", icon: Banknote },
+  { key: "request", label: "发起申请", icon: FileEdit },
+  { key: "lead", label: "新建线索", icon: TrendingUp },
+  { key: "invoice", label: "开具发票", icon: FileText },
+  { key: "report", label: "写周报", icon: Calendar },
+];
+const QUICK_KEY = "p9a-quick-config";
+
 function CockpitDemo() {
-  const metrics: Array<{ label: string; value: number; icon: LucideIcon; tone: Tone }> = [
-    { label: "项目总数", value: 5, icon: Folder, tone: "blue" },
-    { label: "进行中", value: 4, icon: Play, tone: "green" },
-    { label: "健康度预警", value: 1, icon: AlertTriangle, tone: "orange" },
-    { label: "待我审批", value: 6, icon: CheckSquare, tone: "purple" },
-    { label: "待决策", value: 3, icon: TrendingUp, tone: "blue" },
-    { label: "本周会议", value: 5, icon: Calendar, tone: "green" },
-    { label: "出差中", value: 2, icon: Briefcase, tone: "orange" },
-    { label: "本周已批工时", value: 38, icon: Clock, tone: "purple" },
-    { label: "收款净额(元)", value: 6000, icon: Banknote, tone: "blue" },
-  ];
+  const [quickCfg, setQuickCfg] = useState<Array<{ key: string; visible: boolean }>>(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(QUICK_KEY) ?? "null");
+      if (Array.isArray(raw) && raw.length === QUICK_ALL.length) return raw;
+    } catch { /* 忽略坏数据 */ }
+    return QUICK_ALL.map((q) => ({ key: q.key, visible: true }));
+  });
+  const [cfgOpen, setCfgOpen] = useState(false);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [todoTab, setTodoTab] = useState<"todo" | "delay">("todo");
+  const [chip, setChip] = useState("全部");
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  const saveCfg = (next: typeof quickCfg) => {
+    setQuickCfg(next);
+    localStorage.setItem(QUICK_KEY, JSON.stringify(next));
+  };
+  const toggleVisible = (i: number) => saveCfg(quickCfg.map((c, x) => (x === i ? { ...c, visible: !c.visible } : c)));
+  const onDrop = (to: number) => {
+    if (dragIdx === null || dragIdx === to) return;
+    const next = [...quickCfg];
+    const [moved] = next.splice(dragIdx, 1);
+    next.splice(to, 0, moved);
+    saveCfg(next);
+    setDragIdx(null);
+  };
+
   const projects = [
-    { name: "比博思特技术服务项目", code: "PRJ-2026-00001", badge: "进行中·正常", tone: "green" as Tone, mgr: "王宝茁", pct: 62 },
-    { name: "金通灵技术服务项目", code: "PRJ-2026-00002", badge: "进行中·正常", tone: "green" as Tone, mgr: "王家玉", pct: 45 },
-    { name: "佳力奇技术服务项目", code: "PRJ-2026-00003", badge: "进行中·正常", tone: "green" as Tone, mgr: "孙浩祥", pct: 78 },
-    { name: "合规运作规则引擎上市公司 1.0", code: "PRJ-2026-00004", badge: "进行中·风险", tone: "orange" as Tone, mgr: "廖益敏", pct: 30 },
-    { name: "GD 法律服务", code: "PRJ-2026-00005", badge: "进行中·正常", tone: "green" as Tone, mgr: "霍达", pct: 55 },
-    { name: "滚动样例项目 6", code: "PRJ-2026-00006", badge: "筹备", tone: "blue" as Tone, mgr: "毛振宇", pct: 10 },
+    { name: "比博思特技术服务项目", code: "PRJ-2026-00001", badge: "进行中", tone: "green" as Tone, pct: 62, stage: "执行阶段", overdue: 1, updated: "10 分钟前" },
+    { name: "金通灵技术服务项目", code: "PRJ-2026-00002", badge: "进行中", tone: "green" as Tone, pct: 45, stage: "启动阶段", overdue: 0, updated: "1 小时前" },
+    { name: "佳力奇技术服务项目", code: "PRJ-2026-00003", badge: "进行中", tone: "green" as Tone, pct: 78, stage: "验收阶段", overdue: 2, updated: "昨天" },
+    { name: "合规运作规则引擎上市公司 1.0", code: "PRJ-2026-00004", badge: "风险", tone: "orange" as Tone, pct: 30, stage: "执行阶段", overdue: 5, updated: "3 小时前" },
   ];
-  const todos: Array<{ title: string; project: string; ago: string; icon: LucideIcon; tone: Tone }> = [
-    { title: "报销单待财务审批", project: "比博思特", ago: "10 分钟前", icon: CheckSquare, tone: "blue" },
-    { title: "差旅借款会签", project: "金通灵", ago: "32 分钟前", icon: Briefcase, tone: "green" },
-    { title: "线索转化确认", project: "CRM", ago: "1 小时前", icon: TrendingUp, tone: "purple" },
-    { title: "合同付款计划核对", project: "比博思特", ago: "3 小时前", icon: Banknote, tone: "orange" },
-    { title: "严重质量问题复核", project: "佳力奇", ago: "昨天", icon: ShieldAlert, tone: "orange" },
+  const todoGroups: Array<{ type: string; tone: Tone; icon: LucideIcon; items: Array<{ title: string; project: string; ago: string }> }> = [
+    { type: "审批", tone: "blue", icon: CheckSquare, items: [
+      { title: "报销单待财务审批", project: "比博思特", ago: "10 分钟前" },
+      { title: "差旅借款会签", project: "金通灵", ago: "32 分钟前" },
+      { title: "工时周期解锁审批", project: "佳力奇", ago: "2 小时前" },
+    ] },
+    { type: "会议", tone: "green", icon: Calendar, items: [
+      { title: "周会纪要待确认", project: "比博思特", ago: "1 小时前" },
+    ] },
+    { type: "工时", tone: "purple", icon: Clock, items: [
+      { title: "上周工时逾期未交", project: "个人", ago: "昨天" },
+    ] },
+    { type: "质量", tone: "orange", icon: ShieldAlert, items: [
+      { title: "严重质量问题复核", project: "佳力奇", ago: "昨天" },
+    ] },
+    { type: "财务", tone: "blue", icon: Banknote, items: [
+      { title: "合同付款计划核对", project: "比博思特", ago: "3 小时前" },
+    ] },
   ];
+  const chips = ["全部", "审批", "会议", "工时", "质量", "财务"];
+  const countBy = (t: string) => todoGroups.find((g) => g.type === t)?.items.length ?? 0;
+  const visibleGroups = todoGroups.filter((g) => chip === "全部" || g.type === chip);
   const steps: Array<{ label: string; icon: LucideIcon; tone: Tone }> = [
     { label: "原因", icon: FileText, tone: "blue" },
     { label: "影响", icon: AlertTriangle, tone: "orange" },
     { label: "方案", icon: Wrench, tone: "purple" },
     { label: "决策", icon: CheckCircle2, tone: "green" },
   ];
-  const quick: Array<{ label: string; icon: LucideIcon }> = [
-    { label: "新建项目", icon: FolderPlus },
-    { label: "登记收款", icon: Banknote },
-    { label: "发起申请", icon: FileEdit },
-  ];
+  const total = todoGroups.reduce((n, g) => n + g.items.length, 0);
+
   return (
-    <div className="p9a-tc">
-      <div className="p9a-tc-row1">
-        <div className="p9a-greet p9a-greet-card">
-          <span className="eyebrow">FRIDAY, 08 NOV 2026</span>
-          <h1>早上好，梁奇烽。</h1>
-          <p>项目组合与待处理事项来自实时聚合（T-C 样例 · §1.3 v1.4 四区重排）。</p>
-        </div>
-        <div className="p9a-metrics">
-          {metrics.map((m) => (
-            <div className="p9a-metric" key={m.label}>
-              <IconBlock icon={m.icon} tone={m.tone} />
-              <div className="p9a-metric-text">
-                <CountUp value={m.value} />
-                <span>{m.label}</span>
-              </div>
-            </div>
+    <div className="p9a-tc2">
+      {/* 左上 · 问候卡：实时时钟+日期星期+问候+姓名·职位·部门·角色徽标+指标 mini 条 */}
+      <div className="p9a-q p9a-q-greet">
+        <LiveClock />
+        <h1>早上好，梁奇烽。</h1>
+        <p className="p9a-person-line">
+          <strong>梁奇烽</strong> · 合伙人 · 综合管理部
+          <span className="p9a-role-badge">合伙人</span>
+          <span className="p9a-role-badge alt">质量负责人</span>
+        </p>
+        <p className="context-note">项目组合与待处理事项来自实时聚合（§1.3 v1.5 四象限定稿 · 职位为原型静态示意）。</p>
+        <div className="p9a-mini-metrics">
+          {[["项目", 5], ["待批", 6], ["待决策", 3], ["预警", 1]].map(([l, v]) => (
+            <span key={l as string}><strong>{v}</strong>{l}</span>
           ))}
         </div>
-        <div className="p9a-quick-icons p9a-quick-right">
-          {quick.map((q) => (
-            <button className="p9a-quick-icon" key={q.label}>
-              <q.icon size={22} />
-              <span>{q.label}</span>
+      </div>
+
+      {/* 右上 · 快捷入口：可自定义（齿轮配置浮层：勾选显隐+拖拽排序+localStorage） */}
+      <div className="p9a-q p9a-q-quick">
+        <div className="p9a-q-head">
+          <span className="section-label">QUICK ENTRY · 快捷入口（可自定义）</span>
+          <button className="p9a-icon" aria-label="配置快捷入口" onClick={() => setCfgOpen((v) => !v)}>
+            <Wrench size={15} />
+          </button>
+        </div>
+        <div className="p9a-quick-icons p9a-quick-fill">
+          {quickCfg.filter((c) => c.visible).map((c) => {
+            const q = QUICK_ALL.find((x) => x.key === c.key)!;
+            return (
+              <button className="p9a-quick-icon" key={q.key}>
+                <q.icon size={22} />
+                <span>{q.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        {cfgOpen ? (
+          <div className="p9a-quick-cfg" role="dialog" aria-label="快捷入口配置">
+            <span className="section-label">勾选显隐 · 拖拽排序（存本机）</span>
+            {quickCfg.map((c, i) => {
+              const q = QUICK_ALL.find((x) => x.key === c.key)!;
+              return (
+                <div
+                  key={c.key}
+                  className="p9a-cfg-row"
+                  draggable
+                  onDragStart={() => setDragIdx(i)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => onDrop(i)}
+                >
+                  <span className="p9a-drag" aria-hidden="true">⋮⋮</span>
+                  <input type="checkbox" checked={c.visible} aria-label={`显示${q.label}`} onChange={() => toggleVisible(i)} />
+                  <q.icon size={15} />
+                  <span>{q.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
+
+      {/* 左下 · 项目脉搏：默认 4 卡 2×2 铺满 + 「···显示全部(N)」 */}
+      <div className="p9a-q p9a-q-pulse">
+        <span className="section-label">PROJECT PULSE · 项目脉搏（默认 4 卡铺满）</span>
+        <div className="p9a-pulse-4">
+          {projects.map((p) => (
+            <button className="p9a-pulse-card compact" key={p.code}>
+              <span className="p9a-pulse-head">
+                <i className={`p9a-dot ${p.tone === "orange" ? "pulse warn" : "ok"}`} />
+                <strong>{p.name}</strong>
+                <em className={`p9a-badge-${p.tone}`}>{p.badge}</em>
+              </span>
+              <small className="p9a-pulse-meta">{p.code} · 当前阶段 {p.stage} · 逾期任务 {p.overdue} · 更新 {p.updated}</small>
+              <span className="p9a-progress"><i style={{ width: `${p.pct}%` }} /><b>{p.pct}%</b></span>
             </button>
           ))}
         </div>
+        <button className="p9a-show-all">··· 显示全部（{12}）</button>
       </div>
-      <div className="p9a-tc-row2">
-        <div className="p9a-panel">
-          <span className="section-label">PROJECT PULSE · 项目脉搏（auto-fill 300px 卡网格铺满·模块内滚动）</span>
-          <div className="p9a-scroll-list p9a-pulse-grid">
-            {projects.concat(Array.from({ length: 6 }, (_, i) => ({
-              name: `滚动样例项目 ${i + 7}`, code: `PRJ-2026-0000${i + 7}`, badge: "进行中·正常", tone: "green" as Tone, mgr: "负责人", pct: 20 + i * 10,
-            }))).map((p) => (
-              <button className="p9a-pulse-card" key={p.code}>
-                <span className="p9a-pulse-head">
-                  <i className={`p9a-dot ${p.tone === "orange" ? "pulse warn" : "ok"}`} />
-                  <strong>{p.name}</strong>
-                </span>
-                <small className="p9a-pulse-meta">{p.code} · <em className={`p9a-badge-${p.tone}`}>{p.badge}</em> · 负责人 {p.mgr}</small>
-                <span className="p9a-progress"><i style={{ width: `${p.pct}%` }} /></span>
-              </button>
-            ))}
+
+      {/* 右下 · 待办清单：页签（待办/延期治理）+ chips 快筛 + 类型分组折叠（计数）+ 区内滚动 */}
+      <div className="p9a-q p9a-q-todo">
+        <div className="p9a-q-head">
+          <div className="p9a-mini-tabs" role="tablist">
+            <button role="tab" aria-selected={todoTab === "todo"} className={todoTab === "todo" ? "active" : ""} onClick={() => setTodoTab("todo")}>
+              待办（{total}）
+            </button>
+            <button role="tab" aria-selected={todoTab === "delay"} className={todoTab === "delay" ? "active" : ""} onClick={() => setTodoTab("delay")}>
+              延期治理
+            </button>
           </div>
+          {todoTab === "todo" ? (
+            <div className="p9a-chips">
+              {chips.map((c) => (
+                <button key={c} className={chip === c ? "active" : ""} onClick={() => setChip(c)}>
+                  {c}{c !== "全部" ? ` ${countBy(c)}` : ` ${total}`}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
-        <div className="p9a-panel aggregated">
-          <span className="section-label">TODO QUEUE · 待办卡队列（模块内滚动）</span>
-          <div className="p9a-scroll-list">
-            {todos.map((t) => (
-              <div className="p9a-queue-card" key={t.title}>
-                <IconBlock icon={t.icon} tone={t.tone} size={40} />
-                <div className="p9a-queue-main">
-                  <strong>{t.title}</strong>
-                  <small>{t.project} · {t.ago}</small>
+        {todoTab === "todo" ? (
+          <div className="p9a-scroll-list p9a-todo-scroll">
+            {visibleGroups.map((g) => {
+              const isCollapsed = collapsedGroups[g.type] ?? false;
+              return (
+                <section className="p9a-todo-group" key={g.type}>
+                  <button
+                    className="p9a-todo-group-head"
+                    aria-expanded={!isCollapsed}
+                    onClick={() => setCollapsedGroups((c) => ({ ...c, [g.type]: !isCollapsed }))}
+                  >
+                    <IconBlock icon={g.icon} tone={g.tone} size={24} />
+                    <strong>{g.type}</strong>
+                    <span className="count-badge neutral">{g.items.length}</span>
+                    <span className="p9a-collapse-arrow">{isCollapsed ? "▸" : "▾"}</span>
+                  </button>
+                  {!isCollapsed
+                    ? g.items.map((it) => (
+                        <div className="p9a-queue-card slim" key={it.title}>
+                          <div className="p9a-queue-main">
+                            <strong>{it.title}</strong>
+                            <small>{it.project} · {it.ago}</small>
+                          </div>
+                          <button className="p9a-pill">去处理</button>
+                        </div>
+                      ))
+                    : null}
+                </section>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p9a-delay-body">
+            <div className="p9a-steps">
+              {steps.map((s, i) => (
+                <div className="p9a-step-node" key={s.label}>
+                  <IconBlock icon={s.icon} tone={s.tone} size={36} />
+                  <span>{s.label}</span>
+                  {i < steps.length - 1 ? <i className="p9a-step-line" aria-hidden="true" /> : null}
                 </div>
-                <button className="p9a-pill">去处理</button>
-              </div>
-            ))}
+              ))}
+            </div>
+            <p className="context-note">每一次变化都有书面原因、责任人和恢复检查点，并自动进入项目档案。</p>
           </div>
-        </div>
-      </div>
-      <div className="p9a-tc-row3">
-        <div className="p9a-panel aggregated p9a-delay-strip">
-          <span className="section-label">DELAY GOVERNANCE · 延期治理（步骤条横贯）</span>
-          <div className="p9a-steps">
-            {steps.map((s, i) => (
-              <div className="p9a-step-node" key={s.label}>
-                <IconBlock icon={s.icon} tone={s.tone} size={36} />
-                <span>{s.label}</span>
-                {i < steps.length - 1 ? <i className="p9a-step-line" aria-hidden="true" /> : null}
-              </div>
-            ))}
-          </div>
-          <p className="context-note">每一次变化都有书面原因、责任人和恢复检查点，并自动进入项目档案。</p>
-        </div>
+        )}
       </div>
     </div>
   );
 }
+
 
 /* T-A 列表工作台样例：筛选条固定 + 表格内滚动 + 分页条固定 */
 function TableDemo({ title }: { title: string }) {
