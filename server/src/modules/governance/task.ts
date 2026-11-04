@@ -158,7 +158,8 @@ export interface UpdateTaskInput {
 }
 
 export async function updateTask(db: DbOrTx, user: SessionUser, input: UpdateTaskInput): Promise<void> {
-  await loadVisible(db, user, input.id);
+  const task = await loadVisible(db, user, input.id);
+  await requireProjectMember(db, user, task.projectId);
   const updated = await db
     .update(tasks)
     .set({
@@ -184,6 +185,7 @@ export async function transitionTask(
   input: { id: string; action: string; rowVersion: number },
 ) {
   const task = await loadVisible(db, user, input.id);
+  await requireProjectMember(db, user, task.projectId);
   const now = nowIso();
   const patch: Record<string, unknown> = { updatedBy: user.id, updatedAt: now };
 
@@ -234,6 +236,7 @@ export async function assignTask(
   input: { id: string; assigneeId: string },
 ) {
   const task = await loadVisible(db, user, input.id);
+  await requireProjectMember(db, user, task.projectId);
   // 负责人必须是项目成员
   const member = await db
     .select({ userId: projectMembers.userId })

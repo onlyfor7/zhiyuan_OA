@@ -67,7 +67,8 @@ export async function requireMeetingVisible(db: DbOrTx, user: SessionUser, meeti
 /** 变更权：项目成员（参会人不可改会议） */
 async function requireMeetingManage(db: DbOrTx, user: SessionUser, meetingId: string) {
   const meeting = await loadMeeting(db, meetingId);
-  await requireProjectRead(db, user, meeting.projectId);
+  // 写门（06 打回修复）：成员∪有效授权；partner 全局只读不放行
+  await requireProjectMember(db, user, meeting.projectId);
   return meeting;
 }
 

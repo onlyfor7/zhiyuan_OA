@@ -84,6 +84,7 @@ export async function updateDecision(
   },
 ): Promise<void> {
   const decision = await loadVisible(db, user, input.id);
+  await requireProjectMember(db, user, decision.projectId);
   if (decision.status !== "draft") {
     throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "仅草稿可修改（决策进入流程后不可改）");
   }
@@ -113,6 +114,7 @@ export async function submitOpinions(
   input: { id: string; pmOpinion?: string; qualityOpinion?: string },
 ) {
   const decision = await loadVisible(db, user, input.id);
+  await requireProjectMember(db, user, decision.projectId);
   if (decision.status !== "draft" && decision.status !== "deciding") {
     throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "当前状态不可提交意见");
   }
@@ -169,6 +171,7 @@ export async function decide(
   },
 ) {
   const decision = await loadVisible(db, user, input.id);
+  await requireProjectMember(db, user, decision.projectId);
   const manage = await can(db, user, "project.manage", { type: "project", projectId: decision.projectId });
   if (!manage && !user.globalRoles.includes("partner")) {
     throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "仅项目负责人或管理层可作出决定");
@@ -237,6 +240,7 @@ export async function verifyDecision(
   input: { id: string; note: string },
 ) {
   const decision = await loadVisible(db, user, input.id);
+  await requireProjectMember(db, user, decision.projectId);
   if (decision.status !== "decided") {
     throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "仅已决定决策可验证（verify 必须 decided 之后）");
   }

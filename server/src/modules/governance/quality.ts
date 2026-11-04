@@ -97,6 +97,7 @@ export async function updateIssue(
   },
 ): Promise<void> {
   const issue = await loadVisible(db, user, input.id);
+  await requireProjectMember(db, user, issue.projectId);
   if (issue.status === "closed") {
     throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "已关闭问题不可修改");
   }
@@ -126,6 +127,7 @@ export async function assignIssue(
   input: { id: string; handlerId: string; reviewerId: string },
 ): Promise<void> {
   const issue = await loadVisible(db, user, input.id);
+  await requireProjectMember(db, user, issue.projectId);
   if (issue.status === "closed") {
     throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "已关闭问题不可指派");
   }
@@ -150,6 +152,7 @@ export async function submitHandling(
   input: { id: string; note: string },
 ): Promise<void> {
   const issue = await loadVisible(db, user, input.id);
+  await requireProjectMember(db, user, issue.projectId);
   if (issue.handlerId !== user.id) {
     throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "仅处理人可提交处理结果");
   }
@@ -172,6 +175,7 @@ export async function reviewIssue(
   input: { id: string; action: "pass" | "return"; comment?: string },
 ): Promise<void> {
   const issue = await loadVisible(db, user, input.id);
+  await requireProjectMember(db, user, issue.projectId);
   if (issue.status !== "pending_review") {
     throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "仅待复核状态可复核");
   }
@@ -230,6 +234,7 @@ export async function reopenIssue(
   input: { id: string; note: string },
 ): Promise<void> {
   const issue = await loadVisible(db, user, input.id);
+  await requireProjectMember(db, user, issue.projectId);
   if (issue.status !== "closed") {
     throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "仅已关闭问题可重开");
   }
@@ -315,7 +320,7 @@ export async function checkItem(
 ) {
   const [item] = await db.select().from(qualityCheckItems).where(eq(qualityCheckItems.id, input.id)).limit(1);
   if (!item) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "检查项不存在");
-  await requireProjectRead(db, user, item.projectId);
+  await requireProjectMember(db, user, item.projectId);
   const [updated] = await db
     .update(qualityCheckItems)
     .set({
