@@ -35,7 +35,7 @@ describe("种子幂等与验收布局", () => {
     expect(first.projects).toBe(5);
     expect(first.project_members).toBe(16); // 4+3+2+3+4
     expect(first.system_config).toBe(17); // 15 + timesheet.step_minutes（arch/11）+ 保留期两键（9a-04 §14.5）
-    expect(first.code_sequences).toBe(19); // 17 + RCV/REQ
+    expect(first.code_sequences).toBe(22); // 19 + LD/OPP/CTR（9c；full 档）
   });
 
   it("验收场景布局：王宝茁可见 A（负责）与 B（成员），管晨仅在 A，佳力奇 C 对二者不可见", async () => {

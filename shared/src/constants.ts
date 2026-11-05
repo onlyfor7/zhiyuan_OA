@@ -24,6 +24,10 @@ export const CODE_PREFIX = {
   // RCV/REQ：2026-10-29 由架构会话正式增补进注册表（arch/00 §3.5 v1.3，arch/09 §2/§3）。
   RCV: "RCV", // 收款登记
   REQ: "REQ", // 通用申请单
+  // LD/OPP/CTR：2026-11-05 由架构会话正式增补进注册表（arch/00 §3.5 v1.4，arch/12 §6.2）。
+  LD: "LD", // 线索
+  OPP: "OPP", // 商机
+  CTR: "CTR", // 合同
 } as const;
 export type CodePrefix = (typeof CODE_PREFIX)[keyof typeof CODE_PREFIX];
 

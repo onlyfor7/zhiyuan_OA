@@ -3,13 +3,20 @@ import { index, integer, pgTable, primaryKey, text, timestamp, uuid } from "driz
 import { confidentialityLevelEnum, projectHealthStatusEnum, projectLifecycleStatusEnum } from "./enums";
 import { users } from "./org";
 
-/** 客户（arch/09 §4.2：停用落到行，status=active/disabled；非删除） */
+/** 客户（arch/01 §1；arch/09 §4.2 停用落到行；arch/12 §6.2 吸收为 CRM 客户：level/industry/address/owner/source_lead） */
 export const clients = pgTable("clients", {
   id: uuid("id").primaryKey().defaultRandom(),
   code: text("code").notNull().unique(),
   name: text("name").notNull(),
   confidentialityLevel: confidentialityLevelEnum("confidentiality_level").notNull().default("internal"),
   status: text("status").notNull().default("active"),
+  /** CRM 客户级别（arch/12 §6.2；存量行迁移回填默认「一般客户」） */
+  level: text("level").notNull().default("一般客户"),
+  industry: text("industry").notNull().default(""),
+  address: text("address").notNull().default(""),
+  ownerId: uuid("owner_id").references(() => users.id, { onDelete: "restrict" }),
+  /** 来源线索（逻辑引用 crm_leads.id；与 crm_leads.converted_customer_id 互指，模块环故不建物理 FK——同 file_objects.current_version_id 先例） */
+  sourceLeadId: uuid("source_lead_id"),
   createdBy: uuid("created_by").references(() => users.id, { onDelete: "restrict" }),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "restrict" }),

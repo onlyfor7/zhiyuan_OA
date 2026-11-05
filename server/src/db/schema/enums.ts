@@ -13,19 +13,24 @@ import {
   CHECK_ITEM_STATUS,
   CONFIDENTIALITY_LEVEL,
   COUNTERSIGN_RULE,
+  CONTRACT_STATUS,
   DECISION_STATUS,
   DELIVERABLE_STATUS,
   EXPENSE_CATEGORY,
   EXPENSE_STATUS,
   FLOW_SCOPE,
+  FOLLOWUP_TARGET_TYPE,
   FUNDING_USAGE_STATUS,
   GENERIC_REQUEST_STATUS,
   LEDGER_ENTRY_TYPE,
+  LEAD_STATUS,
   MEETING_STATUS,
   MEETING_TYPE,
   MILESTONE_STATUS,
   MEETING_MINUTES_STATUS,
+  OPPORTUNITY_STAGE,
   PARTICIPANT_ROLE,
+  PAYMENT_PLAN_STATUS,
   PLAN_ITEM_TYPE,
   PLAN_VERSION_KIND,
   PLAN_VERSION_STATUS,
@@ -146,3 +151,15 @@ export const receiptStatusEnum = pgEnum("receipt_status", RECEIPT_STATUS);
 export const flowScopeEnum = pgEnum("flow_scope", FLOW_SCOPE);
 
 export const genericRequestStatusEnum = pgEnum("generic_request_status", GENERIC_REQUEST_STATUS);
+
+/** 迭代 9c CRM 域枚举（arch/12 §6.2） */
+
+export const leadStatusEnum = pgEnum("lead_status", LEAD_STATUS);
+
+export const opportunityStageEnum = pgEnum("opportunity_stage", OPPORTUNITY_STAGE);
+
+export const contractStatusEnum = pgEnum("contract_status", CONTRACT_STATUS);
+
+export const paymentPlanStatusEnum = pgEnum("payment_plan_status", PAYMENT_PLAN_STATUS);
+
+export const followupTargetTypeEnum = pgEnum("followup_target_type", FOLLOWUP_TARGET_TYPE);

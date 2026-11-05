@@ -12,6 +12,7 @@ import { archiveDirectories, clients, companyProfile, matters, orgUnits, project
 import { SYSTEM_CONFIG_DEFAULTS } from "./config-defaults";
 import { seedClosure } from "./closure";
 import { seedCollab } from "./collab";
+import { seedCrm } from "./crm";
 import { seedDefaultFlows, seedExtensions } from "./extensions";
 import { seedFinance } from "./finance";
 import { seedGovernance, seedTemplates } from "./governance";
@@ -482,6 +483,9 @@ async function seedSchema(databaseUrl: string, profile: SeedProfile): Promise<vo
 
       // 迭代 6 扩展域种子（默认流程等价迁移/演示流程/佳力奇主数据/收款演示）
       await seedExtensions(tx);
+
+      // 迭代 9c CRM 种子（2 线索/五客户级别行业/2 商机/1 合同+2 付款计划/3 跟进）
+      await seedCrm(tx);
 
       // 编号序列水位对齐（全前缀）
       await seedWaterLevels(tx);

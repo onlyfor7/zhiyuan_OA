@@ -68,6 +68,12 @@ export const ALL_TABLES = [
   "payment_receipts",
   "flow_definitions",
   "generic_requests",
+  "crm_leads",
+  "crm_contacts",
+  "crm_opportunities",
+  "crm_contracts",
+  "crm_contract_payment_plans",
+  "crm_followups",
 ] as const;
 
 export async function migrateToLatest(url: string = TEST_DATABASE_URL): Promise<void> {
