@@ -2,21 +2,18 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { GitBranch, Plus, ShieldCheck } from "lucide-react";
 
-import { useAdminConfig, useAdminMutations, useAdminUsers } from "../../api/admin";
+import { useAdminConfig, useAdminMutations } from "../../api/admin";
 import { useMe } from "../../api/auth";
 import { useClientList, useMatterList } from "../../api/reference";
 import { useProjectTemplates } from "../../api/project";
 import { useFlowList } from "../../api/flow";
 import { useRail } from "../../components/shell-rail";
 import { FormDialog } from "../../components/FormDialog";
-import { DensitySwitch } from "../../components/density";
-import { useTableDensity } from "../../lib/tableDensity";
 import { rootErrorMessage } from "../../lib/form";
-import { CONFIDENTIALITY_LABEL, GLOBAL_ROLE_LABEL } from "../../lib/labels";
+import { CONFIDENTIALITY_LABEL } from "../../lib/labels";
 import { CONFIG_KEY } from "@lexflow/shared";
 
 const TABS = [
-  ["users", "用户与组织"],
   ["clients", "客户与事项"],
   ["templates", "项目模板"],
   ["flows", "审批流"],
@@ -52,7 +49,7 @@ export default function AdminCenterPage() {
   useRail(AdminRail);
   const me = useMe();
   const isSysadmin = (me.data?.globalRoles ?? []).includes("sysadmin");
-  const [tab, setTab] = useState<(typeof TABS)[number][0]>("users");
+  const [tab, setTab] = useState<(typeof TABS)[number][0]>("clients");
 
   if (me.isPending) return <p className="list-note">正在加载…</p>;
   if (me.isError) throw me.error;
@@ -91,201 +88,12 @@ export default function AdminCenterPage() {
           </button>
         ))}
       </div>
-      {tab === "users" ? <UsersTab /> : null}
       {tab === "clients" ? <ClientsTab /> : null}
       {tab === "templates" ? <TemplatesTab /> : null}
       {tab === "flows" ? <FlowsTab /> : null}
       {tab === "params" ? <ParamsTab /> : null}
       {tab === "codes" ? <CodesTab /> : null}
     </div>
-  );
-}
-
-function UsersTab() {
-  const users = useAdminUsers(true);
-  const mutations = useAdminMutations();
-  const { density, setDensity } = useTableDensity();
-  const [showCreate, setShowCreate] = useState(false);
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
-  const [roleKey, setRoleKey] = useState("member");
-  const [created, setCreated] = useState<{ email: string; initialPassword: string } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  if (users.isPending) return <p className="list-note">正在加载用户…</p>;
-  if (users.isError) throw users.error;
-
-  return (
-    <div className="preview-tab-body">
-      <div className="quality-toolbar">
-        <span className="toolbar-hint">角色列展示当前角色（userList.roles，arch 裁定 04b-②）；× 移除该角色，下方选择器授予；停用=全部会话立即失效</span>
-        <button className="primary-action" onClick={() => setShowCreate((v) => !v)}>
-          <Plus size={15} />
-          创建用户
-        </button>
-      </div>
-      {created ? (
-        <div className="pending-box">
-          <p className="context-note">
-            用户 <strong>{created.email}</strong> 已创建。初始口令（仅显示一次）：
-            <code className="mono"> {created.initialPassword}</code> —— 请立即转交并要求首次登录改密。
-          </p>
-          <button className="text-action" onClick={() => setCreated(null)}>
-            我已保存，关闭
-          </button>
-        </div>
-      ) : null}
-      {showCreate ? (
-        <FormDialog title="创建用户" eyebrow="ADMIN · 创建走弹窗" onClose={() => setShowCreate(false)}>
-        <div className="owner-line">
-            <label className="form-field">
-              <span>姓名 *</span>
-              <input value={name} onChange={(e) => setName(e.target.value)} />
-            </label>
-            <label className="form-field">
-              <span>邮箱 *</span>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} />
-            </label>
-            <label className="form-field">
-              <span>初始角色 *</span>
-              <select value={roleKey} onChange={(e) => setRoleKey(e.target.value)}>
-                {Object.entries(GLOBAL_ROLE_LABEL).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          {error ? (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <div className="drawer-actions">
-            <button className="secondary-action" onClick={() => setShowCreate(false)}>
-              取消
-            </button>
-            <button
-              className="primary-action"
-              disabled={!email.trim() || !name.trim() || mutations.createUser.isPending}
-              onClick={() => {
-                setError(null);
-                mutations.createUser.mutate(
-                  { email: email.trim(), name: name.trim(), roleKey },
-                  {
-                    onSuccess: (r) => {
-                      setCreated({ email: r.email, initialPassword: r.initialPassword });
-                      setShowCreate(false);
-                      setEmail("");
-                      setName("");
-                    },
-                    onError: (err) => setError(rootErrorMessage(err)),
-                  },
-                );
-              }}
-            >
-              创建（初始随机口令）
-            </button>
-          </div>
-        </FormDialog>
-      ) : null}
-      <DensitySwitch density={density} onChange={setDensity} />
-      <div className={`grant-table users-table density-${density}`}>
-        <div className="grant-head">
-          <span>用户</span>
-          <span>部门</span>
-          <span>角色</span>
-          <span>角色操作</span>
-          <span>状态</span>
-          <span />
-        </div>
-        {users.data.map((u) => (
-          <div className={`grant-row ${u.status === "disabled" ? "revoked" : ""}`} key={u.id}>
-            <div>
-              <span className="mini-avatar">{u.name.slice(0, 1)}</span>
-              <span>
-                <strong>{u.name}</strong>
-                <small>{u.email}</small>
-              </span>
-            </div>
-            <span>{u.orgUnitName ?? "—"}</span>
-            <span className="role-chips">
-              {u.roles.length === 0
-                ? "—"
-                : u.roles.map((r) => (
-                    <button
-                      key={r}
-                      className="role-chip"
-                      title={`移除角色：${GLOBAL_ROLE_LABEL[r] ?? r}`}
-                      disabled={mutations.unassignRole.isPending}
-                      onClick={() => {
-                        setError(null);
-                        mutations.unassignRole.mutate({ userId: u.id, roleKey: r }, { onError: (err) => setError(rootErrorMessage(err)) });
-                      }}
-                    >
-                      {GLOBAL_ROLE_LABEL[r] ?? r} ×
-                    </button>
-                  ))}
-            </span>
-            <RoleOps userId={u.id} onError={(msg) => setError(msg)} />
-            <span className={u.status === "active" ? "grant-status" : "log-denied"}>
-              {u.status === "active" ? "在职" : "已停用"}
-            </span>
-            <button
-              className="text-action"
-              disabled={u.status === "disabled" ? mutations.enableUser.isPending : mutations.disableUser.isPending}
-              onClick={() => {
-                setError(null);
-                const fn = u.status === "disabled" ? mutations.enableUser : mutations.disableUser;
-                fn.mutate({ userId: u.id }, { onError: (err) => setError(rootErrorMessage(err)) });
-              }}
-            >
-              {u.status === "active" ? "停用" : "启用"}
-            </button>
-          </div>
-        ))}
-      </div>
-      {error ? (
-        <p className="form-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function RoleOps({ userId, onError }: { userId: string; onError: (msg: string) => void }) {
-  const mutations = useAdminMutations();
-  const [roleKey, setRoleKey] = useState("member");
-  return (
-    <span className="revoke-inline">
-      <select value={roleKey} aria-label="角色" onChange={(e) => setRoleKey(e.target.value)}>
-        {Object.entries(GLOBAL_ROLE_LABEL).map(([value, label]) => (
-          <option key={value} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
-      <button
-        className="secondary-action"
-        disabled={mutations.assignRole.isPending || mutations.unassignRole.isPending}
-        onClick={() =>
-          mutations.assignRole.mutate({ userId, roleKey }, { onError: (err) => onError(rootErrorMessage(err)) })
-        }
-      >
-        授予
-      </button>
-      <button
-        className="secondary-action"
-        disabled={mutations.assignRole.isPending || mutations.unassignRole.isPending}
-        onClick={() =>
-          mutations.unassignRole.mutate({ userId, roleKey }, { onError: (err) => onError(rootErrorMessage(err)) })
-        }
-      >
-        移除
-      </button>
-    </span>
   );
 }
 

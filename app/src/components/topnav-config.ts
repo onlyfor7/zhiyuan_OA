@@ -118,9 +118,9 @@ export const NAV_TREE: NavGroup[] = [
       { to: "/audit", label: "权限审计", desc: "审计日志", roles: ["sysadmin", "partner"] },
     ] },
     { name: "组织管理", roles: ["sysadmin"], items: [
-      { to: CS("org", "公司信息", "9b：开票抬头/合同水印引用"), label: "公司信息", desc: "单记录：开票抬头引用" },
-      { to: CS("org", "部门维护", "9b：org_units 树化"), label: "部门维护", desc: "T-D：部门树+右侧详情" },
-      { to: CS("org", "员工信息", "9b：users 增岗位列"), label: "员工信息", desc: "T-A：员工名录；新建/编辑 F3" },
+      { to: "/admin/org/company", label: "公司信息", desc: "单记录：开票抬头引用" },
+      { to: "/admin/org/units", label: "部门维护", desc: "T-D：部门树+右侧详情" },
+      { to: "/admin/org/members", label: "员工信息", desc: "T-A：员工名录；新建/编辑 F3" },
     ] },
     { name: "系统配置", roles: ["sysadmin"], items: [
       { to: "/admin", label: "审批流中心", desc: "系统级+项目内两区" },
