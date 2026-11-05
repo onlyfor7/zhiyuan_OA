@@ -86,8 +86,8 @@
 |---|---|---|---|---|---|
 | 9c-00 总览 | — | 已发布 | 架构 | 2026-11-05 | 契约 arch/12 §6/§11 |
 | 9c-01 CRM 数据建模与种子 | 数据 | **通过** | 数据会话 | 2026-11-05 | 架构验收：273 全绿+库内实测（线索双态/商机 won 挂合同/GD 合同 80 万激活/客户级别行业回填） |
-| 9c-02 CRM 服务端 | 后端 | **待验收** | 后端会话 | 2026-11-05 | CRM 端点组全落地（权限/转化/赢单/勾稽三事务+六区聚合+跟进多态）；四道门 278/278；prod 已发新镜像，e2e-01~16 16/16 |
-| 9c-03 CRM 前端 | 前端 | 未解锁 | — | — | 客户组全链页面（线索/客户详情/商机看板/合同/跟进） |
+| 9c-02 CRM 服务端 | 后端 | **通过** | 后端会话 | 2026-11-05 | 架构验收：根 278 全绿+prod 权限实弹（partner 读/member 404）+事务三链路与勾稽用例采信；合同空列属种子归 04 窗口 |
+| 9c-03 CRM 前端 | 前端 | 待认领 | — | 2026-11-05 | 依赖 02（已过）：客户组全链页面（线索/详情六页签/看板/合同 Drawer/跟进） |
 | 9c-04 prod 发布窗口 | 部署 | 未解锁 | — | — | 依赖 03 |
 | 9c-05 验收+手册 v1.5 | 测试 | 未解锁 | — | — | 依赖 04 |
 
@@ -254,6 +254,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-05｜架构｜迭代9c-02通过｜**工单 02（CRM 服务端）验收通过，解锁 9c-03（前端会话）。** 实测：根测试 278/278 全绿；prod 权限实弹——partner 客户/线索/合同 200（读穿透）、member 同形 404；事务三链路（转化建/选客户+商机+线索写回、markWon 挂合同同事务、回款勾稽登记/冲正写回+重复挂 409）用例采信。两点留痕：①金额剔除路径当前不可触达（crm.read ⊆ fin.read，实现保留防矩阵扩展）认定合理；②prod 二度验收前先上镜像——加法无损但再提醒守序（发布应在架构验收后）。
 
 - 2026-11-05｜后端｜迭代9c-02｜**工单 9c-02（CRM 服务端，arch/12 §6/§11）完成，转待验收。** **权限**（access 注册+服务层记录门）：`crm.read`=partner 全局只读穿透/finance/项目负责人（project_manager 全局角色），owner 本人详情放行；`crm.manage`=partner/owner/项目负责人（**sysadmin 按矩阵无 crm 权→404**、member 同形 404 均有探针）；金额列剔除实现就位（stripAmounts：expectedAmountCents/amountCents/contractSum/cumulativeReceivedCents）——**如实说明：当前矩阵 crm.read 集合 ⊆ fin.read 集合，剔除路径实际不可触达（恒不触发），实现保留防矩阵扩展**。**端点组**（`crm.*` 嵌套路由，写操作全部同事务审计）：线索 list/create/update/disqualify（原因必填）/**convert**；客户 list（级别筛选+projectCount/contractSum 聚合，**内存合并——drizzle select 字段表达式内相关子查询不渲染表限定，org tree 同源教训第二次踩实**）/getById（**六区聚合**：概况/联系人/商机/合同含付款计划与累计回款/项目/往来文件（file_objects sourceType=project 近似）/跟进时间线）/update；联系人 create/update/delete（is_primary 互斥同事务）；商机 list/create/update/**setStage**（看板拖拽专用，won/lost 直拖被拦须走 markWon/markLost，条件更新+审计）/**markWon**（**won 必挂合同：同事务建合同 draft→active 可选**+商机 won 写回 won_contract_id；已 won 重放返回现状零新增——条件更新串行化并发）/markLost（原因必填）；合同 list/getById（**累计回款 registered-only**：作废自动回落）/update（仅草稿）/activate/terminate（原因必填审计）；**crm.paymentPlans.upsert**（整体替换同事务，存在已回款行 409 守卫、seq 唯一校验）；跟进 list/create（**多态目标存在性校验** lead/opportunity/customer，不存在 400+fieldErrors）。**回款勾稽**（receipts.create/void 增强，可选挂 contractId+planId 须同给）：登记同事务写回计划行状态（全额 paid/超额部分 partial）+receipt_id 挂点；重复挂 409、合同计划不匹配 400；**作废冲正回写**（清 receipt_id+复位 unpaid）；不挂合同完全兼容存量。**用例** `tests/api/crm.test.ts` 5 条（权限三探针+金额口径/转化事务：converted 写回+source_lead 回填+审计+幂等重放零新增+坏客户 400 回滚零部分写入/赢单：setStage 审计+markWon 同事务激活+重放零新增+markLost 原因拦截+直拖 won 拦截/勾稽：paid+partial 写回+重复挂 409+不匹配 400+只挂其一 400+作废回写+累计 registered-only+存量兼容/六区+主联系人互斥+跟进多态+upsert 守卫）。**四道门逐条真实跑**：server vitest **255/255**（50 文件；既有 250 零回归+5 新）✓；根 typecheck/build exit 0✓；根 test **278/278**（255+23）✓。**prod**：server 镜像 DOCKER_BUILDKIT=0 --no-cache 重建复起（compose 带 --env-file .env.production，三服务 healthy）；e2e-01~16 **16/16 不回归**（11.4m，同机负载）。分支 `iter9c/server-crm`。**交接 9c-03 前端**：线索池/客户列表+详情六页签/商机看板（拖拽走 setStage）/合同 Drawer+付款计划行编辑器/跟进时间线——全量接 `crm.*`；回款登记表单可选挂合同+计划行（finance 有 receipts.create 权 + crm.read 可见合同计划）。
 - 2026-11-05｜架构｜迭代9c-01通过｜**工单 01（CRM 数据建模）验收通过，解锁 9c-02（后端会话）。** 实测：根测试 273/273（250+23）全绿；dev 库复核——crm_leads 双态（new/qualified 挂梁奇烽）、商机 proposal（比博思特 200 万）+won（GD 80 万挂 CTR 激活合同）、付款计划 2 行+receipt_id 勾稽挂点在列、clients 级别/行业/owner 回填（战略/重点/一般）、迁移 0011 追加式无破坏。其披露（首版 UNIQUE 单括号被 PG 拒改双括号、source_lead_id 逻辑引用避模块环）认定合理。
