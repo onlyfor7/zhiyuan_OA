@@ -85,8 +85,8 @@
 | 工单 | 会话 | 状态 | 认领人 | 日期 | 备注 |
 |---|---|---|---|---|---|
 | 9c-00 总览 | — | 已发布 | 架构 | 2026-11-05 | 契约 arch/12 §6/§11 |
-| 9c-01 CRM 数据建模与种子 | 数据 | **待验收** | 数据会话 | 2026-11-05 | 四道门全绿（见交接记录置顶条） |
-| 9c-02 CRM 服务端 | 后端 | 未解锁 | — | — | crm.* 权限+转化/赢单/回款勾稽事务 |
+| 9c-01 CRM 数据建模与种子 | 数据 | **通过** | 数据会话 | 2026-11-05 | 架构验收：273 全绿+库内实测（线索双态/商机 won 挂合同/GD 合同 80 万激活/客户级别行业回填） |
+| 9c-02 CRM 服务端 | 后端 | 待认领 | — | 2026-11-05 | 依赖 01（已过）：crm.* 权限+转化/赢单/回款勾稽事务+客户详情聚合 |
 | 9c-03 CRM 前端 | 前端 | 未解锁 | — | — | 客户组全链页面（线索/客户详情/商机看板/合同/跟进） |
 | 9c-04 prod 发布窗口 | 部署 | 未解锁 | — | — | 依赖 03 |
 | 9c-05 验收+手册 v1.5 | 测试 | 未解锁 | — | — | 依赖 04 |
@@ -254,6 +254,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-05｜架构｜迭代9c-01通过｜**工单 01（CRM 数据建模）验收通过，解锁 9c-02（后端会话）。** 实测：根测试 273/273（250+23）全绿；dev 库复核——crm_leads 双态（new/qualified 挂梁奇烽）、商机 proposal（比博思特 200 万）+won（GD 80 万挂 CTR 激活合同）、付款计划 2 行+receipt_id 勾稽挂点在列、clients 级别/行业/owner 回填（战略/重点/一般）、迁移 0011 追加式无破坏。其披露（首版 UNIQUE 单括号被 PG 拒改双括号、source_lead_id 逻辑引用避模块环）认定合理。
 
 - 2026-11-05｜数据｜迭代9c-01｜**微工单 9c-01 完成，转待验收（CRM 数据建模，arch/12 §6.2 逐字）。**① 新迁移 `server/drizzle/0011_iter9c-crm.sql`（追加式，0000–0010 未动）：**6 新表**——crm_leads（LD-、source、contact_name/phone、五态 pgEnum、owner_id、disqualified_reason、converted_customer/opportunity/at）、crm_contacts（customer FK、name/title/phone/email、is_primary）、crm_opportunities（OPP-、customer FK、六阶段 pgEnum、expected_amount_cents、win_rate、owner_id、**won_contract_id**）、crm_contracts（CTR-、opportunity/customer/matter FK、title、amount_cents、signed_at、四态 pgEnum）、crm_contract_payment_plans（contract FK、**unique(contract_id, seq)**、due_date、amount_cents、三态 pgEnum、**receipt_id → payment_receipts** 勾稽挂点）、crm_followups（**多态 target_type（三值 pgEnum）+target_id**、content、next_at、created_by）；**clients 加列回填**：level（notNull default '一般客户'，存量行 ADD COLUMN 默认值即回填）/industry/address（default ''）/owner_id FK/**source_lead_id**（逻辑引用避免 clients↔crm_leads 模块环，同 file_objects.current_version_id 先例，已注释）。② **5 pgEnum+shared**（新 enums/crm.ts）：lead_status/opportunity_stage/contract_status/payment_plan_status/followup_target_type；**前缀注册表 v1.4 增 LD/OPP/CTR**。③ **full 档演示种子**（seed/crm.ts，幂等）：2 线索（LD-00001 new 展会获客 / LD-00002 qualified 挂梁奇烽）、五客户补 level/industry/owner（比博思特=战略客户·智能制造装备·王宝茁 / 金通灵=重点·环保技术与装备·王家玉 / 佳力奇=重点·精密机械部件·孙浩祥 / 合规引擎=战略·软件与信息服务·廖益敏 / GD=一般·法律服务·霍达；仅 industry 为空的既有种子客户回填，不覆盖运行期编辑）、2 商机（OPP-00001 比博思特 proposal 挂王宝茁 expected 2M win 60 / OPP-00002 GD **won→挂合同**）、1 合同 CTR-00001（GD、挂 MTR-00005、800,000 分、signed t-30、active）+ **2 行付款计划**（seq1 t-10 400,000 / seq2 t+60 400,000，均 unpaid）、3 跟进（lead/opportunity/customer 三形态各一）；水位 LD→3/OPP→3/CTR→2。**minimal 档不调用**（6 表为零数据，仅枚举/前缀/客户加列随迁移与 foundation 就位，已入 MINIMAL_ZERO_TABLES）。④ 测试：新增 `crm.test.ts` 2 用例（60 表重放+全计数+五客户/线索/商机/合同/计划/跟进断言+二次幂等；约束：计划行重复 seq 23505、**多态 target 非法值 22P02**（pgEnum 强制）+三形态可写）；计数连带：sequences 19→22（full 档 6 处，minimal 保持 19）。⑤ 验证：`npm run test -w @lexflow/server`✓ **250/250（49 文件零回归）**、根 `npm run typecheck`✓ exit 0、`db:migrate`✓（dev 实测）+`db:seed`×2 幂等、db:generate 无漂移；dev psql 复核线索/商机/合同/客户级别。提交：`iter9c/data-crm` 分支 `[数据]` 前缀 commit。**留给 9c-02 后端**：crm.read/crm.manage 权限门（partner 只读穿透同 §2.2 v1.1；金额列对 member 同形隐藏沿用 R1）、转化事务（建/选客户+建商机+线索 converted 写回，幂等键防重）、赢单事务（won 必挂合同）、回款勾稽（收款选合同+计划行→同事务写回计划行状态 receipt_id）、客户详情六页签聚合、看板拖拽改阶段+审计。STATUS.md 已随代码提交。
 
