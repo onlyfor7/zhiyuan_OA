@@ -5,7 +5,7 @@
 
 ## 当前迭代
 
-**迭代 9 · 因诺智元业务管理平台总体升级**（9a 已收口；9b 基础信息维护进行中）
+**迭代 9 · 因诺智元业务管理平台总体升级**（9a/9b 已收口；9c CRM 全链进行中）
 
 迭代 8 · 体验深化：已收口，全部工单通过
 
@@ -80,6 +80,17 @@
 | 9a-04 生产加固小包 | 后端 | **通过** | 后端会话 | 2026-11-05 | 架构实测：根 264 全绿+prod 限流第6次429/安全头四件+X-Request-Id/三服务 healthy；nginx 静态壳无头缺口出 04b（部署会话） |
 | 9a-04b nginx 静态壳安全头 | 部署 | **通过** | 部署会话 | 2026-11-05 | 架构实测：/ 与 /assets 四件头齐、与 server CSP 逐字一致不双份、三服务 healthy、数据原样——**9a 全部工单收口** |
 
+## 迭代 9c 工单状态（CRM 全链，arch/12 §6）
+
+| 工单 | 会话 | 状态 | 认领人 | 日期 | 备注 |
+|---|---|---|---|---|---|
+| 9c-00 总览 | — | 已发布 | 架构 | 2026-11-05 | 契约 arch/12 §6/§11 |
+| 9c-01 CRM 数据建模与种子 | 数据 | 待认领 | — | — | 6 新表+clients 加列+5 枚举+LD/OPP/CTR 前缀 |
+| 9c-02 CRM 服务端 | 后端 | 未解锁 | — | — | crm.* 权限+转化/赢单/回款勾稽事务 |
+| 9c-03 CRM 前端 | 前端 | 未解锁 | — | — | 客户组全链页面（线索/客户详情/商机看板/合同/跟进） |
+| 9c-04 prod 发布窗口 | 部署 | 未解锁 | — | — | 依赖 03 |
+| 9c-05 验收+手册 v1.5 | 测试 | 未解锁 | — | — | 依赖 04 |
+
 ## 迭代 9b 工单状态（基础信息维护，arch/12 §9）
 
 | 工单 | 会话 | 状态 | 认领人 | 日期 | 备注 |
@@ -90,7 +101,7 @@
 | 9b-03 组织管理前端 | 前端 | **通过** | 前端会话 | 2026-11-05 | 架构验收：270 全绿+三页截图核验（部门树/成员详情/F3 初始口令链）；职位字段断点裁定出 03b（后端主责） |
 | 9b-03b 问候卡职位接通 | 后端 | **通过** | 后端会话 | 2026-11-05 | 架构验收：auth.me 带 position 直连实证（梁奇烽=合伙人）+接入代码核验+根 271 全绿 |
 | 9b-04 验收+手册 v1.4 | 测试 | **通过** | 测试会话 | 2026-11-05 | 架构复核：6/6 取证采信（两态/树全链/F3 口令链实拍/权限三探针/职位断言）；根 271 复跑全绿；手册 v1.4 在位——解锁 9b-05 发布窗口 |
-| 9b-05 prod 发布窗口 | 部署 | 待验收 | 部署会话 | 2026-11-05 | 双镜像重建+迁移 0010+种子同步全部实测通过；实录见交接记录置顶条 |
+| 9b-05 prod 发布窗口 | 部署 | **通过** | 部署会话 | 2026-11-05 | 架构实测：org 根=因诺智元/旧名 0/工号职位 22 非空/三服务 healthy/会话数据保留——**9b 收口** |
 
 ## 迭代 8 工单状态
 
@@ -243,6 +254,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-05｜架构｜迭代9b收口+9c发布｜**9b-05 验收通过：9b（基础信息维护）收口，9c（CRM 全链）工单包发布。** prod 实测：org 根=因诺智元、旧名 0 命中、工号/职位 22 非空、company_profile 1 行、三服务 healthy、sessions/projects 保留——用户无需重登即用组织管理。9c 链：01 数据（6 新表+clients 加列+5 枚举+LD/OPP/CTR 编号前缀）→ 02 后端（crm.read/manage、转化/赢单/回款勾稽事务、客户详情聚合）→ 03 前端（客户组全链）→ 04 发布窗口 → 05 验收+手册 v1.5。**当前解锁：9c-01（数据会话）。**
 
 - 2026-11-05｜部署｜迭代9b-05｜**工单 9b-05（prod 发布窗口）完成，转待验收（实录如下）。** 做了什么：① **双镜像重建**（`DOCKER_BUILDKIT=0`，legacy builder 规避中文路径 buildkit bug）——server `--no-cache`（43s，exit 0）杜绝旧层旧 seed.js 残留，新镜像 `sha256:5ecdb9961acfe0500d258024adb2dd9de8e8b65a1ac2f7a8768f76ff3ae504bb`（Created 15:22:43Z），构建后核验产物含 9b 内容（dist/seed.js：roster token×19、`\u56E0…`因诺智元×2、company_profile 信用代码×1；dist/index.js org 端点×4；排障留痕：esbuild ascii 转义为大写 hex，核验须按 `\u56E0` 形态或 ASCII token，勿按字面中文/小写）；web 常规重建（111s）`sha256:5c0d2c2facbb4cfb79da56ac33159e4522f37d3f894f83310927159cee3e4111`。② `up -d`（**全程 `--env-file .env.production`，不删卷不清会话**）：15:27:17Z 发起，**15s 三服务全 healthy**；postgres 未重建（Running 直通），server/web Recreate；sessions=442 行保留、projects=5 保留 ✓。③ **迁移自动重放**：server 启动 `migrate: done`（日志有一条 drizzle migrator 的 pg DeprecationWarning，迁移本身成功），`drizzle.__drizzle_migrations`=**11 行（0000–0010，0010 就位）**✓。④ **种子同步**：`docker exec -e SEED_PROFILE=full lexflow-prod-server node /app/dist/seed.js`（MSYS 路径护栏必加，否则容器路径被改写）→ `种子完成（profile=full，幂等）` 1s。怎么验证（全实测 prod :8080 + psql）：**org 根=`因诺智元`**（`SELECT name FROM org_units WHERE parent_id IS NULL`）✓；旧名「示例律师」org_units **0 命中** ✓；**users 工号非空=22**（列名 employee_no，另 position 非空=22）✓；**company_profile 1 行**（因诺智元，insert-if-absent 语义——既有行不被覆盖，本次为首建）✓；**梁奇烽登录 200，auth.me `position=合伙人`**（问候卡数据源，03b 同构字段）、globalRoles=[partner,quality_lead] ✓；**组织管理三页可达**：/admin/org/company|units|members SPA 200 + bundle 含三路由 + sysadmin（赵凯）API 实测 org.company.get/org.members.list/org.units.tree 均返回真实数据 ✓。dev 栈（3000/3001/15432）与 dev 库全程未动 ✓。提交：仅 STATUS.md（[部署] 前缀，无代码变更）。遗留：无（迁移日志的 pg DeprecationWarning 为 drizzle migrator 内部告警，不影响结果，pg 主版本升级前留意）。
 
