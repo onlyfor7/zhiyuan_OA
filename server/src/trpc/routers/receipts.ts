@@ -42,9 +42,12 @@ export const receiptsRouter = router({
         note: z.string().max(1000).optional(),
         attachmentFileVersionId: z.uuid().optional(),
         idempotencyKey: z.uuid(),
+        /** arch/12 §6.3 回款勾稽：可选挂合同+付款计划行（须同给） */
+        contractId: z.uuid().optional(),
+        planId: z.uuid().optional(),
       }),
     )
-    .mutation(({ ctx, input }) => service.createReceipt(ctx.db, ctx.user, input)),
+    .mutation(({ ctx, input }) => service.createReceipt(ctx.db, ctx.user, input, ctx.ip, ctx.session.id)),
 
   void: authedMutation
     .input(
@@ -54,7 +57,7 @@ export const receiptsRouter = router({
         rowVersion: z.number().int().min(0),
       }),
     )
-    .mutation(({ ctx, input }) => service.voidReceipt(ctx.db, ctx.user, input)),
+    .mutation(({ ctx, input }) => service.voidReceipt(ctx.db, ctx.user, input, ctx.ip, ctx.session.id)),
 
   summary: authedProcedure
     .input(z.object({ by: z.enum(["project", "client", "period"]), from: date.optional(), to: date.optional() }))

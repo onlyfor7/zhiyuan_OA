@@ -87,6 +87,18 @@ export async function can(
       // arch/12 §11：组织管理=sysadmin 写；partner 只读穿透在 org 服务层判定（requireOrgRead）
       return user.globalRoles.includes("sysadmin");
     }
+    case "crm.read": {
+      // arch/12 §11：partner 全局只读穿透 + finance + 项目负责人；owner 本人在服务层放行
+      return (
+        user.globalRoles.includes("partner") ||
+        user.globalRoles.includes("finance") ||
+        user.globalRoles.includes("project_manager")
+      );
+    }
+    case "crm.manage": {
+      // arch/12 §11：crm.manage=partner/owner（owner 校验在服务层按记录判定）
+      return user.globalRoles.includes("partner") || user.globalRoles.includes("project_manager");
+    }
     default:
       // 已注册动作未实现判定路径 → 默认拒绝（arch/03 §3）
       return false;

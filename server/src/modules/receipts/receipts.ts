@@ -41,7 +41,12 @@ export async function createReceipt(
     note?: string;
     attachmentFileVersionId?: string;
     idempotencyKey: string;
+    /** arch/12 §6.3 回款勾稽：可选挂合同付款计划行（须与 planId 同给；同事务写回计划状态） */
+    contractId?: string;
+    planId?: string;
   },
+  ip: string | null = null,
+  sessionId: string | null = null,
 ) {
   await requireFinance(user);
   // finance 登记收款不因此获得项目内容权：仅校验项目存在（存在性校验，非 project.read）
@@ -52,6 +57,9 @@ export async function createReceipt(
   }
   if (!input.referenceNo?.trim()) {
     throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "参考号（银行回单/流水号）必填", { referenceNo: ["参考号必填"] });
+  }
+  if ((input.contractId && !input.planId) || (!input.contractId && input.planId)) {
+    throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "合同与付款计划行须同时提供", { planId: ["合同与付款计划行须同时提供"] });
   }
   // client_id 按项目冗余（事项→客户）
   const [projRow] = await db
@@ -91,6 +99,16 @@ export async function createReceipt(
       })
       .returning();
     if (!receipt) throw new Error("收款插入失败");
+    // arch/12 §6.3 回款勾稽：挂合同付款计划行 → 同事务写回计划状态（unpaid/partial/paid）与 receipt_id 挂点
+    if (input.planId) {
+      const { linkReceiptToPlan } = await import("../crm/crm");
+      await linkReceiptToPlan(db, user, {
+        receiptId: receipt.id,
+        planId: input.planId,
+        contractId: input.contractId,
+        receiptAmountCents: input.amountCents,
+      }, ip, sessionId);
+    }
     return receipt;
   } catch (error) {
     // 并发同键兜底：唯一约束命中 → 返回首次登记
@@ -106,7 +124,7 @@ export async function createReceipt(
   }
 }
 
-export async function voidReceipt(db: DbOrTx, user: SessionUser, input: { id: string; reason: string; rowVersion: number }) {
+export async function voidReceipt(db: DbOrTx, user: SessionUser, input: { id: string; reason: string; rowVersion: number }, ip: string | null = null, sessionId: string | null = null) {
   await requireFinance(user);
   if (!input.reason.trim()) {
     throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "作废必须填写理由", { reason: ["作废必须填写理由"] });
@@ -127,6 +145,9 @@ export async function voidReceipt(db: DbOrTx, user: SessionUser, input: { id: st
     .where(and(eq(paymentReceipts.id, input.id), eq(paymentReceipts.status, "registered"), eq(paymentReceipts.rowVersion, input.rowVersion)))
     .returning();
   if (!updated) throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "收款状态已变化（仅 registered 可作废，金额不可编辑）");
+  // arch/12 §6.3 回款勾稽回写：作废冲正清计划行 receipt_id + 状态复位 unpaid
+  const { unlinkReceiptFromPlan } = await import("../crm/crm");
+  await unlinkReceiptFromPlan(db, { receiptId: receipt.id }, ip, sessionId);
   await recordAudit(db, {
     actorId: user.id,
     sessionId: null,
