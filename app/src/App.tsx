@@ -18,6 +18,12 @@ const ComingSoonPage = lazy(() => import("./pages/ComingSoonPage"));
 const OrgCompanyPage = lazy(() => import("./pages/org/OrgCompanyPage"));
 const OrgUnitsPage = lazy(() => import("./pages/org/OrgUnitsPage"));
 const OrgMembersPage = lazy(() => import("./pages/org/OrgMembersPage"));
+const CrmLeadsPage = lazy(() => import("./pages/crm/LeadsPage"));
+const CrmCustomersPage = lazy(() => import("./pages/crm/CustomersPage"));
+const CrmCustomerDetailPage = lazy(() => import("./pages/crm/CustomerDetailPage"));
+const CrmOpportunitiesPage = lazy(() => import("./pages/crm/OpportunitiesPage"));
+const CrmContractsPage = lazy(() => import("./pages/crm/ContractsPage"));
+const CrmFollowupsPage = lazy(() => import("./pages/crm/FollowupsPage"));
 const AdminCenterPage = lazy(() => import("./pages/admin/AdminCenterPage"));
 const FlowDesignerPage = lazy(() => import("./pages/admin/FlowDesignerPage"));
 const RequestsPage = lazy(() => import("./pages/RequestsPage"));
@@ -82,6 +88,12 @@ export default function App() {
         <Route path="/admin/org/company" element={<OrgCompanyPage />} />
         <Route path="/admin/org/units" element={<OrgUnitsPage />} />
         <Route path="/admin/org/members" element={<OrgMembersPage />} />
+        <Route path="/crm/leads" element={<CrmLeadsPage />} />
+        <Route path="/crm/opportunities" element={<CrmOpportunitiesPage />} />
+        <Route path="/crm/customers" element={<CrmCustomersPage />} />
+        <Route path="/crm/customers/:customerId" element={<CrmCustomerDetailPage />} />
+        <Route path="/crm/contracts" element={<CrmContractsPage />} />
+        <Route path="/crm/followups" element={<CrmFollowupsPage />} />
         <Route path="/admin/users" element={<Navigate to="/admin/org/members" replace />} />
         <Route path="/operations/receipts" element={<ReceiptsPage />} />
         <Route path="/projects" element={<ProjectsPage />} />

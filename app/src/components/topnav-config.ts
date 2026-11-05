@@ -37,14 +37,14 @@ export const NAV_TREE: NavGroup[] = [
   ] },
   { key: "crm", label: "客户", roles: CRM_ROLES, sections: [
     { name: "线索与商机", items: [
-      { to: CS("lead", "线索池"), label: "线索池", desc: "T-A：筛选+表格+行尾动作；新建线索 F1" },
-      { to: CS("opportunity", "商机管理"), label: "商机管理", desc: "T-A 表格/看板切换，拖拽改阶段" },
-      { to: CS("customer", "跟进记录"), label: "跟进记录", desc: "多态跟进时间线" },
+      { to: "/crm/leads", label: "线索池", desc: "T-A：筛选+表格+行尾动作；新建线索 F1" },
+      { to: "/crm/opportunities", label: "商机管理", desc: "T-A 表格/看板切换，拖拽改阶段" },
+      { to: "/crm/followups", label: "跟进记录", desc: "多态跟进时间线" },
     ] },
     { name: "客户与合同", items: [
-      { to: CS("customer", "客户列表"), label: "客户列表", desc: "T-A：级别徽标+在管项目数+合同额+应收余额" },
-      { to: CS("customer", "客户详情"), label: "客户详情", desc: "T-B：概况/联系人/商机/合同/项目/往来文件" },
-      { to: CS("contract", "合同管理"), label: "合同管理", desc: "T-A+行内回款进度条；详情 F2 抽屉含付款计划" },
+      { to: "/crm/customers", label: "客户列表", desc: "T-A：级别徽标+在管项目数+合同额+应收余额" },
+      { to: "/crm/customers", label: "客户详情", desc: "T-B：概况/联系人/商机/合同/项目/往来文件" },
+      { to: "/crm/contracts", label: "合同管理", desc: "T-A+行内回款进度条；详情 F2 抽屉含付款计划" },
     ] },
   ] },
   { key: "project", label: "项目", sections: [

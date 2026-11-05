@@ -1449,6 +1449,16 @@
   .org-tree { max-height: 320px; }
 }
 
+/* 9c CRM：看板/跟进时间线/页签体 */
+.crm-tab-body { min-height: 0; overflow-y: auto; padding-top: 4px; }
+.crm-follow-list { display: grid; gap: 6px; max-width: 760px; }
+.crm-board { display: grid; grid-template-columns: repeat(6, minmax(200px, 1fr)); gap: 10px; min-height: 0; overflow-x: auto; flex: 1; align-items: start; }
+.crm-board-col { background: #f5f6f8; border-radius: 12px; padding: 10px; min-height: 240px; display: grid; gap: 8px; align-content: start; }
+.crm-board-head { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 2px 4px 6px; }
+.crm-board-card { display: flex; gap: 8px; align-items: center; background: #fff; border-radius: 10px; padding: 10px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06); cursor: grab; }
+.crm-board-empty { color: var(--muted); font-size: 11px; text-align: center; padding: 18px 0; border: 1px dashed #d4d9e0; border-radius: 8px; }
+@media (max-width: 1180px) { .crm-board { grid-template-columns: repeat(6, 220px); } }
+
 /* —— 迭代 9a 全量接入：级联气泡/占位卡/图标块（类名沿原型） —— */
 .p9a-bubble {
   position: fixed; z-index: 80; min-width: 220px; max-width: 340px;
