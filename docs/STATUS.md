@@ -85,8 +85,8 @@
 | 工单 | 会话 | 状态 | 认领人 | 日期 | 备注 |
 |---|---|---|---|---|---|
 | 9b-00 总览 | — | 已发布 | 架构 | 2026-11-05 | 契约 arch/12 §9/§11 |
-| 9b-01 组织数据建模与种子 | 数据 | **待验收** | 数据会话 | 2026-11-05 | 四道门全绿（见交接记录置顶条） |
-| 9b-02 组织管理服务端 | 后端 | 未解锁 | — | — | org.manage/公司/部门树/员工端点 |
+| 9b-01 组织数据建模与种子 | 数据 | **通过** | 数据会话 | 2026-11-05 | 架构验收：266 全绿+库内实测（公司行/树 sort/工号职位）；命名遗留由架构修正——组织根更名因诺智元（种子幂等兼容行） |
+| 9b-02 组织管理服务端 | 后端 | 待认领 | — | 2026-11-05 | 依赖 01（已过）：org.manage/公司信息/部门树 CRUD+拖拽/员工端点 |
 | 9b-03 组织管理前端 | 前端 | 未解锁 | — | — | 三页+问候卡职位接入 |
 | 9b-04 验收+手册 v1.4 | 测试 | 未解锁 | — | — | 依赖 03 |
 
@@ -241,6 +241,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-05｜架构｜迭代9b-01通过｜**工单 01（组织数据建模）验收通过，解锁 9b-02（后端会话）。** 库内实测：company_profile 因诺智元行、org_units 树（根+三部 sort 0–3、parent_id 自引用 RESTRICT）、users 工号 YN-001–022+职位+入职齐全；根测试 266/266（243+23）全绿。**架构修正一处命名遗留**：组织根仍为早期种子「示例律师事务所」与新品牌不一致——ensureOrgUnit 按名匹配，直接改常量会造成 prod 下次种子插新根+旧根孤儿化；已在种子加幂等兼容行（旧名就地改名），dev 实测更名生效且二次执行幂等，prod 随下次发布种子同步。
 
 - 2026-11-05｜数据｜迭代9b-01｜**微工单 9b-01 完成，转待验收（组织数据建模，arch/12 §9/§10）。**① 新迁移 `server/drizzle/0010_iter9b-org.sql`（追加式，0000–0009 未动）：**company_profile** 新表（name/credit_code/address/phone/bank_name/bank_account+审计四件套+row_version；**`UNIQUE INDEX ... ((true))` 单记录约束**——常量表达式索引须双括号，首版单括号被 PG 拒，已修重生成）；**org_units 树化**：parent_id 升级为**自引用 FK ON DELETE RESTRICT**（原裸 uuid 列）+ sort int default 0 + parent_id 索引，**尾部回填 SQL**（3 部门按名称序 sort 1/2/3、根 0，幂等）；**users 增** position(text notNull default '')/employee_no(**unique**，多 null 不冲突)/joined_at(date 可空)。② 双档种子（foundation，full/minimal 同在）：company_profile 因诺智元默认行（信用代码/地址/电话/开户行/账号全虚构，**insert-if-absent 不覆盖运行期编辑**）；3 部门带 sort 建/纠（既有行 sort 不符则更新）；**22 人职位/工号/入职回填**：工号按入职先后 YN-001…YN-022（梁奇烽 YN-001 合伙人 2015→刘明乐 YN-022 法务专员 2024），岗位按角色语义（合伙人/财务主管/档案管理员/系统管理员/查阅专员/项目负责人×7/项目工程师/测试工程师/法务专员）；**ensureUser 存量回填语义**（employee_no 为 null 的既有行补齐三字段+orgUnitId，不覆盖已编辑行——种子即迁移）。③ 测试：`tests/db/org-structure.test.ts` 2 用例（干净库重放：单记录断言+org 树 sort+22 人字段非空与 YN-### 唯一与代表岗位+二次幂等；约束：company_profile 第二行 23505/employee_no 冲突 23505/自引用 FK 23503/**sort 回填语义**用同迁移 SQL 复刻验证）；helpers.ALL_TABLES 54 表；seed-profile minimal 增 company_profile=1 断言。④ 验证：`npm run test -w @lexflow/server`✓ **243/243（47 文件零回归）**、根 `npm run typecheck`✓ exit 0、`db:migrate`✓（dev 实测）+`db:seed`×2 幂等、db:generate 无漂移；dev psql 复核因诺智元行/部门 sort/代表岗位工号入职。提交：`iter9b/data-org` 分支 `[数据]` 前缀 commit。**留给 9b-02 后端**：org.manage 权限门（sysadmin 写/partner 只读穿透/member 404）、部门树增删改+拖拽调序调父级端点（parent_id 自引用 RESTRICT 注意换父级防环）、员工多页签（基本信息/岗位与角色/账号与安全）、company_profile get/update（乐观锁 row_version）。STATUS.md 已随代码提交。 
 
