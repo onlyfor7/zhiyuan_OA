@@ -90,7 +90,7 @@
 | 9b-03 组织管理前端 | 前端 | **通过** | 前端会话 | 2026-11-05 | 架构验收：270 全绿+三页截图核验（部门树/成员详情/F3 初始口令链）；职位字段断点裁定出 03b（后端主责） |
 | 9b-03b 问候卡职位接通 | 后端 | **通过** | 后端会话 | 2026-11-05 | 架构验收：auth.me 带 position 直连实证（梁奇烽=合伙人）+接入代码核验+根 271 全绿 |
 | 9b-04 验收+手册 v1.4 | 测试 | **通过** | 测试会话 | 2026-11-05 | 架构复核：6/6 取证采信（两态/树全链/F3 口令链实拍/权限三探针/职位断言）；根 271 复跑全绿；手册 v1.4 在位——解锁 9b-05 发布窗口 |
-| 9b-05 prod 发布窗口 | 部署 | 待认领 | — | 2026-11-05 | 双镜像重建（server --no-cache）+迁移 0010 重放+种子同步（组织根更名生效），不删卷 |
+| 9b-05 prod 发布窗口 | 部署 | 待验收 | 部署会话 | 2026-11-05 | 双镜像重建+迁移 0010+种子同步全部实测通过；实录见交接记录置顶条 |
 
 ## 迭代 8 工单状态
 
@@ -243,6 +243,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-05｜部署｜迭代9b-05｜**工单 9b-05（prod 发布窗口）完成，转待验收（实录如下）。** 做了什么：① **双镜像重建**（`DOCKER_BUILDKIT=0`，legacy builder 规避中文路径 buildkit bug）——server `--no-cache`（43s，exit 0）杜绝旧层旧 seed.js 残留，新镜像 `sha256:5ecdb9961acfe0500d258024adb2dd9de8e8b65a1ac2f7a8768f76ff3ae504bb`（Created 15:22:43Z），构建后核验产物含 9b 内容（dist/seed.js：roster token×19、`\u56E0…`因诺智元×2、company_profile 信用代码×1；dist/index.js org 端点×4；排障留痕：esbuild ascii 转义为大写 hex，核验须按 `\u56E0` 形态或 ASCII token，勿按字面中文/小写）；web 常规重建（111s）`sha256:5c0d2c2facbb4cfb79da56ac33159e4522f37d3f894f83310927159cee3e4111`。② `up -d`（**全程 `--env-file .env.production`，不删卷不清会话**）：15:27:17Z 发起，**15s 三服务全 healthy**；postgres 未重建（Running 直通），server/web Recreate；sessions=442 行保留、projects=5 保留 ✓。③ **迁移自动重放**：server 启动 `migrate: done`（日志有一条 drizzle migrator 的 pg DeprecationWarning，迁移本身成功），`drizzle.__drizzle_migrations`=**11 行（0000–0010，0010 就位）**✓。④ **种子同步**：`docker exec -e SEED_PROFILE=full lexflow-prod-server node /app/dist/seed.js`（MSYS 路径护栏必加，否则容器路径被改写）→ `种子完成（profile=full，幂等）` 1s。怎么验证（全实测 prod :8080 + psql）：**org 根=`因诺智元`**（`SELECT name FROM org_units WHERE parent_id IS NULL`）✓；旧名「示例律师」org_units **0 命中** ✓；**users 工号非空=22**（列名 employee_no，另 position 非空=22）✓；**company_profile 1 行**（因诺智元，insert-if-absent 语义——既有行不被覆盖，本次为首建）✓；**梁奇烽登录 200，auth.me `position=合伙人`**（问候卡数据源，03b 同构字段）、globalRoles=[partner,quality_lead] ✓；**组织管理三页可达**：/admin/org/company|units|members SPA 200 + bundle 含三路由 + sysadmin（赵凯）API 实测 org.company.get/org.members.list/org.units.tree 均返回真实数据 ✓。dev 栈（3000/3001/15432）与 dev 库全程未动 ✓。提交：仅 STATUS.md（[部署] 前缀，无代码变更）。遗留：无（迁移日志的 pg DeprecationWarning 为 drizzle migrator 内部告警，不影响结果，pg 主版本升级前留意）。
 
 - 2026-11-05｜架构｜迭代9b-04通过｜**工单 04（9b 验收+手册 v1.4）验收通过，解锁 9b-05（部署会话·发布窗口）。** 复核：iter9b-acceptance 6/6 采信——公司信息两态（partner 写 404）、部门树 UI 建部→调级落库→禁删有成员→空部清理、员工 F3 校验红点+一次性口令全链实拍（强制改密页→新密登录）、权限三探针（org.company.get 登录可读属设计，探针走两个真门）、问候卡职位 UI 断言（梁奇烽=合伙人/王宝茁=项目负责人）；iter7/8/9a spec 契约演化适配（六组→八组等）合理；根 271 复跑全绿。手册 v1.4（T4b 公司信息/T4c 部门维护/T4d 员工+口令链/T4e 问候卡职位）在位。
 
