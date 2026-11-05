@@ -5,7 +5,7 @@
 
 ## 当前迭代
 
-**迭代 9 · 因诺智元业务管理平台总体升级**（进行中；9a 平台壳与体验基座已发布，原型确认门后接入）
+**迭代 9 · 因诺智元业务管理平台总体升级**（9a 已收口；9b 基础信息维护进行中）
 
 迭代 8 · 体验深化：已收口，全部工单通过
 
@@ -78,7 +78,7 @@
 | 9a-02b 接入收尾打磨 | 前端 | **通过** | 前端会话 | 2026-11-05 | 架构验收：根测试 258 实测全绿+顶栏单行/1920 铺满截图核验；工作台 rail 挤压真缺陷修复复核；问候语时段边界观察项登记（随 03 或后续打磨） |
 | 9a-03 验收+手册 v1.3 | 测试 | **通过** | 测试会话 | 2026-11-05 | 架构复核：10/10 取证采信+D-9a-1 修复核对（roles 与迭代7原值逐字一致）；根测试干净复跑 258 全绿；手册 v1.3 在位；prod web 已重建发布（事故处置见交接） |
 | 9a-04 生产加固小包 | 后端 | **通过** | 后端会话 | 2026-11-05 | 架构实测：根 264 全绿+prod 限流第6次429/安全头四件+X-Request-Id/三服务 healthy；nginx 静态壳无头缺口出 04b（部署会话） |
-| 9a-04b nginx 静态壳安全头 | 部署 | 待验收 | 部署会话 | 2026-11-05 | 四件已在 / 与 /assets 实测生效、与 server CSP 逐字一致；实录见交接记录置顶条 |
+| 9a-04b nginx 静态壳安全头 | 部署 | **通过** | 部署会话 | 2026-11-05 | 架构实测：/ 与 /assets 四件头齐、与 server CSP 逐字一致不双份、三服务 healthy、数据原样——**9a 全部工单收口** |
 
 ## 迭代 8 工单状态
 
@@ -231,6 +231,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-05｜架构｜迭代9a收口｜**9a（平台壳与体验基座）全部工单通过，正式收口。** 04b 独立实测：GET / 与 /assets/*.js 四件安全头齐（与 server CSP 逐字一致、/trpc 无重复头）、页面正常、三服务 healthy、数据原样。测试会话遗留 8 个 e2e/probe-9*.cjs 临时探针已由架构清理。**9a 最终态**：prod :8080=因诺智元新壳（品牌/级联气泡 IA/四象限驾驶舱/视口锁定/弹窗表单/图标注册表）+生产加固（连接池/超时/限流/安全头）。**当前解锁：迭代 9b（基础信息维护：公司信息/部门树/员工升级，arch/12 §9）工单包发布。**
 
 - 2026-11-05｜部署｜迭代9a-04b｜**工单 04b（prod nginx 静态壳安全头补齐）完成，转待验收。** 做了什么：`app/nginx.conf` 的 `location /`（SPA 壳 + /assets 直出）补安全头四件（`add_header … always`）：X-Frame-Options DENY / X-Content-Type-Options nosniff / Referrer-Policy same-origin / CSP——**CSP 逐字取自 server 侧** `server/src/app.ts:36`（arch/12 §14.4）：`default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self' data:`；/trpc、/files 不在 nginx 层加头（server 中间件已全响应覆盖，避免双份头）。按工单用 `DOCKER_BUILDKIT=0 docker build -f app/Dockerfile -t lexflow-prod-web .` 重建（legacy builder，151s exit 0；慢于上次 47s 因 legacy 缓存粒度，无碍），新镜像 `sha256:480470df86779781f7856aa36768aadc0a7813e487d28b355c5afd784644688a`（Created 2026-11-05T07:19:44Z）；`docker compose -f docker-compose.prod.yml --env-file .env.production up -d` 复起（硬规则：--env-file 全程携带），仅 web 重建，**起栈 8s 三服务全 healthy**（postgres Up 4h / server Up 3h 未动，数据原样 projects=5）。怎么验证（全实测 prod :8080）：⑴ `curl -sI /` → 200 + 四件全在（CSP 值如上逐字）；⑵ `curl -sI /assets/index-BKr6eFFl.js` → 200 application/javascript + 四件全在；⑶ **CSP 双源逐字比对**：nginx 侧（/）与 server 侧（POST /trpc/auth.login）实测响应头字符串相等 ✓；⑷ /trpc 的 X-Frame-Options 实测仅 1 份（server 自带，nginx 未重复叠加）✓；⑸ 页面正常：新 bundle 命中 `{key:"office",label:"办公"…}`（迭代 8 IA 内容在镜像内）、王宝茁登录 200 + auth.me 正常、CSP 未阻断自身资源（script/style/connect 均 'self' 同源一致）✓；⑹ 三服务 healthy ✓。dev 栈与 dev 库未触碰；server 镜像未动（按工单）。提交：`app/nginx.conf` + STATUS.md（[部署] 前缀）。遗留：无。
 
