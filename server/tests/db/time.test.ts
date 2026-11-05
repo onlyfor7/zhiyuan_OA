@@ -60,7 +60,7 @@ describe("工时域种子与约束", () => {
     expect(counts.timesheet_periods).toBe(3);
     expect(counts.time_entries).toBe(13); // A×4 + B×6 + C×3
     expect(counts.code_sequences).toBe(19); // 17 + CLT/MTR/PRJ/FND/EXP/LED 水位
-    expect(counts.system_config).toBe(15); // 14 + timesheet.step_minutes（arch/11） // 13 + generic_request.types
+    expect(counts.system_config).toBe(17); // + timesheet.step_minutes（arch/11）+ generic_request.types + 保留期两键（9a-04 §14.5）
 
     const { db, pool } = await openDb();
     try {

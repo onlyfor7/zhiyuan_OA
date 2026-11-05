@@ -136,7 +136,7 @@ describe("扩展域种子与约束（arch/09）", () => {
     expect(counts.flow_definitions).toBe(11); // 10 默认（含 09b 补的 travel_change/generic_request）+ 1 演示（disabled）
     expect(counts.generic_requests).toBe(0);
     expect(counts.code_sequences).toBe(19);
-    expect(counts.system_config).toBe(15); // + timesheet.step_minutes（arch/11）
+    expect(counts.system_config).toBe(17); // + timesheet.step_minutes（arch/11）+ 保留期两键（9a-04 §14.5）
 
     const { db, pool } = await openDb();
     try {

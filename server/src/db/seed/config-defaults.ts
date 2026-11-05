@@ -72,4 +72,6 @@ export const SYSTEM_CONFIG_DEFAULTS: ReadonlyArray<{ key: string; value: Record<
     },
   },
   { key: CONFIG_KEY.TIMESHEET_STEP_MINUTES, value: { minutes: 30, note: "arch/11：工时填报步进分钟数，可配置" } },
+  { key: CONFIG_KEY.SESSION_RETENTION_DAYS, value: { days: 90, note: "arch/12 §14.5：会话过期行保留期（清理任务入运维手册）" } },
+  { key: CONFIG_KEY.AUDIT_RETENTION_DAYS, value: { days: 730, note: "arch/12 §14.5：审计事件保留期 2 年" } },
 ];

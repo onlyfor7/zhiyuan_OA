@@ -59,6 +59,10 @@ export const CONFIG_KEY = {
   GENERIC_REQUEST_TYPES: "generic_request.types",
   /** 工时填报步进分钟数（arch/11：默认 30） */
   TIMESHEET_STEP_MINUTES: "timesheet.step_minutes",
+  /** 会话保留期天数（arch/12 §14.5：默认 90；清理任务本体入运维手册） */
+  SESSION_RETENTION_DAYS: "security.session_retention_days",
+  /** 审计保留期天数（arch/12 §14.5：默认 730=2 年） */
+  AUDIT_RETENTION_DAYS: "audit.retention_days",
 } as const;
 export type ConfigKey = (typeof CONFIG_KEY)[keyof typeof CONFIG_KEY];
 

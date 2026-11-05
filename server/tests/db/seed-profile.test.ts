@@ -92,7 +92,7 @@ describe("SEED_PROFILE=minimal 清库种子档（工单 07）", () => {
     expect(counts.roles).toBe(8);
     expect(counts.users).toBe(22); // arch/11 G1 名单，口令统一 Demo@2026
     expect(counts.user_roles).toBe(23); // 梁奇烽 partner+quality_lead 双挂
-    expect(counts.system_config).toBe(15); // §18 全量 + timesheet.default_approver + generic_request.types + timesheet.step_minutes
+    expect(counts.system_config).toBe(17); // §18 全量 + timesheet.default_approver + generic_request.types + timesheet.step_minutes + 保留期两键（9a-04 §14.5）
     // minimal 清单项：2 模板 + 默认审批流（8 条，无演示流程）+ 编号水位（19 前缀）
     expect(counts.project_templates).toBe(2);
     expect(counts.flow_definitions).toBe(10); // 10 默认（含 09b 补的 travel_change/generic_request）
@@ -135,7 +135,7 @@ describe("SEED_PROFILE=minimal 清库种子档（工单 07）", () => {
     expect(counts.flow_definitions).toBe(11); // 10 默认 + 1 演示
     expect(counts.project_templates).toBe(2); // 模板不重复建行
     expect(counts.code_sequences).toBe(19);
-    expect(counts.system_config).toBe(15);
+    expect(counts.system_config).toBe(17);
     // users 不重复
     expect(counts.users).toBe(22);
   });

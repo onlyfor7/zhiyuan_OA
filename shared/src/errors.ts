@@ -28,6 +28,8 @@ export const ERROR_CODE = {
   FLOW_INVALID: "FLOW_INVALID",
   /** 流程校验不过不可发布（arch/09 §3.1：解析为空/自审全跳过等阻断发布） */
   FLOW_UNPUBLISHABLE: "FLOW_UNPUBLISHABLE",
+  /** 登录限流（arch/12 §14.4：同 IP+账号失败次数超窗，429 同形不泄账号存在性） */
+  RATE_LIMITED: "RATE_LIMITED",
   /** 兜底，无堆栈，带 requestId */
   INTERNAL: "INTERNAL",
 } as const;

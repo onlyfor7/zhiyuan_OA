@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { trpcServer } from "@hono/trpc-server";
 
-import { db } from "./db/client";
+import { db, requestContext } from "./db/client";
 import { ERROR_CODE } from "@lexflow/shared";
 import { filesRoute } from "./routes/files";
 import { createContext } from "./trpc/context";
@@ -23,8 +23,18 @@ export function buildApp(): Hono<{ Variables: { requestId: string } }> {
   app.use(async (c, next) => {
     const requestId = c.req.header("x-request-id") ?? randomUUID();
     c.set("requestId", requestId);
+    // requestId 贯通异步上下文（慢查询日志关联；db/client requestContext）
+    await requestContext.run({ requestId }, next);
+    // 响应头须在 next() 后设置（hono：下游新响应会覆盖前置头）
     c.header("X-Request-Id", requestId);
-    await next();
+    // arch/12 §14.4 安全响应头四件（全响应覆盖，含 /trpc 与 /files）
+    c.header("X-Frame-Options", "DENY");
+    c.header("X-Content-Type-Options", "nosniff");
+    c.header("Referrer-Policy", "same-origin");
+    c.header(
+      "Content-Security-Policy",
+      "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self' data:",
+    );
   });
 
   app.get("/health", (c) => c.json({ ok: true }));
