@@ -210,16 +210,24 @@ test("E2E-06 重复提交/网络重试只一个有效结果一组台账", async 
 test("E2E-07 相同票据再次报销被识别并定位原报销", async ({ page }) => {
   await login(page, "guanchen@lexflow.demo");
   const pmReader = await authedPage(page, "wangbaozhuo@lexflow.demo");
-  const list = await api(pmReader, `expense.list?input=${encodeURIComponent(JSON.stringify({ projectId: projectAId }))}`, { method: "GET" });
-  const candidates = (list.json as any).result.data.items;
+  // 9b-02 修稳：expense.list 默认每页 20 条按新建排序——长期运行库中存量带票据单会被挤出首页，翻页扫描（至多 5 页）
   let withReceipt: any;
   let item: any;
-  for (const c of candidates) {
-    const detail = await api(pmReader, `expense.getById?input=${encodeURIComponent(JSON.stringify({ id: c.id }))}`, { method: "GET" });
-    const data = (detail.json as any).result.data;
-    if (data.status === "draft" || data.status === "rejected") continue; // 草稿/被拒不参与重复判定
-    const found = data.items.find((i: any) => i.receiptNo);
-    if (found) { withReceipt = { id: c.id, code: c.code }; item = found; break; }
+  let cursor: string | null = null;
+  for (let pageIdx = 0; pageIdx < 5 && !item; pageIdx++) {
+    const listInput: Record<string, unknown> = { projectId: projectAId, limit: 20 };
+    if (cursor) listInput.cursor = cursor;
+    const list = await api(pmReader, `expense.list?input=${encodeURIComponent(JSON.stringify(listInput))}`, { method: "GET" });
+    const data = (list.json as any).result.data;
+    cursor = data.nextCursor ?? null;
+    for (const c of data.items) {
+      const detail = await api(pmReader, `expense.getById?input=${encodeURIComponent(JSON.stringify({ id: c.id }))}`, { method: "GET" });
+      const d = (detail.json as any).result.data;
+      if (d.status === "draft" || d.status === "rejected") continue; // 草稿/被拒不参与重复判定
+      const found = d.items.find((i: any) => i.receiptNo);
+      if (found) { withReceipt = { id: c.id, code: c.code }; item = found; break; }
+    }
+    if (!cursor) break;
   }
   expect(item).toBeDefined();
   const dup = await api(page, "expense.create", { body: { reason: "E2E-07 重复票据", items: [{ projectId: projectAId, date: "2028-03-10", category: item.category, amountCents: item.amountCents, description: "重复", receiptNo: item.receiptNo }] } });

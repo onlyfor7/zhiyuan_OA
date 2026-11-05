@@ -26,6 +26,7 @@ import { adminRouter } from "./admin";
 import { flowRouter } from "./flow";
 import { receiptsRouter } from "./receipts";
 import { genericRequestRouter } from "./generic-request";
+import { orgRouter } from "./org";
 import { router } from "../trpc";
 
 /** AppRouter：前端经 `import type { AppRouter } from "@lexflow/server"` 消费推断类型 */
@@ -58,6 +59,7 @@ export const appRouter = router({
   flow: flowRouter,
   receipts: receiptsRouter,
   genericRequest: genericRequestRouter,
+  org: orgRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -83,6 +83,10 @@ export async function can(
         user.globalRoles.includes("partner")
       );
     }
+    case "org.manage": {
+      // arch/12 §11：组织管理=sysadmin 写；partner 只读穿透在 org 服务层判定（requireOrgRead）
+      return user.globalRoles.includes("sysadmin");
+    }
     default:
       // 已注册动作未实现判定路径 → 默认拒绝（arch/03 §3）
       return false;
@@ -92,6 +96,24 @@ export async function can(
 export async function requireProjectRead(db: DbOrTx, user: SessionUser, projectId: string): Promise<void> {
   const allowed = await can(db, user, PERMISSION.PROJECT_READ, { type: "project", projectId });
   if (!allowed) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "项目不存在或无权访问");
+}
+
+/* ===== 组织域门（arch/12 §9/§11：org.manage=sysadmin 写；partner 只读穿透；其余同形 404） ===== */
+
+export async function requireOrgManage(db: DbOrTx, user: SessionUser): Promise<void> {
+  const allowed = await can(db, user, "org.manage", { type: "project", projectId: "" });
+  if (!allowed) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "组织信息不存在或无权访问");
+}
+
+export function canReadOrg(user: SessionUser): boolean {
+  return user.globalRoles.includes("sysadmin") || user.globalRoles.includes("partner");
+}
+
+export async function requireOrgRead(db: DbOrTx, user: SessionUser): Promise<void> {
+  if (!canReadOrg(user)) {
+    void db;
+    throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "组织信息不存在或无权访问");
+  }
 }
 
 /**
