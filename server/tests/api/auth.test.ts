@@ -68,12 +68,13 @@ describe("认证（auth.login / logout / me）", () => {
     const me = await trpc(app, "auth.me", { cookie: sessionCookieOf(login), method: "GET" });
     expect(me.status).toBe(200);
     const meData = (me.json as { result: { data: {
-      user: { id: string; email: string; name: string; orgUnit: { name: string } | null };
+      user: { id: string; email: string; name: string; position: string; orgUnit: { name: string } | null };
       globalRoles: string[];
       projects: { id: string; code: string; name: string; projectRole: string }[];
     } } }).result.data;
     expect(meData.user.email).toBe("wangbaozhuo@lexflow.demo");
     expect(meData.user.name).toBe("王宝茁");
+    expect(meData.user.position).toBe("项目负责人"); // 9b-03b：问候卡职位数据源
     expect(meData.user.orgUnit?.name).toBe("诉讼业务部");
     expect(meData.globalRoles).toContain("project_manager");
     expect(meData.projects.map((p) => p.code).sort()).toEqual([
@@ -118,6 +119,20 @@ describe("认证（auth.login / logout / me）", () => {
     } finally {
       await client.end();
     }
+  });
+
+  it("auth.me 职位字段（9b-03b）：梁奇烽=合伙人、赵凯=系统管理员", async () => {
+    const app = await getApp();
+    const partner = await trpc(app, "auth.me", { cookie: (await loginAs(app, "liangqifeng@lexflow.demo")).cookie, method: "GET" });
+    expect(partner.status).toBe(200);
+    const partnerData = (partner.json as { result: { data: { user: { name: string; position: string; orgUnit: { name: string } | null } } } }).result.data;
+    expect(partnerData.user.position).toBe("合伙人");
+    expect(partnerData.user.orgUnit?.name).toBe("综合管理部");
+    const sysadmin = await trpc(app, "auth.me", { cookie: (await loginAs(app, "zhaokai@lexflow.demo")).cookie, method: "GET" });
+    expect((sysadmin.json as { result: { data: { user: { position: string } } } }).result.data.user.position).toBe("系统管理员");
+    // 登录响应同构（position 一并下发）
+    const login = await trpc(app, "auth.login", { input: { email: "liangqifeng@lexflow.demo", password: "Demo@2026" } });
+    expect((login.json as { result: { data: { user: { position: string } } } }).result.data.user.position).toBe("合伙人");
   });
 
   it("停用账号后会话立即失效", async () => {

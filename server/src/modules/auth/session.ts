@@ -16,6 +16,8 @@ export interface SessionUser {
   email: string;
   name: string;
   orgUnitId: string | null;
+  /** 岗位（arch/12 §9 员工信息维护；问候卡身份行数据源，9b-03b 接通） */
+  position: string;
   globalRoles: string[];
   /** projectId → projectRole */
   projectRoles: Map<string, string>;
@@ -51,6 +53,7 @@ export async function resolveSession(
       email: users.email,
       name: users.name,
       orgUnitId: users.orgUnitId,
+      position: users.position,
       userStatus: users.status,
     })
     .from(sessions)
@@ -96,6 +99,7 @@ export async function resolveSession(
       email: row.email,
       name: row.name,
       orgUnitId: row.orgUnitId,
+      position: row.position,
       globalRoles: roles.map((r) => r.roleKey),
       projectRoles: new Map(memberships.map((m) => [m.projectId, m.projectRole])),
     },

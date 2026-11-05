@@ -58,7 +58,7 @@ export interface LoginResult {
   sessionToken: string;
   sessionId: string;
   tokenHash: string;
-  user: { id: string; email: string; name: string };
+  user: { id: string; email: string; name: string; position: string };
 }
 
 /**
@@ -73,6 +73,7 @@ export async function login(db: DbOrTx, input: LoginInput): Promise<LoginResult 
       id: users.id,
       email: users.email,
       name: users.name,
+      position: users.position,
       passwordHash: users.passwordHash,
       status: users.status,
     })
@@ -106,7 +107,7 @@ export async function login(db: DbOrTx, input: LoginInput): Promise<LoginResult 
     sessionToken,
     sessionId: session.id,
     tokenHash,
-    user: { id: user.id, email: user.email, name: user.name },
+    user: { id: user.id, email: user.email, name: user.name, position: user.position },
     mustChangePassword: await mustChangePasswordFlag(db, user.id),
   };
 }
@@ -125,7 +126,7 @@ export async function logout(db: DbOrTx, tokenHash: string): Promise<void> {
 }
 
 export interface MeResult {
-  user: { id: string; email: string; name: string; orgUnit: { id: string; name: string } | null };
+  user: { id: string; email: string; name: string; position: string; orgUnit: { id: string; name: string } | null };
   globalRoles: string[];
   projects: { id: string; name: string; code: string; projectRole: string }[];
 }
@@ -161,7 +162,7 @@ export async function buildMe(db: DbOrTx, user: SessionUser): Promise<MeResult &
 
   const { mustChangePasswordFlag } = await import("../admin/admin");
   return {
-    user: { id: user.id, email: user.email, name: user.name, orgUnit },
+    user: { id: user.id, email: user.email, name: user.name, position: user.position, orgUnit },
     globalRoles: user.globalRoles,
     projects,
     mustChangePassword: await mustChangePasswordFlag(db, user.id),

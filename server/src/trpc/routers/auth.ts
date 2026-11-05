@@ -48,6 +48,7 @@ export const authRouter = router({
         email: result.user.email,
         name: result.user.name,
         orgUnitId: null,
+        position: result.user.position,
         globalRoles: [],
         projectRoles: new Map(),
       };

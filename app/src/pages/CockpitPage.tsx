@@ -232,7 +232,7 @@ export default function CockpitPage() {
 
   return (
     <div className="p9a-tc2 cockpit-real">
-      {/* 左上 · 问候日程卡：左 45% 时钟/身份/指标；右 55% 月历+日程联动（职位待 9b，降级部门/角色） */}
+      {/* 左上 · 问候日程卡：左 45% 时钟/身份/指标；右 55% 月历+日程联动 */}
       <div className="p9a-q p9a-q-greet">
         <div className="p9a-greet-main">
           <LiveClock />
@@ -241,12 +241,13 @@ export default function CockpitPage() {
           </h1>
           <p className="p9a-person-line">
             <strong>{me.user.name}</strong>
+            {me.user.position ? ` · ${me.user.position}` : ""}
             {me.user.orgUnit ? ` · ${me.user.orgUnit.name}` : ""}
             {roleBadges.map((r) => (
               <span key={r} className="p9a-role-badge">{GLOBAL_ROLE_LABEL[r] ?? r}</span>
             ))}
           </p>
-          <p className="context-note">项目组合与待处理事项来自实时聚合（职位字段待 9b 供给，先显示部门/角色）。</p>
+          <p className="context-note">项目组合与待处理事项来自实时聚合。</p>
           <div className="p9a-mini-metrics">
             <span><strong>{s?.projects.total ?? "—"}</strong>项目</span>
             <span><strong>{s?.pendingApprovals ?? "—"}</strong>待批</span>
