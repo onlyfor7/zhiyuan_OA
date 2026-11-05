@@ -86,8 +86,8 @@
 |---|---|---|---|---|---|
 | 9b-00 总览 | — | 已发布 | 架构 | 2026-11-05 | 契约 arch/12 §9/§11 |
 | 9b-01 组织数据建模与种子 | 数据 | **通过** | 数据会话 | 2026-11-05 | 架构验收：266 全绿+库内实测（公司行/树 sort/工号职位）；命名遗留由架构修正——组织根更名因诺智元（种子幂等兼容行） |
-| 9b-02 组织管理服务端 | 后端 | **待验收** | 后端会话 | 2026-11-05 | org 端点组全落地（company/units 树 CRUD+move 防环/members 生命周期）；四道门 270/270；prod 已发新 server 镜像，e2e-01~16 16/16（E2E-07 翻页修稳） |
-| 9b-03 组织管理前端 | 前端 | 未解锁 | — | — | 三页+问候卡职位接入 |
+| 9b-02 组织管理服务端 | 后端 | **通过** | 后端会话 | 2026-11-05 | 架构验收：根 270 全绿+prod 权限三探针实弹（sysadmin/partner 读、写 404、member 404）；防环/禁删/乐观锁用例采信；row_version 域边界与 prod 提前发布两点留痕 |
+| 9b-03 组织管理前端 | 前端 | 待认领 | — | 2026-11-05 | 依赖 02（已过）：组织管理三页+问候卡职位接真实值 |
 | 9b-04 验收+手册 v1.4 | 测试 | 未解锁 | — | — | 依赖 03 |
 
 ## 迭代 8 工单状态
@@ -241,6 +241,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-05｜架构｜迭代9b-02通过｜**工单 02（组织管理服务端）验收通过，解锁 9b-03（前端会话）。** 实测：根测试 270/270（247+23）全绿；prod 权限三探针实弹——sysadmin/partner 部门树 200、partner 写公司信息 404 同形、member 读 404 同形。端点面（org.company/units/members 全链、防环双形态、落点排序同事务、工号唯一 23505→400、停用即会话失效）用例采信。**留痕三点**：① org/system 域表自迭代 0 无 row_version（业务表才有）——其乐观锁仅落 company_profile 与现状一致，登记观察项（管理域低并发低危，如需全域乐观锁另行评估）；② 后端会话验收前已将 9b 镜像发上 prod（加法变更数据无损，e2e 在其上跑通）——流程提醒：prod 发布应在架构验收后，后续会话守序；③ E2E-07 改翻页扫描（历轮 e2e 残留挤首页所致，断言强度不降）采信。
 
 - 2026-11-05｜后端｜迭代9b-02｜**工单 9b-02（组织管理服务端，arch/12 §9/§11）完成，转待验收。** **权限门**：access 注册 `org.manage`（sysadmin 写，access.can case）；新增 `requireOrgRead`（sysadmin∪partner 只读穿透，service 层门）——三探针口径：sysadmin 读写全通、partner 只读（company.get/tree/members.list 200；写五路径全 404 同形）、member 组织读 404（company.get 登录可读除外）。**新端点**（`org.*` 嵌套路由，全部写操作同事务审计）：`org.company.get`（登录可读，发票抬头引用）/`org.company.update`（org.manage，**row_version 乐观锁**+before/after 审计）；`org.units.tree`（森林+memberCount 直计数+按 sort/name 分层排序）/`create`（parent 存在校验）/`update`（改名/排序）/`disable`（=停用清理：**有成员或有子部门前置校验 409**，清白部门物理删+审计——org_units 无 status 列，语义按工单"禁删有成员部门"实现）/`move`（**防环**：目标父级沿父链上溯命中自身即 400；落点同级 sort 让位+被拖部门更新**同事务**，审计前后值）；`org.members.list`（keyset 分页+部门/关键字筛选+position/employee_no/joined_at/部门名/角色聚合徽标，**最小字段不含口令/哈希/改密列**）/`create`（复用用户生命周期：scrypt 初始口令一次性下发不入审计、首登强制改密、工号唯一 23505→400、组织 FK 校验）/`update`（users 行更新——users 无 row_version 列故无乐观锁，角色集同步 diff+审计）/`setStatus`（停用即时会话失效）。**两处如实说明**：a) org_units/users 无 row_version 列（数据层 0010 未含），乐观锁仅 company_profile 落地，部门/员工并发写靠事务+审计兜底；b) 既有 admin.userList 等端点按工单保留未动。**新用例** `tests/api/org-management.test.ts` 4 条（三探针+partner 名录字段白名单断言/公司锁 409+审计/树全链：create→update→move 防环双形态（自身/孙级）→落点排序无重复→禁删有成员/有子部门→空部门 disable→审计/员工全链：筛选→create 初始口令登录→工号唯一→update 角色同步→停用即失效→审计）。**四道门逐条真实跑**：server vitest **247/247**（48 文件；既有 243 零回归+4 新）✓；根 typecheck/build exit 0✓；根 test **270/270**（247+23）✓。**e2e 不回归实录**：首轮 dev(:3001) 与 prod 双现 **E2E-07 红**——定位=spec 只扫 expense.list **首页 20 条**，历轮 e2e 残留把存量带票据单挤出首页（非本棒代码面，expense 全量 API 用例含票据矩阵均绿）；修法=E2E-07 翻页扫描（至多 5 页，断言强度不降）；单测实证后 prod 终跑 **16/16 全绿**（11.4m，同机负载）。**prod 发布**：server 镜像 DOCKER_BUILDKIT=0 --no-cache 重建复起（首建遇 esbuild ETXTBSY 瞬断——与 9a-03 裁决同类的同机干扰，重试即过；compose 全程 --env-file .env.production），三服务 healthy、登录 200。分支 `iter9b/server-org`。**交接 9b-03 前端**：三页（/admin/org/company 单记录表单、units 树+拖拽、members 升级）接 `org.*` 端点；问候卡职位展示可直用 members.list 字段。
 - 2026-11-05｜架构｜迭代9b-01通过｜**工单 01（组织数据建模）验收通过，解锁 9b-02（后端会话）。** 库内实测：company_profile 因诺智元行、org_units 树（根+三部 sort 0–3、parent_id 自引用 RESTRICT）、users 工号 YN-001–022+职位+入职齐全；根测试 266/266（243+23）全绿。**架构修正一处命名遗留**：组织根仍为早期种子「示例律师事务所」与新品牌不一致——ensureOrgUnit 按名匹配，直接改常量会造成 prod 下次种子插新根+旧根孤儿化；已在种子加幂等兼容行（旧名就地改名），dev 实测更名生效且二次执行幂等，prod 随下次发布种子同步。
