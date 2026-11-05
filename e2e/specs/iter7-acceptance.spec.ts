@@ -183,7 +183,7 @@ test("DLG 弹窗化六处+零内联+Esc/焦点", async ({ page }) => {
   ];
   for (const [route, tab, btn, dlgLabel] of cases) {
     await page.goto(`${B}${route}`);
-    await page.waitForSelector("text=LEXFLOW", { timeout: 15_000 });
+    await page.waitForSelector(".topnav-groups", { timeout: 15_000 });
     await page.getByRole("button", { name: tab }).click();
     await page.waitForTimeout(600);
     await page.getByRole("button", { name: new RegExp(`^${btn}`) }).first().click();
@@ -258,7 +258,7 @@ test("E1-E7 逐项走查", async ({ page }) => {
   // E1 空状态引导（viewer 项目全周期：零项目 → EmptyGuide 三步引导）
   await login(page, "viewer@lexflow.demo");
   await page.goto(`${B}/projects`);
-  await page.waitForSelector("text=LEXFLOW", { timeout: 15_000 });
+  await page.waitForSelector(".topnav-groups", { timeout: 15_000 });
   await page.waitForTimeout(800);
   const e1 = await page.evaluate(() => {
     const el = document.querySelector(".ux-empty-guide");
@@ -327,7 +327,7 @@ test("E1-E7 逐项走查", async ({ page }) => {
   }
   expect(pid).toBeTruthy();
   await page.goto(`${B}/projects/${pid}/plan`);
-  await page.waitForSelector("text=LEXFLOW");
+  await page.waitForSelector(".topnav-groups");
   await page.waitForTimeout(700);
   const crumb = await page.evaluate(() => !!document.querySelector("[class*='breadcrumb'],[aria-label*='readcrumb'],[class*='crumb']"));
   expect(crumb, "项目空间面包屑").toBeTruthy();
@@ -335,7 +335,7 @@ test("E1-E7 逐项走查", async ({ page }) => {
   // E6 标题规范（3 主页面 eyebrow+标题+说明）
   for (const [route, title] of [["/workbench", "工作台"], ["/operations/time", "工时中心"], ["/quality", "质量"]] as const) {
     await page.goto(`${B}${route}`);
-    await page.waitForSelector("text=LEXFLOW");
+    await page.waitForSelector(".topnav-groups");
     await page.waitForTimeout(500);
     const head = await page.evaluate(() => {
       const h = document.querySelector("h1");
@@ -348,7 +348,7 @@ test("E1-E7 逐项走查", async ({ page }) => {
   await shot(page, "E6-标题规范");
   // E7 高危确认统一（成员移除 DangerConfirm 红条）
   await page.goto(`${B}/projects/${pid}/members`);
-  await page.waitForSelector("text=LEXFLOW");
+  await page.waitForSelector(".topnav-groups");
   await page.waitForTimeout(700);
   const removeBtn = page.locator("button", { hasText: "移除" }).first();
   if (await removeBtn.count()) {
@@ -375,7 +375,7 @@ test("REG-375 移动不回归（三页越界扫描）", async ({ page, browser }
   await mp.waitForTimeout(600);
   for (const [name, route, budget] of [["移动工时", "/operations/time", 430], ["移动工作台", "/workbench", 376], ["移动审批", "/approvals", 376]] as const) {
     await mp.goto(`${B}${route}`);
-    await mp.waitForSelector("text=LEXFLOW", { timeout: 15_000 });
+    await mp.waitForSelector(".topnav-groups", { timeout: 15_000 });
     await mp.waitForTimeout(700);
     const scroll = await mp.evaluate(() => document.documentElement.scrollWidth);
     // 工时中心 375px 预填工具栏横向溢出为既有问题（prod 迭代 7 前形态同溢 377px，元素计算样式双栈一致），此处作回归哨兵（>430 才算迭代 7 加重）

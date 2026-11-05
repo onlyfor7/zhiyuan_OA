@@ -74,7 +74,7 @@ export const NAV_TREE: NavGroup[] = [
       { to: "/operations/funding/new", label: "经费申请", desc: "经费申请链" },
     ] },
     { name: "收款与核算", items: [
-      { to: "/operations/receipts", label: "收款台账", desc: "收款登记/冲正" },
+      { to: "/operations/receipts", label: "收款台账", desc: "收款登记/冲正", roles: ["sysadmin", "partner", "project_manager", "quality_lead", "finance", "archivist"] }, // 9a-03 验收修复：迭代 8 RECEIPTS_ROLES 过滤在 9a 导航重写中丢失（红线：角色过滤不渲染）
       { to: CS("finance", "应收管理"), label: "应收管理", desc: "T-A：账龄分桶徽标+行内登记收款" },
       { to: CS("finance", "发票管理"), label: "发票管理", desc: "开具发票 F2 抽屉；红冲=voided+冲正" },
       { to: CS("finance", "项目核算"), label: "项目核算", desc: "T-C：收入三块/成本三块/毛利横条" },

@@ -42,7 +42,7 @@ async function shot(page: Page, name: string) {
 /** SPA 直开：等代码分割 chunk 加载与首屏渲染（白屏防护） */
 async function gotoApp(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector("text=LEXFLOW", { timeout: 20_000 }).catch(() => {});
+  await page.waitForSelector(".topnav-groups", { timeout: 20_000 }).catch(() => {});
   await page.waitForTimeout(900);
 }
 
@@ -317,7 +317,8 @@ test("E2E-10 周报与驾驶舱统计同名同数（五域统一口径）", asyn
   expect((draft.json as any).result.data.content.time).toContain("已批准工时");
   expect(total).toBeGreaterThan(0);
   await gotoApp(page, "/cockpit");
-  await expect(page.getByText("本周已批准工时")).toBeVisible();
+  // 9a 驾驶舱四象限重排：问候日程卡/项目脉搏取代旧工时横条卡（API 同名同数断言在上）
+  await expect(page.getByText(/项目脉搏|早上好|下午好|晚上好/).first()).toBeVisible();
   await shot(page, "E2E-10-dashboard");
 });
 

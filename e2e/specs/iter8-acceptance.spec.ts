@@ -107,7 +107,7 @@ test("G2 IA v2（六组/无左栏/项目先列表后空间/计数）", async ({ 
   // 项目先列表后空间 + 可见计数
   await login(page, "wangbaozhuo@lexflow.demo");
   await page.goto(`${B}/projects`);
-  await page.waitForSelector("text=LEXFLOW", { timeout: 15_000 });
+  await page.waitForSelector(".topnav-groups", { timeout: 15_000 });
   await page.waitForTimeout(900);
   const cnt = await page.evaluate(() => document.body.innerText.match(/已加载 (\d+) 个/)?.[1] ?? "");
   expect(Number(cnt)).toBe(2);
@@ -121,7 +121,7 @@ test("G2 IA v2（六组/无左栏/项目先列表后空间/计数）", async ({ 
 test("G3 办公组：请假发起+自选审批人全链", async ({ page, browser }) => {
   await login(page, "guanchen@lexflow.demo");
   await page.goto(`${B}/requests`);
-  await page.waitForSelector("text=LEXFLOW", { timeout: 15_000 });
+  await page.waitForSelector(".topnav-groups", { timeout: 15_000 });
   await page.waitForTimeout(700);
   await page.getByRole("button", { name: "发起申请" }).click();
   const dlg = page.locator("[role='dialog'][aria-modal='true']").first();
@@ -187,7 +187,7 @@ test("G3 办公组：请假发起+自选审批人全链", async ({ page, browser
   await ctx.close();
   // 通知中心页在位（办公组）
   await page.goto(`${B}/notifications`);
-  await page.waitForSelector("text=LEXFLOW");
+  await page.waitForSelector(".topnav-groups");
   await page.waitForTimeout(700);
   await shot(page, "G3-通知中心");
 });
@@ -254,7 +254,7 @@ test("G5 项目内审批流（绑定出差走项目流+停用回退+越权 404�
   expect(dis.status).toBe(200);
   // 项目空间审批流页签在位（负责人可见）
   await page.goto(`${B}/projects/${projectAId}/flows`);
-  await page.waitForSelector("text=LEXFLOW", { timeout: 15_000 });
+  await page.waitForSelector(".topnav-groups", { timeout: 15_000 });
   await page.waitForTimeout(700);
   await shot(page, "G5-项目空间审批流页签");
 });
@@ -263,7 +263,7 @@ test("G5b partner 全局可见（arch/03 §2.2 v1.1：全量 5 项目/非成员�
   // 梁奇烽（partner）：项目列表 5 个全部可见
   await login(page, "liangqifeng@lexflow.demo");
   await page.goto(`${B}/projects`);
-  await page.waitForSelector("text=LEXFLOW", { timeout: 15_000 });
+  await page.waitForSelector(".topnav-groups", { timeout: 15_000 });
   await page.waitForTimeout(900);
   const partnerCnt = await page.evaluate(() => document.body.innerText.match(/已加载 (\d+) 个/)?.[1] ?? "");
   expect(Number(partnerCnt)).toBe(5);
@@ -278,12 +278,12 @@ test("G5b partner 全局可见（arch/03 §2.2 v1.1：全量 5 项目/非成员�
   // 不回归：王宝茁仍 2 个、管晨仍 1 个
   await login(page, "wangbaozhuo@lexflow.demo");
   await page.goto(`${B}/projects`);
-  await page.waitForSelector("text=LEXFLOW");
+  await page.waitForSelector(".topnav-groups");
   await page.waitForTimeout(800);
   expect(Number(await page.evaluate(() => document.body.innerText.match(/已加载 (\d+) 个/)?.[1] ?? ""))).toBe(2);
   await login(page, "guanchen@lexflow.demo");
   await page.goto(`${B}/projects`);
-  await page.waitForSelector("text=LEXFLOW");
+  await page.waitForSelector(".topnav-groups");
   await page.waitForTimeout(800);
   expect(Number(await page.evaluate(() => document.body.innerText.match(/已加载 (\d+) 个/)?.[1] ?? ""))).toBe(1);
 });
@@ -302,7 +302,7 @@ test("G6-G10 细节项", async ({ page }) => {
   expect(good.status).toBe(200);
   // G9 UI：工时中心小时显示+步进控件
   await page.goto(`${B}/operations/time`);
-  await page.waitForSelector("text=LEXFLOW", { timeout: 15_000 });
+  await page.waitForSelector(".topnav-groups", { timeout: 15_000 });
   await page.waitForTimeout(800);
   const hourUi = await page.evaluate(() => {
     const stepper = document.querySelector("input[type='number'][step='0.5'], input[step='0.5']");
@@ -349,7 +349,7 @@ test("G10+REG 375px（F1 flex-wrap 修复+三页不回归）", async ({ page, br
   await mp.waitForTimeout(600);
   for (const [name, route] of [["工时", "/operations/time"], ["工作台", "/workbench"], ["审批", "/approvals"]] as const) {
     await mp.goto(`${B}${route}`);
-    await mp.waitForSelector("text=LEXFLOW", { timeout: 15_000 });
+    await mp.waitForSelector(".topnav-groups", { timeout: 15_000 });
     await mp.waitForTimeout(700);
     const w = await mp.evaluate(() => document.documentElement.scrollWidth);
     expect(w, `${name} 375px 溢出 ${w}`).toBeLessThanOrEqual(376);
