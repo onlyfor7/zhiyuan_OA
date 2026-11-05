@@ -25,7 +25,7 @@ const DEMO_PASSWORD = "Demo@2026";
 const YEAR = new Date().getFullYear();
 
 /** 组织树：1 组织 + 3 部门（arch/00 §8） */
-const ORG_FIRM = "示例律师事务所";
+const ORG_FIRM = "因诺智元";
 const ORG_DEPARTMENTS = ["诉讼业务部", "非诉业务部", "综合管理部"] as const;
 
 /** 8 角色（arch/03 §1，冻结） */
@@ -302,6 +302,8 @@ async function seedWaterLevels(tx: DbOrTx): Promise<void> {
 /** 基础件：组织树 + 8 角色 + 12 用户 + system_config 全量默认配置（两档共用） */
 async function seedFoundation(tx: DbOrTx): Promise<void> {
   // 组织树
+  // 品牌更名兼容（迭代 9b）：旧根名就地改名，幂等——二次执行无旧名行即空操作；prod 下次种子时同步生效
+  await tx.update(orgUnits).set({ name: ORG_FIRM }).where(eq(orgUnits.name, "示例律师事务所"));
   const firmId = await ensureOrgUnit(tx, ORG_FIRM, null, 0);
   const deptIds = new Map<string, string>();
   for (const [i, dept] of ORG_DEPARTMENTS.entries()) {
