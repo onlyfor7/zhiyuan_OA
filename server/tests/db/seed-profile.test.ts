@@ -95,6 +95,7 @@ describe("SEED_PROFILE=minimal 清库种子档（工单 07）", () => {
     expect(counts.system_config).toBe(17); // §18 全量 + timesheet.default_approver + generic_request.types + timesheet.step_minutes + 保留期两键（9a-04 §14.5）
     // minimal 清单项：2 模板 + 默认审批流（8 条，无演示流程）+ 编号水位（19 前缀）
     expect(counts.project_templates).toBe(2);
+    expect(counts.company_profile).toBe(1); // 公司信息为 foundation（单记录，双档同在）
     expect(counts.flow_definitions).toBe(10); // 10 默认（含 09b 补的 travel_change/generic_request）
     expect(counts.code_sequences).toBe(19);
     // 零演示业务数据
@@ -133,7 +134,8 @@ describe("SEED_PROFILE=minimal 清库种子档（工单 07）", () => {
     expect(counts.clients).toBe(5); // arch/11 G1 五配套
     expect(counts.projects).toBe(5);
     expect(counts.flow_definitions).toBe(11); // 10 默认 + 1 演示
-    expect(counts.project_templates).toBe(2); // 模板不重复建行
+    expect(counts.project_templates).toBe(2);
+    expect(counts.company_profile).toBe(1); // 公司信息为 foundation（单记录，双档同在） // 模板不重复建行
     expect(counts.code_sequences).toBe(19);
     expect(counts.system_config).toBe(17);
     // users 不重复

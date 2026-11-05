@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import { hashPassword } from "../../lib/password";
 import { loadEnvFile, requireDatabaseUrl } from "../env";
 import * as schema from "../schema";
-import { clients, matters, orgUnits, archiveDirectories, projectMembers, projects, roles, systemConfig, userRoles, users } from "../schema";
+import { archiveDirectories, clients, companyProfile, matters, orgUnits, projectMembers, projects, roles, systemConfig, userRoles, users } from "../schema";
 import { SYSTEM_CONFIG_DEFAULTS } from "./config-defaults";
 import { seedClosure } from "./closure";
 import { seedCollab } from "./collab";
@@ -45,6 +45,10 @@ interface UserSeed {
   name: string;
   roleKeys: string[];
   org?: string;
+  /** arch/12 §9 员工信息：岗位/工号（YN-001 序列）/入职日期 */
+  position: string;
+  employeeNo: string;
+  joinedAt: string;
 }
 
 /**
@@ -52,28 +56,28 @@ interface UserSeed {
  * 邮箱=姓名拼音全小写；梁奇烽双挂 partner+quality_lead。
  */
 const USER_SEED: UserSeed[] = [
-  { email: "liangqifeng@lexflow.demo", name: "梁奇烽", roleKeys: ["partner", "quality_lead"], org: "综合管理部" },
-  { email: "wangbaozhuo@lexflow.demo", name: "王宝茁", roleKeys: ["project_manager"], org: "诉讼业务部" },
-  { email: "wangjiayu@lexflow.demo", name: "王家玉", roleKeys: ["project_manager"], org: "诉讼业务部" },
-  { email: "sunhaoxiang@lexflow.demo", name: "孙浩祥", roleKeys: ["project_manager"], org: "诉讼业务部" },
-  { email: "liaoyimin@lexflow.demo", name: "廖益敏", roleKeys: ["project_manager"], org: "诉讼业务部" },
-  { email: "huoda@lexflow.demo", name: "霍达", roleKeys: ["project_manager"], org: "非诉业务部" },
-  { email: "maozhenyu@lexflow.demo", name: "毛振宇", roleKeys: ["project_manager"], org: "非诉业务部" },
-  { email: "lijie@lexflow.demo", name: "李洁", roleKeys: ["project_manager"], org: "非诉业务部" },
-  { email: "guanchen@lexflow.demo", name: "管晨", roleKeys: ["member"], org: "诉讼业务部" },
-  { email: "zhangchen@lexflow.demo", name: "张琛", roleKeys: ["member"], org: "诉讼业务部" },
-  { email: "lijianwei@lexflow.demo", name: "李见微", roleKeys: ["member"], org: "诉讼业务部" },
-  { email: "zhaofengxue@lexflow.demo", name: "赵凤学", roleKeys: ["member"], org: "诉讼业务部" },
-  { email: "chenyue@lexflow.demo", name: "陈玥", roleKeys: ["member"], org: "诉讼业务部" },
-  { email: "tianyiming@lexflow.demo", name: "田伊铭", roleKeys: ["member"], org: "诉讼业务部" },
-  { email: "niuchenchen@lexflow.demo", name: "牛琛琛", roleKeys: ["member"], org: "诉讼业务部" },
-  { email: "caojiani@lexflow.demo", name: "曹佳妮", roleKeys: ["member"], org: "非诉业务部" },
-  { email: "lishuo@lexflow.demo", name: "李硕", roleKeys: ["member"], org: "非诉业务部" },
-  { email: "liumingle@lexflow.demo", name: "刘明乐", roleKeys: ["member"], org: "非诉业务部" },
-  { email: "guojingwen@lexflow.demo", name: "郭静文", roleKeys: ["finance"], org: "综合管理部" },
-  { email: "wangying@lexflow.demo", name: "王颖", roleKeys: ["archivist"], org: "综合管理部" },
-  { email: "zhaokai@lexflow.demo", name: "赵凯", roleKeys: ["sysadmin"], org: "综合管理部" },
-  { email: "hejing@lexflow.demo", name: "何静", roleKeys: ["viewer"] },
+  { email: "liangqifeng@lexflow.demo", name: "梁奇烽", roleKeys: ["partner", "quality_lead"], org: "综合管理部", position: "合伙人", employeeNo: "YN-001", joinedAt: "2015-03-02" },
+  { email: "guojingwen@lexflow.demo", name: "郭静文", roleKeys: ["finance"], org: "综合管理部", position: "财务主管", employeeNo: "YN-002", joinedAt: "2016-05-09" },
+  { email: "wangying@lexflow.demo", name: "王颖", roleKeys: ["archivist"], org: "综合管理部", position: "档案管理员", employeeNo: "YN-003", joinedAt: "2017-02-13" },
+  { email: "zhaokai@lexflow.demo", name: "赵凯", roleKeys: ["sysadmin"], org: "综合管理部", position: "系统管理员", employeeNo: "YN-004", joinedAt: "2017-09-11" },
+  { email: "hejing@lexflow.demo", name: "何静", roleKeys: ["viewer"], position: "查阅专员", employeeNo: "YN-005", joinedAt: "2018-03-19" },
+  { email: "wangbaozhuo@lexflow.demo", name: "王宝茁", roleKeys: ["project_manager"], org: "诉讼业务部", position: "项目负责人", employeeNo: "YN-006", joinedAt: "2019-04-01" },
+  { email: "wangjiayu@lexflow.demo", name: "王家玉", roleKeys: ["project_manager"], org: "诉讼业务部", position: "项目负责人", employeeNo: "YN-007", joinedAt: "2019-06-17" },
+  { email: "sunhaoxiang@lexflow.demo", name: "孙浩祥", roleKeys: ["project_manager"], org: "诉讼业务部", position: "项目负责人", employeeNo: "YN-008", joinedAt: "2020-03-23" },
+  { email: "liaoyimin@lexflow.demo", name: "廖益敏", roleKeys: ["project_manager"], org: "诉讼业务部", position: "项目负责人", employeeNo: "YN-009", joinedAt: "2020-07-06" },
+  { email: "huoda@lexflow.demo", name: "霍达", roleKeys: ["project_manager"], org: "非诉业务部", position: "项目负责人", employeeNo: "YN-010", joinedAt: "2021-02-22" },
+  { email: "maozhenyu@lexflow.demo", name: "毛振宇", roleKeys: ["project_manager"], org: "非诉业务部", position: "项目负责人", employeeNo: "YN-011", joinedAt: "2021-08-30" },
+  { email: "lijie@lexflow.demo", name: "李洁", roleKeys: ["project_manager"], org: "非诉业务部", position: "项目负责人", employeeNo: "YN-012", joinedAt: "2022-03-14" },
+  { email: "guanchen@lexflow.demo", name: "管晨", roleKeys: ["member"], org: "诉讼业务部", position: "项目工程师", employeeNo: "YN-013", joinedAt: "2022-06-20" },
+  { email: "zhangchen@lexflow.demo", name: "张琛", roleKeys: ["member"], org: "诉讼业务部", position: "项目工程师", employeeNo: "YN-014", joinedAt: "2022-09-05" },
+  { email: "lijianwei@lexflow.demo", name: "李见微", roleKeys: ["member"], org: "诉讼业务部", position: "项目工程师", employeeNo: "YN-015", joinedAt: "2023-01-09" },
+  { email: "zhaofengxue@lexflow.demo", name: "赵凤学", roleKeys: ["member"], org: "诉讼业务部", position: "项目工程师", employeeNo: "YN-016", joinedAt: "2023-04-11" },
+  { email: "chenyue@lexflow.demo", name: "陈玥", roleKeys: ["member"], org: "诉讼业务部", position: "项目工程师", employeeNo: "YN-017", joinedAt: "2023-07-17" },
+  { email: "tianyiming@lexflow.demo", name: "田伊铭", roleKeys: ["member"], org: "诉讼业务部", position: "项目工程师", employeeNo: "YN-018", joinedAt: "2023-10-23" },
+  { email: "niuchenchen@lexflow.demo", name: "牛琛琛", roleKeys: ["member"], org: "诉讼业务部", position: "测试工程师", employeeNo: "YN-019", joinedAt: "2024-02-26" },
+  { email: "caojiani@lexflow.demo", name: "曹佳妮", roleKeys: ["member"], org: "非诉业务部", position: "法务专员", employeeNo: "YN-020", joinedAt: "2024-05-13" },
+  { email: "lishuo@lexflow.demo", name: "李硕", roleKeys: ["member"], org: "非诉业务部", position: "法务专员", employeeNo: "YN-021", joinedAt: "2024-08-19" },
+  { email: "liumingle@lexflow.demo", name: "刘明乐", roleKeys: ["member"], org: "非诉业务部", position: "法务专员", employeeNo: "YN-022", joinedAt: "2024-11-25" },
 ];
 
 /**
@@ -202,19 +206,44 @@ const PROJECT_SEED = [
   },
 ];
 
-async function ensureOrgUnit(db: DbOrTx, name: string, parentId: string | null): Promise<string> {
-  const existing = await db.select({ id: orgUnits.id }).from(orgUnits).where(eq(orgUnits.name, name));
-  if (existing[0]) return existing[0].id;
-  const inserted = await db.insert(orgUnits).values({ name, parentId }).returning({ id: orgUnits.id });
+async function ensureOrgUnit(db: DbOrTx, name: string, parentId: string | null, sort = 0): Promise<string> {
+  const existing = await db.select({ id: orgUnits.id, sort: orgUnits.sort }).from(orgUnits).where(eq(orgUnits.name, name));
+  if (existing[0]) {
+    if (existing[0].sort !== sort) {
+      await db.update(orgUnits).set({ sort }).where(eq(orgUnits.id, existing[0].id));
+    }
+    return existing[0].id;
+  }
+  const inserted = await db.insert(orgUnits).values({ name, parentId, sort }).returning({ id: orgUnits.id });
   return inserted[0].id;
 }
 
 async function ensureUser(db: DbOrTx, seed: UserSeed, orgId: string | undefined, passwordHash: string): Promise<string> {
-  const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, seed.email));
-  if (existing[0]) return existing[0].id;
+  const existing = await db
+    .select({ id: users.id, employeeNo: users.employeeNo })
+    .from(users)
+    .where(eq(users.email, seed.email));
+  if (existing[0]) {
+    // 存量行回填（arch/12 §9 升级列；仅当工号未填时补齐，不覆盖运行期编辑）
+    if (existing[0].employeeNo === null) {
+      await db
+        .update(users)
+        .set({ position: seed.position, employeeNo: seed.employeeNo, joinedAt: seed.joinedAt, orgUnitId: orgId ?? null })
+        .where(eq(users.id, existing[0].id));
+    }
+    return existing[0].id;
+  }
   const inserted = await db
     .insert(users)
-    .values({ email: seed.email, name: seed.name, passwordHash, orgUnitId: orgId ?? null })
+    .values({
+      email: seed.email,
+      name: seed.name,
+      passwordHash,
+      orgUnitId: orgId ?? null,
+      position: seed.position,
+      employeeNo: seed.employeeNo,
+      joinedAt: seed.joinedAt,
+    })
     .returning({ id: users.id });
   return inserted[0].id;
 }
@@ -273,11 +302,12 @@ async function seedWaterLevels(tx: DbOrTx): Promise<void> {
 /** 基础件：组织树 + 8 角色 + 12 用户 + system_config 全量默认配置（两档共用） */
 async function seedFoundation(tx: DbOrTx): Promise<void> {
   // 组织树
-  const firmId = await ensureOrgUnit(tx, ORG_FIRM, null);
+  const firmId = await ensureOrgUnit(tx, ORG_FIRM, null, 0);
   const deptIds = new Map<string, string>();
-  for (const dept of ORG_DEPARTMENTS) {
-    deptIds.set(dept, await ensureOrgUnit(tx, dept, firmId));
+  for (const [i, dept] of ORG_DEPARTMENTS.entries()) {
+    deptIds.set(dept, await ensureOrgUnit(tx, dept, firmId, i + 1)); // 根级部门 sort 1..3
   }
+
 
   // 角色
   for (const role of ROLE_SEED) {
@@ -299,6 +329,20 @@ async function seedFoundation(tx: DbOrTx): Promise<void> {
     }
   }
   if (!userIds.get("wangbaozhuo@lexflow.demo")) throw new Error("种子用户 wangbaozhuo@lexflow.demo 缺失");
+  // 公司信息（单记录，arch/12 §9；既有行不覆盖运行期编辑）
+  const profileExisting = await tx.select({ id: companyProfile.id }).from(companyProfile).limit(1);
+  if (!profileExisting[0]) {
+    await tx.insert(companyProfile).values({
+      name: "因诺智元",
+      creditCode: "91320500MA1YNZY66A",
+      address: "苏州市工业园区星湖街328号创意产业园A座5层（虚构）",
+      phone: "0512-6688-9900（虚构）",
+      bankName: "中国工商银行苏州星湖支行（虚构）",
+      bankAccount: "1102 0290 0900 1234 567（虚构）",
+      createdBy: userIds.get("zhaokai@lexflow.demo"),
+      updatedBy: userIds.get("zhaokai@lexflow.demo"),
+    });
+  }
   const pmId = userIds.get("wangbaozhuo@lexflow.demo")!;
 
   // system_config 默认配置（需求基线 §18 全量 + 迭代 4/6 增补键）
