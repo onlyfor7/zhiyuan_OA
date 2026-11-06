@@ -88,7 +88,7 @@
 | 9d-01 财务核算数据建模与种子 | 数据 | **通过** | 数据会话 | 2026-11-05 | 架构验收：280 全绿+库内实测（2 应收含逾期/发票 issued/三档成本率/配置键 20） |
 | 9d-02 财务核算服务端 | 后端 | **通过** | 后端会话 | 2026-11-05 | 架构验收：根 285 全绿+prod 实弹（核算 5 项目全字段/member 404/partner 穿透）+勾稽/红冲/公式重算用例采信 |
 | 9d-03 财务核算前端 | 前端 | **通过** | 前端会话 | 2026-11-05 | 架构验收：根 285 全绿+三页截图核验（账龄桶/核算卡/直跳预填/红冲冲正）；页签 gap 6px 修复采信；dev 残留观察项随 9d-05 评估 |
-| 9d-04 prod 发布窗口 | 部署 | 待认领 | — | 2026-11-05 | 依赖 03（已过）：双镜像+迁移 0012+财务种子同步，不删卷 |
+| 9d-04 prod 发布窗口 | 部署 | 待验收 | 部署会话 | 2026-11-06 | 双镜像+迁移0012+财务种子同步全实测通过；实录见交接记录置顶条 |
 | 9d-05 验收+手册 v1.6 | 测试 | 未解锁 | — | — | 依赖 04 |
 
 ## 迭代 9c 工单状态（CRM 全链，arch/12 §6）
@@ -266,6 +266,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-06｜部署｜迭代9d-04｜**工单 9d-04（prod 发布窗口）完成，转待验收（实录如下）。** 做了什么：① **双镜像重建**（`DOCKER_BUILDKIT=0` legacy builder）——server `--no-cache`（**31s**，exit 0）`sha256:978ef68066a5223842a9963e17446c9ec39f17fa089a5ea66a749252c25553cc`（15:08:09Z），产物核验含 9d：`AR-`×3/`INV-`×1/fin 引用×21；web 常规（**87s**）`sha256:33fbfef25d1c27abc00c8ecf3f35a68b6f677a238dd672cdefa811d86ba6b7cb`（15:09:35Z）。② `up -d`（全程 `--env-file .env.production`，**不删卷不清会话**）：15:09:52Z 发起，**15s 三服务全 healthy**；sessions=584 行保留、projects=5 保留、server RestartCount=0 未闪断。③ **迁移核验**：`drizzle.__drizzle_migrations`=**13 行（0012 就位）**；fin_* 3 表全在（fin_receivables/fin_invoices/fin_cost_rates）；2 新枚举落库（invoice_status/receivable_status）。④ **种子同步**（`SEED_PROFILE=full` 幂等，1s）：应收 2（AR-2026-00001 逾期演示 dueOffset −10 / AR-00002）、发票 1（INV-2026-00001 issued 挂 AR-00001）、成本率 3、**AR/INV 前缀水位就位**（code_sequences AR=3/INV=2）、**配置键 `fin.ar.overdue_grace_days` 在库**（days=7）。怎么验证（全实测 prod :8080 + psql）：三服务 healthy ✓；**财务三页 SPA 200**：/fin/receivables、/fin/invoices、/fin/project-costing ✓；**郭静文（finance）可见经营组新项**：登录 200，`fin.receivables.list` 200 返回 AR-2026-00001（GD 虚构，400000 分，账龄口径在响应内）✓；**member 菜单不渲染+API 404**：三页 nav 项 roles=[partner/finance/project_manager]（topnav-config 不含 member），服务端兜底管晨 `fin.receivables.list` → 404 同形 `ACCESS_DENIED_OR_GONE` ✓；**存量收款/费用不破**：receipts.list 200（RCV-2026-00006…）、expense.list 200（items=20）✓。**验证插曲（如实记录，非产品问题）**：首轮用郭静文 cookie 复验时连遇 401——定位为宿主机 /tmp 中该 cookie jar 文件在两次命令间消失（Windows temp 竞态；server 未重启、DB 会话行未过期、换 jar 重登即 200、旧 jar 历次仍在），与「不清会话」语义无关；复验改用新 jar 全绿。dev 栈与 dev 库全程未动 ✓。未跑测试套件（部署工单无此步骤，F3 不涉及）。提交：仅 STATUS.md（[部署] 前缀）。遗留：无。
 
 - 2026-11-05｜架构｜迭代9d-03通过｜**工单 03（财务核算前端）验收通过，解锁 9d-04（部署会话·发布窗口）。** 实测：根测试 285/285 全绿；截图核验——应收账龄桶配色+逾期 inset 红条、直跳弹窗预填 4000、发票抽屉联动抬头（公司名/税号/开户行）、核算卡六块+双口径毛利横条+6 月趋势柱、页签 gap=6px 实测、375 三页零溢出、member 同形 404。勾稽实证采信（PRJ-00001 receivedCents=台账净额 600000）；登记/作废回写 badge 根因修复合理。观察项：dev 库历轮 e2e 残留测试项目（迭代7验收mw*）——dev 噪音不阻塞，随 9d-05 评估是否刷新。
 
