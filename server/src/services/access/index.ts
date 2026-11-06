@@ -95,6 +95,18 @@ export async function can(
         user.globalRoles.includes("project_manager")
       );
     }
+    case "fin.read": {
+      // arch/12 §11：fin.read=finance/partner/项目负责人（costing 本项目 manager 在 service 层另放行）
+      return (
+        user.globalRoles.includes("finance") ||
+        user.globalRoles.includes("partner") ||
+        user.globalRoles.includes("project_manager")
+      );
+    }
+    case "fin.manage": {
+      // arch/12 §11：fin.manage=finance/partner
+      return user.globalRoles.includes("finance") || user.globalRoles.includes("partner");
+    }
     case "crm.manage": {
       // arch/12 §11：crm.manage=partner/owner（owner 校验在服务层按记录判定）
       return user.globalRoles.includes("partner") || user.globalRoles.includes("project_manager");

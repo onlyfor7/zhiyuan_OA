@@ -909,6 +909,9 @@ export async function linkReceiptToPlan(
     actorId: user.id, sessionId, action: "crm.receipt.planLink", targetType: "crm_contract", targetId: plan.contractId, result: "success",
     afterJson: { planId: input.planId, receiptId: input.receiptId, planStatus: status }, ip,
   });
+  // arch/12 §7 回款勾稽应收：与计划行写回同一事务链重算应收 open/partial/settled
+  const { recomputeReceivableForPlan } = await import("../fin/fin");
+  await recomputeReceivableForPlan(db, input.planId);
 }
 
 /** receipts.void 回写：清 receipt_id + 状态复位 unpaid（作废冲正沿用既有 receipts 语义） */
@@ -928,6 +931,8 @@ export async function unlinkReceiptFromPlan(
     actorId: null, sessionId, action: "crm.receipt.planUnlink", targetType: "crm_contract", targetId: plan.contractId, result: "success",
     afterJson: { planId: plan.id, receiptId: input.receiptId }, ip,
   });
+  const { recomputeReceivableForPlan } = await import("../fin/fin");
+  await recomputeReceivableForPlan(db, plan.id);
 }
 
 /* ===== 跟进（多态） ===== */
