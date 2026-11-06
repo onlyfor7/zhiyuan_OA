@@ -83,22 +83,28 @@ async function requireStatsAccess(db: DbOrTx, user: SessionUser, projectId?: str
   throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "无工时统计权限");
 }
 
-export async function statsByUser(db: DbOrTx, user: SessionUser, input: { from?: string; to?: string; statuses?: string[]; projectId?: string }) {
+export async function statsByUser(
+  db: DbOrTx,
+  user: SessionUser,
+  input: { from?: string; to?: string; statuses?: string[]; projectId?: string; scopeAll?: boolean },
+) {
   await requireStatsAccess(db, user, input.projectId);
   const result = await aggregateTime(db, {
     ...input,
     groupBy: "user",
     scopeProjects: input.projectId
       ? sql`${projects.id} = ${input.projectId}`
-      : projectScopeFilter(user),
+      : input.scopeAll
+        ? sql`true`
+        : projectScopeFilter(user),
   });
   const names = new Map((await db.select({ id: users.id, name: users.name }).from(users)).map((u) => [u.id, u.name]));
   return { ...result, items: result.items.map((r) => ({ ...r, name: names.get(r.key ?? "") ?? null })) };
 }
 
-export async function statsByProject(db: DbOrTx, user: SessionUser, input: { from?: string; to?: string; statuses?: string[] }) {
+export async function statsByProject(db: DbOrTx, user: SessionUser, input: { from?: string; to?: string; statuses?: string[]; scopeAll?: boolean }) {
   await requireStatsAccess(db, user);
-  const result = await aggregateTime(db, { ...input, groupBy: "project", scopeProjects: projectScopeFilter(user) });
+  const result = await aggregateTime(db, { ...input, groupBy: "project", scopeProjects: input.scopeAll ? sql`true` : projectScopeFilter(user) });
   const names = new Map((await db.select({ id: projects.id, name: projects.name }).from(projects)).map((p) => [p.id, p.name]));
   return { ...result, items: result.items.map((r) => ({ ...r, name: names.get(r.key ?? "") ?? "非项目工作" })) };
 }

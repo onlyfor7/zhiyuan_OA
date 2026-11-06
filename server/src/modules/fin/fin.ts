@@ -70,7 +70,7 @@ export interface ReceivableItem {
   agingBucket: "0-30" | "31-60" | "61-90" | "90+" | null;
 }
 
-function computeAging(dueDate: string, graceDays: number): { overdueDays: number | null; agingBucket: ReceivableItem["agingBucket"] } {
+export function computeAging(dueDate: string, graceDays: number): { overdueDays: number | null; agingBucket: ReceivableItem["agingBucket"] } {
   const due = new Date(`${dueDate}T00:00:00Z`).getTime();
   const days = Math.floor((Date.now() - due) / 86_400_000);
   const overdueDays = days > graceDays ? days : null;

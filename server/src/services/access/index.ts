@@ -87,6 +87,11 @@ export async function can(
       // arch/12 §11：组织管理=sysadmin 写；partner 只读穿透在 org 服务层判定（requireOrgRead）
       return user.globalRoles.includes("sysadmin");
     }
+    case "report.read":
+    case "report.export": {
+      // arch/12 §11：报表读/导出=登录全员，行级按各数据域既有口径过滤（service 层）；导出走审计
+      return true;
+    }
     case "crm.read": {
       // arch/12 §11：partner 全局只读穿透 + finance + 项目负责人；owner 本人在服务层放行
       return (

@@ -20,10 +20,11 @@ import { recordAudit } from "../audit";
  */
 
 /** 扩展名白名单（arch/00 §5） */
-export const ALLOWED_EXTENSIONS = ["pdf", "png", "jpg", "jpeg", "docx", "xlsx", "zip"] as const;
+export const ALLOWED_EXTENSIONS = ["pdf", "png", "jpg", "jpeg", "docx", "xlsx", "zip", "csv"] as const;
 
 /** 扩展名 → 允许的 MIME（声明 MIME 缺失或不符时以扩展名为准纠正） */
 const MIME_BY_EXTENSION: Record<string, string> = {
+  csv: "text/csv",
   pdf: "application/pdf",
   png: "image/png",
   jpg: "image/jpeg",
@@ -40,7 +41,8 @@ export interface SaveUploadInput {
   filename: string;
   declaredMime: string | null;
   sourceType: SourceType;
-  sourceId: string;
+  /** uuid 列可空：业务键（如报表 key）非 uuid 时传 null，溯源走审计行 */
+  sourceId: string | null;
   businessDate: string | null;
   uploadedBy: string;
   ip: string | null;
