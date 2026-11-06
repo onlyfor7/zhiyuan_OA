@@ -11,6 +11,8 @@ describe("next_code 事务内自增", () => {
     await migrateToLatest();
     const pool = new pg.Pool({ connectionString: TEST_DATABASE_URL, max: 20 });
     const db = drizzle(pool, { schema });
+    // 测试自清洁（F3 修复）：migrateToLatest 不重置库，TST 计数器跨运行累积致断言区间失效——先清 TST 行再取号
+    await pool.query("DELETE FROM code_sequences WHERE prefix = 'TST'");
     try {
       const year = new Date().getFullYear();
       const codes = await Promise.all(

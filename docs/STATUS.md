@@ -225,6 +225,7 @@
 ## 偏差与仲裁
 
 | 日期 | 会话 | 事项 | 架构裁定 | 状态 |
+| 2026-11-05 | 架构 | **F3**：code.test「20 次并发取号」确定性失败——根因双叠：① 该用例用 migrateToLatest（不重置库）却断言绝对序号 1–20，非幂等；② 两会话套件并发跑共享 lexflow_test 互相 DROP/行锁（ECONNRESET 为锁等待 30s 被 docker 代理断连）致计数器抬至 111，此后处处挂 | **裁定：测试缺陷非产品缺陷**（next_code 生产逻辑无问题，库内唯一约束兜底无重号）。架构落地修复：用例起始自清 TST 行（幂等），连跑两轮+全量复跑确认。**规则增补：四道门全量套件同机同时刻只允许一个运行实例** |
 | 2026-11-04 | 架构 | **F2**：server api 套件偶发失败——06 验收期根全量 3 跑 1 红（partner-visibility「写边界 06 打回扩展」用例），同文件单跑 5/5 绿、复跑全绿；fileParallelism=false 顺序执行+每文件 migrateFresh+reseed，仍现非确定红 | **裁定：登记为测试稳定性缺陷**（非产品缺陷——产品行为经 diff 核验+prod 实弹独立证实）；出微工单 06b 修稳 | **已关闭**（06b 三根因修复：user.list 用例 limit 100 取全量/17 写断言串行化/vitest 改 threads 池；架构独立 3 轮+根 1 轮叠加后端 6 轮=9 连绿） |
 | 2026-10-29 | 测试→后端 | **R6**：receipts.create 幂等键未落库同键重放双记 | **已修复关闭**（05b 迁移 0009 唯一列+先查后插；05c prod live 复测同键重放 200 同 id 单行） | 已关闭 |
 | 2026-10-29 | 测试→后端 | **R7**：flow.publish 对既有 biz_type 500 | **已修复关闭**（05b 按 binding 释放；05c prod live 发布 200+travel 接管+佳力奇 P4b/P5b 双链重跑） | 已关闭 |
@@ -255,6 +256,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-05｜架构｜F3处置｜**code.test 确定性失败根因查明并修复（与 9c-03 打回并行不冲突）。** 排查链：ECONNRESET（首发现场）→逐层排除（postgres 无终止日志/无残留锁/裸连 20 并发 OK）→直跑拿到真断言「expected 111 ≤ 20」——migrateToLatest 不重置库+绝对序号断言=非幂等用例，并发套件污染抬高计数器后处处挂。修复：用例起始自清 TST 行（server/tests/db/code.test.ts）。**给全部会话的新规则（仲裁表 F3 已登记）：四道门全量套件同机同时刻只许一个实例跑（共享 lexflow_test 互相 DROP 会 ECONNRESET）。**
 
 - 2026-11-05｜架构｜迭代9c-03打回｜**工单 03 打回：主链合格，三处缺陷修复后重报。** 已核验合格面：转化 Stepper 全链、看板拖拽落库（useRef 修复合理）、合同 Drawer 付款计划行编辑+回款进度、跟进时间线、权限/只读/密级金额渲染。**打回三项**（截图实证）：① 客户详情头部「负责人」显示 uuid 前 8 位（CustomerDetailPage.tsx:118 `ownerId.slice(0,8)`）——修：后端 getById 聚合带 ownerName，或前端 user.list 映射；列表页负责人列一并核查补名。② 枚举原值直渲：往来文件区 `confidentialityLevel` 直出英文（同文件 241 行）——走 shared 既有 label 映射（密级中文）。③ 驾驶舱快捷入口「新建线索」仍指 /coming-soon（CockpitPage.tsx:160）——线索页已真实存在，改指 /crm/leads（并审查其余快捷入口指向已落地页的同类问题；写周报/开具发票指向 9d/后续属预期保留）。另：其报告截图路径笔误（实为 D:\\tmp\\shots-iter9c）。修复后四道门复跑+截图重报 STATUS 转「待验收」。
 
