@@ -85,7 +85,7 @@
 | 工单 | 会话 | 状态 | 认领人 | 日期 | 备注 |
 |---|---|---|---|---|---|
 | 9d-00 总览 | — | 已发布 | 架构 | 2026-11-05 | 契约 arch/12 §7/§11；D1 边界：不做总账凭证 |
-| 9d-01 财务核算数据建模与种子 | 数据 | **进行中** | 数据会话 | 2026-11-05 | 已认领执行 |
+| 9d-01 财务核算数据建模与种子 | 数据 | **待验收** | 数据会话 | 2026-11-05 | 四道门全绿（见交接记录置顶条） |
 | 9d-02 财务核算服务端 | 后端 | 未解锁 | — | — | 应收生成/勾稽+发票红冲+成本率+项目核算聚合 |
 | 9d-03 财务核算前端 | 前端 | 未解锁 | — | — | 应收/发票/项目核算三页+页签间距打磨 |
 | 9d-04 prod 发布窗口 | 部署 | 未解锁 | — | — | 依赖 03 |
@@ -266,6 +266,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-05｜数据｜迭代9d-01｜**微工单 9d-01 完成，转待验收（财务核算数据建模，arch/12 §7.2/§10 逐字）。**① 新迁移 `server/drizzle/0012_iter9d-fin.sql`（追加式，0000–0011 未动）：**3 新表**——fin_receivables（AR-、contract/plan/customer FK、amount_cents、due_date、status 三态 pgEnum、source 来源标记；**逾期不落库由查询算**〔arch/12 明确"overdue 计算列不落库由视图算"〕）；fin_invoices（INV-、customer/contract/receivable FK、amount_cents、tax_rate 百分比整数、status 四态 pgEnum〔draft→issued→sent/voided，红冲=voided+冲正行〕、issued_at）；fin_cost_rates（**user_id/role 二态 check**〔23514〕、hourly_rate_cents、effective_from；按人价或按角色价）。② **枚举 2+shared**（新 enums/fin.ts）：receivable_status（open/partial/settled）/invoice_status（draft/issued/sent/voided）；**前缀注册表 v1.5 增 AR/INV**。③ **配置键 3 入白名单+种子**（CONFIG_KEY + config-defaults，总数 17→20）：`fin.ar.overdue_grace_days`（7 天宽限）、`fin.ar.auto_generate`（合同激活/计划到期双开关）、`fin.invoice.default_tax_rate`（默认 6%）——双档 foundation 就位。④ **full 档演示种子**（seed/fin.ts，幂依）：GD 合同 2 行付款计划对应 **2 应收**（AR-00001 due t-10=**逾期演示**、AR-00002 due t+60 未到期，均 open/source=payment_plan）；**1 发票** INV-00001（issued、税率 6、挂 AR-00001+GD 合同）；**成本率 3 档**（role 价：partner 500 元/时=50000c、project_manager 350、member 200）；水位 AR→3/INV→2。**minimal 零业务数据**（3 表入 MINIMAL_ZERO_TABLES）。⑤ 测试：新增 `fin.test.ts` 2 用例（63 表重放+计数+逾期演示断言〔due<today 且 status=open〕+发票/成本率断言+fin.* 键在位+二次幂等；约束：成本率二态 23514、receivable/invoice 枚举非法 22P02〔含"逾期不落库"反例 status='overdue' 被拒〕）；计数连带：system_config 17→20（4 文件）、sequences 22→24（full 档 6 文件+seed-profile 切换档）。⑥ 验证：`npm run test -w @lexflow/server`✓ **257/257（51 文件零回归）**、根 `npm run typecheck`✓ exit 0、`db:migrate`✓（dev 实测）+`db:seed`×2 幂等、db:generate 无漂移；dev psql 复核应收到期日/发票态/三档成本率。提交：`iter9d/data-fin` 分支 `[数据]` 前缀 commit。**留给 9d-02 后端**：应收自动生成（合同激活/计划到期触发，fin.ar.auto_generate 读配置）、账龄分桶视图（0-30/31-60/61-90/90+ 宽限 fin.ar.overdue_grace_days）、发票开具（默认税率联动）与红冲（voided+冲正行）、成本率维护（partner/finance 写、member 金额同形隐藏）、项目核算口径公式（arch/12 §7.3 冻结：已回款=registered−voided 净额/人力成本=批准工时×成本率/毛利）。STATUS.md 已随代码提交。
 
 - 2026-11-05｜架构｜迭代9c收口+9d发布｜**9c（CRM 全链）收口，9d（财务核算）工单包发布。** 9c-05 复核：6/6 取证采信——转化 Stepper 同事务落地、markWon 挂合同链、回款勾稽 50 万写回→作废复位、半挂 400、权限三探针、六页签齐；根 278 复跑全绿；其页签间距核认（gap 0 实锤）属实——排 9d-03 打磨项（4–8px）。手册 v1.5 四章在位。**当前解锁：9d-01（数据会话）。**
 
