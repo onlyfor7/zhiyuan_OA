@@ -5,3 +5,4 @@ export * from "./governance";
 export * from "./collab";
 export * from "./extensions";
 export * from "./crm";
+export * from "./fin";

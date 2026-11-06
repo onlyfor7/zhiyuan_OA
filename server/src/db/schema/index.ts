@@ -3,6 +3,7 @@ export * from "./org";
 export * from "./company";
 export * from "./business";
 export * from "./crm";
+export * from "./fin";
 export * from "./access";
 export * from "./files";
 export * from "./audit";

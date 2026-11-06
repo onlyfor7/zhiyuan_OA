@@ -74,4 +74,10 @@ export const SYSTEM_CONFIG_DEFAULTS: ReadonlyArray<{ key: string; value: Record<
   { key: CONFIG_KEY.TIMESHEET_STEP_MINUTES, value: { minutes: 30, note: "arch/11：工时填报步进分钟数，可配置" } },
   { key: CONFIG_KEY.SESSION_RETENTION_DAYS, value: { days: 90, note: "arch/12 §14.5：会话过期行保留期（清理任务入运维手册）" } },
   { key: CONFIG_KEY.AUDIT_RETENTION_DAYS, value: { days: 730, note: "arch/12 §14.5：审计事件保留期 2 年" } },
+  { key: CONFIG_KEY.FIN_AR_OVERDUE_GRACE_DAYS, value: { days: 7, note: "arch/12 §7.2：应收逾期宽限天数（账龄分桶 0-30/31-60/61-90/90+ 口径）" } },
+  {
+    key: CONFIG_KEY.FIN_AR_AUTO_GENERATE,
+    value: { on_contract_active: true, on_plan_due: true, note: "arch/12 §7.2：应收自动生成来源（合同激活/付款计划到期）" },
+  },
+  { key: CONFIG_KEY.FIN_INVOICE_DEFAULT_TAX_RATE, value: { percent: 6, note: "arch/12 §7.2：发票开具默认税率（百分比整数）" } },
 ];

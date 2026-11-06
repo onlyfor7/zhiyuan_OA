@@ -14,6 +14,7 @@ import { seedClosure } from "./closure";
 import { seedCollab } from "./collab";
 import { seedCrm } from "./crm";
 import { seedDefaultFlows, seedExtensions } from "./extensions";
+import { seedFin } from "./fin";
 import { seedFinance } from "./finance";
 import { seedGovernance, seedTemplates } from "./governance";
 import { seedTime } from "./time";
@@ -486,6 +487,9 @@ async function seedSchema(databaseUrl: string, profile: SeedProfile): Promise<vo
 
       // 迭代 9c CRM 种子（2 线索/五客户级别行业/2 商机/1 合同+2 付款计划/3 跟进）
       await seedCrm(tx);
+
+      // 迭代 9d 财务核算种子（GD 2 应收含逾期演示/1 发票 issued/三档成本率）
+      await seedFin(tx);
 
       // 编号序列水位对齐（全前缀）
       await seedWaterLevels(tx);

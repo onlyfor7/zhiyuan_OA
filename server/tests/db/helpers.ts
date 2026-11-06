@@ -74,6 +74,9 @@ export const ALL_TABLES = [
   "crm_contracts",
   "crm_contract_payment_plans",
   "crm_followups",
+  "fin_receivables",
+  "fin_invoices",
+  "fin_cost_rates",
 ] as const;
 
 export async function migrateToLatest(url: string = TEST_DATABASE_URL): Promise<void> {

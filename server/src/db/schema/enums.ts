@@ -21,6 +21,7 @@ import {
   FLOW_SCOPE,
   FOLLOWUP_TARGET_TYPE,
   FUNDING_USAGE_STATUS,
+  INVOICE_STATUS,
   GENERIC_REQUEST_STATUS,
   LEDGER_ENTRY_TYPE,
   LEAD_STATUS,
@@ -40,6 +41,7 @@ import {
   QUALITY_ISSUE_STATUS,
   QUALITY_SEVERITY,
   RECEIPT_STATUS,
+  RECEIVABLE_STATUS,
   SEGMENT_TYPE,
   STAGE_STATUS,
   TASK_STATUS,
@@ -163,3 +165,9 @@ export const contractStatusEnum = pgEnum("contract_status", CONTRACT_STATUS);
 export const paymentPlanStatusEnum = pgEnum("payment_plan_status", PAYMENT_PLAN_STATUS);
 
 export const followupTargetTypeEnum = pgEnum("followup_target_type", FOLLOWUP_TARGET_TYPE);
+
+/** 迭代 9d 财务核算域枚举（arch/12 §7.2） */
+
+export const receivableStatusEnum = pgEnum("receivable_status", RECEIVABLE_STATUS);
+
+export const invoiceStatusEnum = pgEnum("invoice_status", INVOICE_STATUS);

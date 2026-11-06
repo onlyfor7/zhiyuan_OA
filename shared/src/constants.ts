@@ -28,6 +28,9 @@ export const CODE_PREFIX = {
   LD: "LD", // 线索
   OPP: "OPP", // 商机
   CTR: "CTR", // 合同
+  // AR/INV：2026-11-05 由架构会话正式增补进注册表（arch/00 §3.5 v1.5，arch/12 §7.2）。
+  AR: "AR", // 应收单
+  INV: "INV", // 发票
 } as const;
 export type CodePrefix = (typeof CODE_PREFIX)[keyof typeof CODE_PREFIX];
 
@@ -66,6 +69,12 @@ export const CONFIG_KEY = {
   /** 会话保留期天数（arch/12 §14.5：默认 90；清理任务本体入运维手册） */
   SESSION_RETENTION_DAYS: "security.session_retention_days",
   /** 审计保留期天数（arch/12 §14.5：默认 730=2 年） */
+  /** 应收逾期宽限天数（arch/12 §7.2） */
+  FIN_AR_OVERDUE_GRACE_DAYS: "fin.ar.overdue_grace_days",
+  /** 应收自动生成开关（合同激活/付款计划到期，arch/12 §7.2） */
+  FIN_AR_AUTO_GENERATE: "fin.ar.auto_generate",
+  /** 发票默认税率（百分比整数，arch/12 §7.2） */
+  FIN_INVOICE_DEFAULT_TAX_RATE: "fin.invoice.default_tax_rate",
   AUDIT_RETENTION_DAYS: "audit.retention_days",
 } as const;
 export type ConfigKey = (typeof CONFIG_KEY)[keyof typeof CONFIG_KEY];
