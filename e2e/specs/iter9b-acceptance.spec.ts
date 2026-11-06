@@ -118,9 +118,9 @@ test("T2 部门树：CRUD + 调级落库 + 禁删有成员部门", async ({ page
   const moved = findById((tree2.json as any).result.data, newDept.id);
   expect(moved?.parentId).toBe(liti.id);
   // UI 复核树形
-  await page.reload();
-  await page.waitForSelector(".topnav-groups").catch(() => {});
-  await page.waitForTimeout(900);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".topnav-groups", { timeout: 15_000 }).catch(() => {});
+  await page.waitForTimeout(1100);
   const uiTree = await page.evaluate(() => document.body.innerText);
   expect(uiTree).toContain("验收测试部");
   await shot(page, "T2-调级后树");

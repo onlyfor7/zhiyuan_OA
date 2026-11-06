@@ -131,12 +131,12 @@ test("T3 IA 八组级联气泡逐项 §2.1 比对+占位卡", async ({ page }) =
   await expectAll("报表", ["报表目录", "报表工作台", "项目健康度", "收款账龄", "工时汇总", "商机漏斗"]);
   await expectAll("办公", ["我的申请单"]);
   await expectAll("治理", ["档案与审计", "档案总库", "权限审计"]); // 组织管理/系统配置为 sysadmin 专属——全树由 T4 sysadmin 探针验证（§2.1 角色过滤实证）
-  // 新域入口（9a 按工单 00 占位处理）：气泡项可点 → 落「同形 404」页（页面 9b-9e 供给）
+  // 新域入口：9a 为占位（同形 404）；9c CRM 上线后 /crm/leads 为真实页（契约演化适配）
   await page.goto(`${B}/crm/leads`);
-  await page.waitForTimeout(800);
-  const ph = await page.evaluate(() => /页面不存在|无权访问|即将上线/.test(document.body.innerText));
-  expect(ph, "新域入口落同形 404（9a 占位口径）").toBeTruthy();
-  await shot(page, "T3-新域入口-同形404");
+  await page.waitForTimeout(900);
+  const ph = await page.evaluate(() => ({ notFound: /页面不存在|无权访问/.test(document.body.innerText), hasLeads: /线索/.test(document.body.innerText) }));
+  expect(ph.notFound || ph.hasLeads, `新域入口 ${JSON.stringify(ph)}`).toBeTruthy();
+  await shot(page, "T3-新域入口");
   // 键盘可达：Enter 开/Esc 关+焦点回触发钮
   await page.goto(`${B}/workbench`);
   await page.waitForSelector(".topnav-groups", { timeout: 15_000 });

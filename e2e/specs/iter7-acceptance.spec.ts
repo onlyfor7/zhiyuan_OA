@@ -29,71 +29,38 @@ const navGroups = async (page: Page) =>
 
 test.describe.configure({ mode: "serial" });
 
-test("IA-1 五组下拉与头像菜单（sysadmin）", async ({ page }) => {
-  await login(page, "sysadmin@lexflow.demo");
-  await page.goto(`${B}/workbench`);
-  await page.waitForSelector(".topnav-groups", { timeout: 15_000 });
-  const groups = await page.evaluate(() => {
-    const nav = document.querySelector(".topnav-groups")!;
-    return [...nav.querySelectorAll(":scope > *")].map((g) => {
-      const btn = g.querySelector("button");
-      return btn ? btn.textContent?.trim().replace(/▾|⌄/g, "").trim() : null;
-    }).filter(Boolean);
-  });
-  expect(groups.join()).toContain("总览");
-  expect(groups.join()).toContain("项目");
-  expect(groups.join()).toContain("协同");
-  expect(groups.join()).toContain("经营");
-  expect(groups.join()).toContain("治理");
-  // 逐组展开核对项（arch/10 §1.1 逐字）
-  const expectItems = async (groupName: string, items: string[]) => {
-    const btn = page.locator(".topnav-groups button", { hasText: groupName }).first();
-    await btn.click();
-    await page.waitForTimeout(300);
-    const menu = await page.evaluate(() => {
-      const m = [...document.querySelectorAll("[role='menu'],.ux-menu,[class*='dropdown']")].find((e) => e.offsetParent);
-      return m ? m.textContent ?? "" : document.body.innerText;
-    });
-    for (const it of items) expect(menu).toContain(it);
-    await shot(page, `IA-1-组-${groupName}`);
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(200);
-  };
-  await expectItems("总览", ["驾驶舱", "我的工作台"]);
-  await expectItems("项目", ["项目全周期", "甘特计划"]);
-  await expectItems("协同", ["会议中心", "出差中心", "申请单"]);
-  await expectItems("经营", ["工时中心", "预算管理", "费用中心", "收款台账", "审批中心"]);
-  await expectItems("治理", ["质量中心", "决策中心", "档案中心", "权限审计"]);
-  // 头像菜单
-  await page.locator(".topnav-avatar").first().click();
-  await page.waitForTimeout(300);
-  const avatarMenu = await page.evaluate(() => {
-    const m = [...document.querySelectorAll("[role='menu'],.ux-menu,[class*='popover'],[class*='dropdown']")].find((e) => e.offsetParent);
-    return m ? m.textContent ?? "" : "";
-  });
-  expect(avatarMenu).toContain("系统配置中心");
-  expect(avatarMenu).toContain("账号设置与改密");
-  expect(avatarMenu).toContain("退出登录");
-  await shot(page, "IA-1-头像菜单-sysadmin");
-  // 顶栏无独立系统级按钮（系统级全部入头像菜单）
-  const topbarText = await page.evaluate(() => document.querySelector(".topbar")?.textContent ?? "");
-  expect(topbarText).not.toContain("退出登录\n");
+test("IA-1 五组下拉与头像菜单（sysadmin）【归档】", () => {
+  // 归档：五组/旧头像菜单断言已被 9a 八组级联气泡（iter9a T3 §2.1 逐项）与 9b 头像契约全面取代
+  test.skip();
 });
 
 test("IA-2 角色过滤（member/finance）", async ({ page }) => {
-  await login(page, "member@lexflow.demo");
+  await login(page, "guanchen@lexflow.demo");
   await page.goto(`${B}/workbench`);
   await page.waitForSelector(".topnav-groups", { timeout: 15_000 });
   const readGroupItems = async (groupName: string) => {
-    await page.locator(".topnav-groups button", { hasText: groupName }).first().click();
-    await page.waitForTimeout(250);
-    const t = await page.evaluate(() => {
-      const m = [...document.querySelectorAll("[role='menu'],.ux-menu,[class*='dropdown']")].find((e) => e.offsetParent);
-      return m ? m.textContent ?? "" : "";
-    });
+    // 9a 级联气泡：键盘展开+面板读取（position:fixed 用 boundingClientRect 过滤）
+    const btn = page.locator(".topnav-groups .p9a-dd-trigger", { hasText: groupName }).first();
+    await btn.focus();
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(400);
+    const texts: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      texts.push(await page.evaluate(() => {
+        const panels = [...document.querySelectorAll("[class*='p9a'],[role='menu']")].filter((e) => (e.getBoundingClientRect().width > 0) && (e.textContent ?? "").trim().length > 0);
+        return panels.map((e) => e.textContent ?? "").join(" ");
+      }));
+      await page.keyboard.press("ArrowDown");
+      await page.waitForTimeout(130);
+      await page.keyboard.press("ArrowRight");
+      await page.waitForTimeout(200);
+      await page.keyboard.press("ArrowLeft").catch(() => {});
+      await page.waitForTimeout(100);
+    }
     await page.keyboard.press("Escape");
-    await page.waitForTimeout(150);
-    return t;
+    await page.mouse.click(720, 840).catch(() => {});
+    await page.waitForTimeout(250);
+    return texts.join(" ");
   };
   const gov = await readGroupItems("治理");
   expect(gov).not.toContain("权限审计"); // 角色过滤
@@ -105,11 +72,13 @@ test("IA-2 角色过滤（member/finance）", async ({ page }) => {
     const m = [...document.querySelectorAll("[role='menu'],.ux-menu,[class*='popover'],[class*='dropdown']")].find((e) => e.offsetParent);
     return m ? m.textContent ?? "" : "";
   });
-  expect(avatar).not.toContain("系统配置中心");
-  expect(avatar).toContain("退出登录");
+  expect(avatar).not.toContain("系统配置中心"); // 治理组专属
+  // 9a/9b 头像契约：修改密码/界面自定义（退出登录迁至账号设置页）
+  expect(avatar).toContain("修改密码");
+  expect(avatar).toContain("界面自定义");
   await shot(page, "IA-2-头像菜单-member");
   // finance：见收款台账、不见权限审计
-  await login(page, "finance@lexflow.demo");
+  await login(page, "guojingwen@lexflow.demo");
   await page.goto(`${B}/workbench`);
   await page.waitForSelector(".topnav-groups");
   const opsF = await readGroupItems("经营");
@@ -119,7 +88,7 @@ test("IA-2 角色过滤（member/finance）", async ({ page }) => {
 });
 
 test("IA-3 三档宽度顶栏无溢出", async ({ page }) => {
-  for (const [w, email] of [[1280, "member@lexflow.demo"], [1440, "sysadmin@lexflow.demo"], [1920, "partner@lexflow.demo"]] as const) {
+  for (const [w, email] of [[1280, "guanchen@lexflow.demo"], [1440, "zhaokai@lexflow.demo"], [1920, "liangqifeng@lexflow.demo"]] as const) {
     await page.setViewportSize({ width: w, height: 900 });
     await login(page, email);
     await page.goto(`${B}/workbench`);
@@ -136,7 +105,7 @@ test("IA-3 三档宽度顶栏无溢出", async ({ page }) => {
 });
 
 test("IA-4 键盘可达（Enter 开/↓移动/Esc 关+焦点回按钮）", async ({ page }) => {
-  await login(page, "partner@lexflow.demo");
+  await login(page, "liangqifeng@lexflow.demo");
   await page.goto(`${B}/workbench`);
   await page.waitForSelector(".topnav-groups");
   const groupBtn = page.locator(".topnav-groups button", { hasText: "经营" }).first();
@@ -160,7 +129,7 @@ test("IA-5 移动汉堡五组分区+系统区", async ({ page, browser }) => {
   const mp = await ctx.newPage();
   await mp.request.post(`${B}/trpc/auth.logout`, { headers: { "content-type": "application/json" }, data: "{}" }).catch(() => {});
   await mp.goto(`${B}/login`);
-  await mp.getByPlaceholder("name@firm.com").fill("member@lexflow.demo");
+  await mp.getByPlaceholder("name@firm.com").fill("guanchen@lexflow.demo");
   await mp.locator('input[type="password"]').fill("Demo@2026");
   await mp.getByRole("button", { name: "登录" }).click();
   await mp.waitForURL((u) => !u.pathname.includes("/login"), { timeout: 20_000 });
@@ -173,61 +142,15 @@ test("IA-5 移动汉堡五组分区+系统区", async ({ page, browser }) => {
   await ctx.close();
 });
 
-test("DLG 弹窗化六处+零内联+Esc/焦点", async ({ page }) => {
-  await login(page, "sysadmin@lexflow.demo");
-  const cases: Array<[string, string, string, string]> = [
-    ["/admin", "用户与组织", "创建用户", "创建用户"],
-    ["/admin", "客户与事项", "创建客户", "创建客户"],
-    ["/admin", "客户与事项", "创建事项", "创建事项"],
-    ["/admin", "项目模板", "新建模板", "新建模板"],
-  ];
-  for (const [route, tab, btn, dlgLabel] of cases) {
-    await page.goto(`${B}${route}`);
-    await page.waitForSelector(".topnav-groups", { timeout: 15_000 });
-    await page.getByRole("button", { name: tab }).click();
-    await page.waitForTimeout(600);
-    await page.getByRole("button", { name: new RegExp(`^${btn}`) }).first().click();
-    const dlg = page.locator(`[role='dialog'][aria-modal='true']`).first();
-    await dlg.waitFor({ state: "visible", timeout: 8_000 });
-    // 首字段聚焦
-    const focusedInDialog = await page.evaluate(() => {
-      const d = document.querySelector("[role='dialog'][aria-modal='true']");
-      return d ? d.contains(document.activeElement) : false;
-    });
-    expect(focusedInDialog, `${btn} 弹窗首字段聚焦`).toBeTruthy();
-    await shot(page, `DLG-${btn}`);
-    // Esc 关闭
-    await page.keyboard.press("Escape");
-    await page.waitForTimeout(400);
-    expect(await page.locator(`[role='dialog'][aria-modal='true']`).count()).toBe(0);
-    // 零内联：创建内联面板不存在（模板页例外：structureJson 是选中模板的页级编辑器，§2 允许）
-    const inlineGone = await page.evaluate(
-      (label) => !document.querySelector("[aria-label='新建模板 structure']") && (label !== "模板" || !!document.querySelector("[aria-label='structureJson']")),
-      btn,
-    );
-    expect(inlineGone, `${btn} 零内联残留`).toBeTruthy();
-  }
-  // /requests 发起申请（member）
-  await login(page, "member@lexflow.demo");
-  await page.goto(`${B}/requests`);
-  await page.getByRole("button", { name: "发起申请" }).click();
-  await page.locator("[role='dialog'][aria-modal='true']").waitFor({ state: "visible", timeout: 8_000 });
-  await shot(page, "DLG-发起申请");
-  await page.keyboard.press("Escape");
-  await page.waitForTimeout(300);
-  // /operations/receipts 登记收款（finance）
-  await login(page, "finance@lexflow.demo");
-  await page.goto(`${B}/operations/receipts`);
-  await page.getByRole("button", { name: "登记收款" }).click();
-  await page.locator("[role='dialog'][aria-modal='true']").waitFor({ state: "visible", timeout: 8_000 });
-  await shot(page, "DLG-登记收款");
-  await page.keyboard.press("Escape");
+test("DLG 弹窗化六处【归档】", () => {
+  // 归档：/admin 六内联弹窗化属迭代 7 形态；9b 组织页独立+9a T6 表单弹窗化抽查已覆盖现网形态
+  test.skip();
 });
 
 test("GHOST 重影修复取证（元素级不重叠扫描）", async ({ page }) => {
-  await login(page, "sysadmin@lexflow.demo");
-  await page.goto(`${B}/admin`);
-  await page.getByRole("button", { name: "用户与组织" }).click();
+  await login(page, "zhaokai@lexflow.demo");
+  await page.goto(`${B}/admin/org/members`); // 9b：用户表迁员工信息页
+  await page.waitForSelector(".topnav-groups", { timeout: 15_000 }).catch(() => {});
   await page.waitForTimeout(900);
   for (const w of [1280, 1440]) {
     await page.setViewportSize({ width: w, height: 900 });
@@ -236,7 +159,7 @@ test("GHOST 重影修复取证（元素级不重叠扫描）", async ({ page }) 
       const bad: string[] = [];
       const rows = [...document.querySelectorAll("table tr, [class*='table'] [class*='row']")].filter((r) => r.offsetParent);
       for (const row of rows.slice(0, 20)) {
-        const btns = [...row.querySelectorAll("button")].filter((b) => b.offsetParent && /授予|移除|停用|启用/.test(b.textContent ?? ""));
+        const btns = [...row.querySelectorAll("button")].filter((b) => b.offsetParent && /编辑|停用|启用/.test(b.textContent ?? "")); // 9b 员工表行内动作
         const rects = btns.map((b) => ({ t: (b.textContent ?? "").trim(), r: b.getBoundingClientRect() }));
         for (let i = 0; i < rects.length; i++) {
           for (let j = i + 1; j < rects.length; j++) {
@@ -256,7 +179,7 @@ test("GHOST 重影修复取证（元素级不重叠扫描）", async ({ page }) 
 
 test("E1-E7 逐项走查", async ({ page }) => {
   // E1 空状态引导（viewer 项目全周期：零项目 → EmptyGuide 三步引导）
-  await login(page, "viewer@lexflow.demo");
+  await login(page, "hejing@lexflow.demo");
   await page.goto(`${B}/projects`);
   await page.waitForSelector(".topnav-groups", { timeout: 15_000 });
   await page.waitForTimeout(800);
@@ -277,7 +200,7 @@ test("E1-E7 逐项走查", async ({ page }) => {
     }
     await route.continue().catch(() => {});
   });
-  await login(page, "partner@lexflow.demo");
+  await login(page, "liangqifeng@lexflow.demo");
   await page.goto(`${B}/projects`);
   await page.waitForTimeout(500);
   const skeleton = await page.evaluate(() => !!document.querySelector("[class*='skeleton']"));
@@ -285,7 +208,7 @@ test("E1-E7 逐项走查", async ({ page }) => {
   await shot(page, "E2-骨架屏");
   await page.unrouteAll();
   // E3 Toast（sysadmin 弹窗建客户 → sonner）
-  await login(page, "sysadmin@lexflow.demo");
+  await login(page, "zhaokai@lexflow.demo");
   await page.goto(`${B}/admin`);
   await page.getByRole("button", { name: "客户与事项" }).click();
   await page.waitForTimeout(600);
@@ -301,7 +224,7 @@ test("E1-E7 逐项走查", async ({ page }) => {
   });
   await shot(page, "E3-Toast");
   // E4 密度三档（收款台账）
-  await login(page, "finance@lexflow.demo");
+  await login(page, "guojingwen@lexflow.demo");
   await page.goto(`${B}/operations/receipts`);
   await page.waitForSelector("text=收款台账", { timeout: 15_000 });
   await page.waitForTimeout(700);
@@ -311,7 +234,7 @@ test("E1-E7 逐项走查", async ({ page }) => {
   const saved = await page.evaluate(() => localStorage.getItem("lexflow-density") ?? localStorage.getItem("density") ?? "");
   await shot(page, "E4-密度");
   // E5 面包屑（项目空间）
-  await login(page, "partner@lexflow.demo");
+  await login(page, "liangqifeng@lexflow.demo");
   const pl = await (await page.request.fetch(`${B}/trpc/project.list?input=` + encodeURIComponent(JSON.stringify({ limit: 1 })), { headers: { "content-type": "application/json" } })).json();
   let pid = pl.json?.result?.data?.items?.[0]?.id;
   if (!pid) {
@@ -368,15 +291,14 @@ test("REG-375 移动不回归（三页越界扫描）", async ({ page, browser }
   const mp = await ctx.newPage();
   await mp.request.post(`${B}/trpc/auth.logout`, { headers: { "content-type": "application/json" }, data: "{}" }).catch(() => {});
   await mp.goto(`${B}/login`);
-  await mp.getByPlaceholder("name@firm.com").fill("member@lexflow.demo");
+  await mp.getByPlaceholder("name@firm.com").fill("guanchen@lexflow.demo");
   await mp.locator('input[type="password"]').fill("Demo@2026");
   await mp.getByRole("button", { name: "登录" }).click();
   await mp.waitForURL((u) => !u.pathname.includes("/login"), { timeout: 20_000 });
   await mp.waitForTimeout(600);
   for (const [name, route, budget] of [["移动工时", "/operations/time", 430], ["移动工作台", "/workbench", 376], ["移动审批", "/approvals", 376]] as const) {
-    await mp.goto(`${B}${route}`);
-    await mp.waitForSelector(".topnav-groups", { timeout: 15_000 });
-    await mp.waitForTimeout(700);
+    await mp.goto(`${B}${route}`, { waitUntil: "networkidle" }).catch(() => {});
+    await mp.waitForTimeout(1300); // 375 顶栏为汉堡抽屉无 .topnav-groups
     const scroll = await mp.evaluate(() => document.documentElement.scrollWidth);
     // 工时中心 375px 预填工具栏横向溢出为既有问题（prod 迭代 7 前形态同溢 377px，元素计算样式双栈一致），此处作回归哨兵（>430 才算迭代 7 加重）
     expect(scroll, `${name} 375px 横向溢出 ${scroll}`).toBeLessThanOrEqual(budget);
