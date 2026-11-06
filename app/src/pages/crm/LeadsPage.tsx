@@ -3,6 +3,7 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { useCrmMutations, useLeadList } from "../../api/crm";
+import { useUserNameMap } from "./shared";
 import { FormDialog } from "../../components/FormDialog";
 import { ListSkeleton } from "../../components/feedback";
 import { rootErrorMessage } from "../../lib/form";
@@ -182,6 +183,7 @@ export default function LeadsPage() {
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const list = useLeadList({ status: status || undefined, keyword: keyword || undefined, cursor });
   const m = useCrmMutations();
+  const nameOf = useUserNameMap();
   const [createOpen, setCreateOpen] = useState(false);
   const [convertTarget, setConvertTarget] = useState<{ id: string; rowVersion: number; name: string; contactName: string | null } | null>(null);
   const [disqualifyTarget, setDisqualifyTarget] = useState<{ id: string; rowVersion: number; name: string } | null>(null);
@@ -216,8 +218,8 @@ export default function LeadsPage() {
         <span>{list.data.items.length} 条</span>
       </div>
       <div className="p9a-ta-table" style={{ gridTemplateRows: "40px minmax(0,1fr)" }}>
-        <div className="p9a-ta-head p9a-ta-row" style={{ gridTemplateColumns: "120px 1.4fr 1fr 110px 110px 110px 150px" }}>
-          <span>编号</span><span>名称</span><span>联系人</span><span>来源</span><span>状态</span><span>最近跟进</span><span />
+        <div className="p9a-ta-head p9a-ta-row" style={{ gridTemplateColumns: "110px 1.3fr 1fr 90px 100px 90px 90px 140px" }}>
+          <span>编号</span><span>名称</span><span>联系人</span><span>来源</span><span>负责人</span><span>状态</span><span>最近跟进</span><span />
         </div>
         <div className="p9a-ta-body">
           {list.data.items.map((l) => (
@@ -226,6 +228,7 @@ export default function LeadsPage() {
               <strong>{l.name}</strong>
               <span>{l.contactName ?? "—"}{l.contactPhone ? ` · ${l.contactPhone}` : ""}</span>
               <span>{l.source ?? "—"}</span>
+              <span>{nameOf(l.ownerId)}</span>
               <span>
                 <i className={`p9a-dot ${l.status === "new" ? "warn" : l.status === "disqualified" ? "" : "ok"}`} style={l.status === "disqualified" ? { background: "#9ca5b3" } : undefined} />
                 {LEAD_STATUS_LABEL[l.status] ?? l.status}

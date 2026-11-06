@@ -157,7 +157,7 @@ const QUICK_ALL: Array<{ key: string; label: string; domain: DomainKey; to: stri
   { key: "project", label: "新建项目", domain: "project", to: "/projects/new" },
   { key: "receipt", label: "登记收款", domain: "finance", to: "/operations/receipts" },
   { key: "request", label: "发起申请", domain: "approval", to: "/requests" },
-  { key: "lead", label: "新建线索", domain: "lead", to: "/coming-soon?domain=lead&title=新建线索" },
+  { key: "lead", label: "新建线索", domain: "lead", to: "/crm/leads" },
   { key: "invoice", label: "开具发票", domain: "finance", to: "/coming-soon?domain=finance&title=开具发票" },
   { key: "report", label: "写周报", domain: "report", to: "/coming-soon?domain=report&title=写周报" },
 ];

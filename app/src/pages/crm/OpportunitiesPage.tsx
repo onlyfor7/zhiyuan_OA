@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { useCrmMutations, useOpportunityList } from "../../api/crm";
+import { useUserNameMap } from "./shared";
 import { FormDialog } from "../../components/FormDialog";
 import { DomainIconBlock } from "../../lib/DomainIconBlock";
 import { ListSkeleton } from "../../components/feedback";
@@ -21,6 +22,7 @@ export default function OpportunitiesPage() {
   const [view, setView] = useState<"table" | "board">("table");
   const list = useOpportunityList({});
   const m = useCrmMutations();
+  const nameOf = useUserNameMap();
   const [wonTarget, setWonTarget] = useState<{ id: string; rowVersion: number; name: string } | null>(null);
   const [lostTarget, setLostTarget] = useState<{ id: string; rowVersion: number; name: string } | null>(null);
   const [lostReason, setLostReason] = useState("");
@@ -64,8 +66,8 @@ export default function OpportunitiesPage() {
       {view === "table" ? (
         <>
           <div className="p9a-ta-table" style={{ gridTemplateRows: "40px minmax(0,1fr)" }}>
-            <div className="p9a-ta-head p9a-ta-row" style={{ gridTemplateColumns: "120px 1.6fr 110px 130px 90px 110px 150px" }}>
-              <span>编号</span><span>商机</span><span>阶段</span><span>预计金额</span><span>赢率</span><span>更新</span><span />
+            <div className="p9a-ta-head p9a-ta-row" style={{ gridTemplateColumns: "110px 1.4fr 100px 90px 110px 70px 90px 100px 130px" }}>
+              <span>编号</span><span>商机</span><span>阶段</span><span>预计金额</span><span>赢率</span><span>负责人</span><span>更新</span><span />
             </div>
             <div className="p9a-ta-body">
               {items.map((o) => (
@@ -78,6 +80,7 @@ export default function OpportunitiesPage() {
                   </span>
                   <span className="mono">{"expectedAmountCents" in o && o.expectedAmountCents != null ? `${formatYuan(o.expectedAmountCents as number)} 元` : "—"}</span>
                   <span className="mono">{o.winRate ?? "—"}%</span>
+                  <span>{nameOf(o.ownerId)}</span>
                   <span className="mono" style={{ fontSize: 10 }}>{o.updatedAt.slice(5, 16).replace("T", " ")}</span>
                   <span className="p9a-row-actions">
                     {(["initial", "needs", "proposal", "negotiation"] as const).filter((s) => s !== o.stage).slice(0, 2).map((s) => (

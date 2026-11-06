@@ -3,10 +3,12 @@ import { Link, useParams } from "react-router";
 import { toast } from "sonner";
 
 import { useCrmMutations, useCustomer } from "../../api/crm";
+import { useUserNameMap } from "./shared";
 import { FormDialog } from "../../components/FormDialog";
 import { DomainIconBlock } from "../../lib/DomainIconBlock";
 import { CardSkeleton } from "../../components/feedback";
 import { formatYuan } from "../../api/reference";
+import { CONFIDENTIALITY_LABEL } from "../../lib/labels";
 import { rootErrorMessage } from "../../lib/form";
 
 const TABS = [
@@ -77,6 +79,7 @@ export default function CustomerDetailPage() {
   const { customerId } = useParams();
   const customer = useCustomer(customerId ?? null);
   const m = useCrmMutations();
+  const nameOf = useUserNameMap();
   const [tab, setTab] = useState<(typeof TABS)[number][0]>("overview");
   const [contactDialog, setContactDialog] = useState<{ open: boolean; contact: Record<string, unknown> | null }>({ open: false, contact: null });
   const [followText, setFollowText] = useState("");
@@ -115,11 +118,11 @@ export default function CustomerDetailPage() {
             <DomainIconBlock domain="customer" size={28} iconSize={16} /> {d.customer.name}
           </h1>
           <p>
-            {d.customer.code} · {d.customer.industry ?? "行业未录"} · 负责人 {d.customer.ownerId ? d.customer.ownerId.slice(0, 8) : "—"}
+            {d.customer.code} · {d.customer.industry ?? "行业未录"} · 负责人 {nameOf(d.customer.ownerId)}
           </p>
         </div>
         <div className="title-actions">
-          <span className="badge badge-health-normal">{d.customer.level}</span>
+          <span className="badge badge-health-normal">{{ public: "公开", internal: "内部", confidential: "保密", secret: "秘密" }[d.customer.level] ?? d.customer.level}</span>
         </div>
       </div>
       <div className="p9a-wizard-tabs" role="tablist">
@@ -238,7 +241,7 @@ export default function CustomerDetailPage() {
               <div className="report-row" key={f.id}>
                 <div>
                   <strong>{f.sourceId ? f.sourceId.slice(0, 8) : "—"}…</strong>
-                  <small>{f.confidentialityLevel} · {f.uploadedAt.slice(0, 16).replace("T", " ")}</small>
+                  <small>{CONFIDENTIALITY_LABEL[f.confidentialityLevel] ?? f.confidentialityLevel} · {f.uploadedAt.slice(0, 16).replace("T", " ")}</small>
                 </div>
               </div>
             ))}
