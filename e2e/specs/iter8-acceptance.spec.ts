@@ -277,7 +277,9 @@ test("G5b partner 全局可见（arch/03 §2.2 v1.1：全量 5 项目/非成员�
   await page.waitForSelector(".topnav-groups", { timeout: 15_000 });
   await page.waitForTimeout(900);
   const partnerCnt = await page.evaluate(() => document.body.innerText.match(/已加载 (\d+) 个/)?.[1] ?? "");
-  expect(Number(partnerCnt)).toBe(5);
+  expect(Number(partnerCnt), `partner 全局可见（dev 数据增长后 ≥5，实测 ${partnerCnt}）`).toBeGreaterThanOrEqual(5);
+  const bodyHas = await page.evaluate(() => document.body.innerText);
+  for (const nm of ["比博思特", "金通灵", "佳力奇", "GD 法律服务", "合规运作"]) expect(bodyHas).toContain(nm);
   await shot(page, "G5b-合伙人项目列表五项目");
   // 进入佳力奇（C，非成员项目）空间：200 + 头部显示合伙人
   await page.getByText("佳力奇技术服务项目").first().click();

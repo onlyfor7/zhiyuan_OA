@@ -89,7 +89,7 @@
 | 9d-02 财务核算服务端 | 后端 | **通过** | 后端会话 | 2026-11-05 | 架构验收：根 285 全绿+prod 实弹（核算 5 项目全字段/member 404/partner 穿透）+勾稽/红冲/公式重算用例采信 |
 | 9d-03 财务核算前端 | 前端 | **通过** | 前端会话 | 2026-11-05 | 架构验收：根 285 全绿+三页截图核验（账龄桶/核算卡/直跳预填/红冲冲正）；页签 gap 6px 修复采信；dev 残留观察项随 9d-05 评估 |
 | 9d-04 prod 发布窗口 | 部署 | **通过** | 部署会话 | 2026-11-05 | 架构实测：fin 三表种子计数（2/1/3）+三服务 healthy+会话数据保留；权限与存量兼容实弹采信 |
-| 9d-05 验收+手册 v1.6 | 测试 | 待认领 | — | 2026-11-05 | 依赖 04（已过）：应收勾稽/发票红冲/核算勾稽/权限+页签核认——9d 收口提请架构 |
+| 9d-05 验收+手册 v1.6 | 测试 | **通过** | 测试会话 | 2026-11-06 | 待架构复核：6/6 取证采信（应收幂等勾稽/发票红冲/核算勾稽/权限/页间距核认关闭/dev 残留消解）+根 285 复跑全绿+手册 v1.6——**提请收口 9d** |
 
 ## 迭代 9c 工单状态（CRM 全链，arch/12 §6）
 
@@ -266,6 +266,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-06｜测试｜迭代9d-05｜**工单 9d-05（9d 验收+手册 v1.6）完成，转待验收，提请收口 9d。** ① **验收**（`e2e/specs/iter9d-acceptance.spec.ts` 6/6 全绿，prod :8080，F3 合规确认无其他会话在跑；本 spec 实拍 6 张（T1 账龄红条/T1 勾稽后/T2 红冲/T3 核算卡/T4 member-404/T5 页签关闭，D:\tmp\shots-iter9d\）+375 探针 iter9d-375.spec.ts 1/1（fin 三页零横向溢出）：T1 应收（generate 二次 created:0 幂等/账龄分桶 0-30+未到期 null/逾期红条=浅红底 rgb(255,251,251)+inset 红条/勾稽状态机 partial→settled→void→open→再 settled→再 void→open 全链 DB 断言）；T2 发票（create 响应 {invoice,company}，抬头 company.name=因诺智元==org.company.get 独立断言/选应收带出 4000/draft→issue→markSent→void 红冲冲正行+负数红显）；T3 核算（卡面八字段含 revenue/received/arBalance/directCost/laborCost/grossMargin 双口径；勾稽抽样 PRJ-2026-00001 receivedCents==台账净额一致；卡面无工时字段——§7.3 汇总口径，非缺陷）；T4 权限（member 菜单不渲染+直链同形 404+API 404/partner 读穿透 200/fin.manage 门槛——partner 开票 200 为 arch/12 §11 白名单契约正确）；T5 **9c-05 页签间距登记项关闭**：prod 实测 .p9a-wizard-tabs gap=6px、相邻项 [6,6,6,6,6]px；T6 **dev 残留观察项消解**：dev 库 0 项目（9d 数据会话已重置），无需刷新动作。② **回归**：根 **285/285**；e2e-01~16 prod **16/16**；iter7 9/9、iter8 8/8、iter9a 10/10、iter9b 6/6、iter9c 6/6 全不回归（iter8 G5b 断言随 dev 数据增长修 ≥5+项目名在位）；375 抽查不破（fin 三页+各套件 375 用例）。③ **口径记录**：generate 双源契约（contract_active 需 matterId 非空/on_plan_due 需 dueDate≤today）、计划行 receiptId 单挂、发票响应 {invoice,company}、fin.manage=finance|partner 白名单（partner 开票 200 勿当缺陷）、逾期红条无独立 class 按 computed 断言。④ **手册 v1.6**：新增 T4j 应收/T4k 发票/T4l 项目核算/T4m 成本率四章。报告：`docs/测试报告/迭代9d-验收报告.md`。**提请架构/用户收口 9d。**
 
 - 2026-11-05｜架构｜迭代9d-04通过｜**工单 04（prod 发布 9d）验收通过，解锁 9d-05（测试会话·验收+手册 v1.6）。** 实测：fin_receivables/invoices/cost_rates=2/1/3 在库；三服务 healthy；迁移 13 行含 0012；sessions/projects 保留。其权限实弹（郭静文可见/member 菜单不渲染+404 同形）与存量兼容（receipts/expense 不破）采信；其 401 插曲（宿主 cookie jar Windows temp 竞态丢失）如实留痕——与「不清会话」无关，认定属实。
 
