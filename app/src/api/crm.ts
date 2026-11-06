@@ -24,9 +24,9 @@ export function useOpportunityList(input: { stage?: string; customerId?: string;
   return useQuery(trpc.crm.opportunities.list.queryOptions({ limit: 50, customerId: input.customerId, cursor: input.cursor, ...(input.stage ? { stage: input.stage as never } : {}) }));
 }
 
-export function useContractList(input: { status?: string; customerId?: string; cursor?: string; limit?: number }) {
+export function useContractList(input: { status?: string; customerId?: string; cursor?: string; limit?: number }, enabled = true) {
   const trpc = useTRPC();
-  return useQuery(trpc.crm.contracts.list.queryOptions({ limit: 20, customerId: input.customerId, cursor: input.cursor, ...(input.status ? { status: input.status as never } : {}) }));
+  return useQuery(trpc.crm.contracts.list.queryOptions({ limit: 20, customerId: input.customerId, cursor: input.cursor, ...(input.status ? { status: input.status as never } : {}) }, { enabled }));
 }
 
 export function useContract(id: string | null) {

@@ -63,6 +63,9 @@ const TravelTab = lazy(() => import("./pages/project/TravelTab"));
 const BudgetTab = lazy(() => import("./pages/project/BudgetTab"));
 const ExpensesTab = lazy(() => import("./pages/project/ExpensesTab"));
 const TimesheetTab = lazy(() => import("./pages/project/TimesheetTab"));
+const FinReceivablesPage = lazy(() => import("./pages/fin/ReceivablesPage"));
+const FinInvoicesPage = lazy(() => import("./pages/fin/InvoicesPage"));
+const FinProjectCostingPage = lazy(() => import("./pages/fin/ProjectCostingPage"));
 
 /**
  * 路由表（迭代 1 工单 03；迭代 6 工单 04 扩展域转正）。
@@ -96,6 +99,9 @@ export default function App() {
         <Route path="/crm/followups" element={<CrmFollowupsPage />} />
         <Route path="/admin/users" element={<Navigate to="/admin/org/members" replace />} />
         <Route path="/operations/receipts" element={<ReceiptsPage />} />
+        <Route path="/fin/receivables" element={<FinReceivablesPage />} />
+        <Route path="/fin/invoices" element={<FinInvoicesPage />} />
+        <Route path="/fin/project-costing" element={<FinProjectCostingPage />} />
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/projects/new" element={<ProjectCreatePage />} />
         <Route path="/projects/:projectId" element={<ProjectSpacePage />}>

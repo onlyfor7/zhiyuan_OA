@@ -87,7 +87,7 @@
 | 9d-00 总览 | — | 已发布 | 架构 | 2026-11-05 | 契约 arch/12 §7/§11；D1 边界：不做总账凭证 |
 | 9d-01 财务核算数据建模与种子 | 数据 | **通过** | 数据会话 | 2026-11-05 | 架构验收：280 全绿+库内实测（2 应收含逾期/发票 issued/三档成本率/配置键 20） |
 | 9d-02 财务核算服务端 | 后端 | **通过** | 后端会话 | 2026-11-05 | 架构验收：根 285 全绿+prod 实弹（核算 5 项目全字段/member 404/partner 穿透）+勾稽/红冲/公式重算用例采信 |
-| 9d-03 财务核算前端 | 前端 | 待认领 | — | 2026-11-05 | 依赖 02（已过）：应收/发票/项目核算三页+页签间距打磨 |
+| 9d-03 财务核算前端 | 前端 | **待验收** | 前端会话 | 2026-11-06 | 三页落地替换占位卡（应收账龄徽标+逾期红条+行内直跳预填/发票 F2 联动带出+红冲冲正/核算 T-C 六块+毛利双横条+月度趋势）+台账合同/计划关联标识+页签 gap 6px 一处修复；四道门 285 全绿+走查 26/26 断言（D:\tmp\shots-iter9d\） |
 | 9d-04 prod 发布窗口 | 部署 | 未解锁 | — | — | 依赖 03 |
 | 9d-05 验收+手册 v1.6 | 测试 | 未解锁 | — | — | 依赖 04 |
 
@@ -266,6 +266,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-06｜前端｜迭代9d-03｜**工单 9d-03（财务核算前端，arch/12 §7.4 逐字）完成，转「待验收」。** 分支 `iter9d/frontend-fin`。**三页落地**（topnav-config 经营组三占位卡改真实路由 /fin/receivables|invoices|project-costing；roles=[partner/finance/project_manager]，member/sysadmin 服务端同形 404+入口按角色过滤）：① **应收管理 T-A**（账龄分桶徽标 0-30/31-60/61-90/90+ 配色表，未到期绿徽标；逾期行 inset 3px 红条+浅红底；行内「登记收款」Link 带 prefill=1&contractId&planId&customerId&amountCents；**枚举禁直渲**——source 走中文映射 payment_plan→计划到期/contract_active→合同激活）；② **发票管理 T-A+F2 宽抽屉**（客户→合同/应收联动：选应收带出金额+反查合同带出；税率默认 6；抬头蓝框展示 org.company.get 名称/税号/开户行/账号；状态列四态中文徽标；行尾按状态浮现 开具→寄送登记→红冲〔原因必填弹窗，红冲后冲正行负数红显〕；列表客户列经 crm.customers 映射真名）；③ **项目核算 T-C**（左项目列表内滚动+右核算卡六块=项目收入/已回款/应收余额/直接成本/人力成本/毛利回款口径+**毛利双口径横条**〔负值宽度归零但百分比带符号〕+近 6 月回款趋势迷你柱=receipts.list 本项目客户端按到账月聚合 registered−voided，零新端点）；④ **收款台账增量**——useSearchParams 读应收直跳参数自动开登记弹窗（金额预填/contractId+planId 成对并入 create 入参/项目经客户详情 projects 区解析默认首项、弹窗可改）+台账行内「已挂 CTR-xxxx-xxxx · 计划 #n」标识（收款表无合同列，经 crm 计划行 receiptId 反查映射）；⑤ **9c-05 页签零间隙一处修复**：governance.css 定义 .p9a-wizard-tabs（gap 6px——该类此前随原型 CSS 删除全局缺失，客户详情页签条实测 computed gap=6px），并补齐 T-A 表格套件/抽屉体/指标卡/滚动列表/高危框全套 fin 域样式（白底净行 hover 浮现，M5 行内动作浮现适用）。**联动失效补全**：receipts create/void 同事务写回计划行+应收重算——useReceiptMutations invalidate 增 crm+fin pathFilter（走查首轮台账 badge 不刷新的根因修复，已复测）。**质量门**（F3 合规：TaskList 0 后台任务+tasklist 确认仅 dev 栈 node 进程、无测试套件在跑）：根四道门逐条真实执行全绿（typecheck/build/db:migrate/test，server 262+app 23=**285 全绿零回归**）。**走查**（playwright channel:chrome，guojingwen@ finance 全链 + guanchen@ member 权限）：**26/26 断言 PASS**（16 截图 D:\tmp\shots-iter9d\）——应收双行（AR-2026-00001 逾期 0-30 天徽标+红条、AR-2026-00002 未到期）、直跳弹窗金额 4000 预填+项目下拉 8 项解析选中、登记后 AR-2026-00002=settled+台账「已挂 CTR-2026-00001 · 计划 #2」badge、作废冲正回 open（种子态恢复，遗留走查收款行均已作废留痕）、发票抽屉选 GD→联动应收选项 2 条/选 AR 带出 4000+抬头「因诺智元·税号 91320500MA1YNZY66A」、开具→寄送登记→红冲（voided=2 含冲正行、负数行 1）、核算 8 项目六块+双横条+趋势 6 柱、**勾稽实证 PRJ-2026-00001 receivedCents=600000 == 收款台账该项目净额 600000**、375 三页零横向溢出、member 直链同形 404。
 
 - 2026-11-05｜架构｜迭代9d-02通过｜**工单 02（财务核算服务端）验收通过，解锁 9d-03（前端会话）。** 实测：根测试 285/285 全绿；prod 实弹——projectCosting.list 5 项目返回 §7.3 全字段（revenue/received/arBalance/directCost/laborCost/双口径毛利）、member 应收 404 同形、partner 穿透 200；应收生成幂等（二次零新增）/勾稽同事务写回（全额 settled/作废回 open）/发票红冲冲正行/成本率二态校验用例采信。其工程裁定（直接成本取 EXPENSE_RECOGNIZED 唯一入口不双计）认定合理——核销与经费在台账同源。
 

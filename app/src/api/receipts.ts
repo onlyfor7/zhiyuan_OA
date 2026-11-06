@@ -32,6 +32,9 @@ export function useReceiptMutations() {
     void queryClient.invalidateQueries(trpc.receipts.pathFilter());
     void queryClient.invalidateQueries(trpc.project.pathFilter());
     void queryClient.invalidateQueries(trpc.dashboard.pathFilter());
+    // 9d-03：登记/作废同事务写回合同计划行+应收重算——crm/fin 缓存一并失效
+    void queryClient.invalidateQueries(trpc.crm.pathFilter());
+    void queryClient.invalidateQueries(trpc.fin.pathFilter());
   };
   const create = useMutation(trpc.receipts.create.mutationOptions({ onSuccess: invalidate }));
   const voidReceipt = useMutation(trpc.receipts.void.mutationOptions({ onSuccess: invalidate }));

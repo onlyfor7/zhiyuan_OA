@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import { Download, Plus, Receipt } from "lucide-react";
+import { useSearchParams } from "react-router";
 
 import { useMe } from "../api/auth";
+import { useContractList, useCustomer } from "../api/crm";
 import {
   useReceiptExport,
   useReceiptList,
@@ -52,11 +54,34 @@ export default function ReceiptsCenterPage() {
   const [view, setView] = useState<"list" | "income">("list");
   const [registerOpen, setRegisterOpen] = useState(false);
   const [projectId, setProjectId] = useState("");
+  // 9d-03：应收管理「登记收款」直跳预填——合同/计划行成对挂接（arch/12 §6.3 回款勾稽）
+  const [searchParams, setSearchParams] = useSearchParams();
+  const prefillOn = searchParams.get("prefill") === "1";
+  const prefillContractId = searchParams.get("contractId") ?? "";
+  const prefillPlanId = searchParams.get("planId") ?? "";
+  const prefillCustomerId = searchParams.get("customerId") ?? "";
+  const prefillAmountCents = Number(searchParams.get("amountCents") ?? 0) || 0;
+  const [prefillDismissed, setPrefillDismissed] = useState(false);
   const listFilter = projectId || managed[0]?.id ? { projectId: projectId || managed[0]!.id } : {};
   const list = useReceiptList(listFilter, canView && view === "list");
   const summary = useReceiptSummary("project", canView && view === "income");
+  // 挂合同登记需知项目——应收/合同链路不带 projectId，经客户详情聚合 projects 区解析（默认首项，弹窗内可改）
+  const prefillCustomer = useCustomer(prefillOn && canWrite ? prefillCustomerId : null);
+  const prefillProjectId = prefillCustomer.data?.projects?.[0]?.id ?? "";
+  const showPrefill = prefillOn && canWrite && !!prefillProjectId && !prefillDismissed;
+  // 台账行内「关联合同/计划」标识：合同↔回款经 crm_contract_payment_plans.receipt_id 关联（收款表无合同列）
+  const contracts = useContractList({}, canView && view === "list");
+  const receiptLinkMap = useMemo(() => {
+    const m = new Map<string, { contractCode: string; planSeq: number }>();
+    for (const c of contracts.data?.items ?? []) {
+      for (const p of c.plans ?? []) {
+        if (p.receiptId) m.set(p.receiptId, { contractCode: c.code, planSeq: p.seq });
+      }
+    }
+    return m;
+  }, [contracts.data]);
   // 登记项目源（arch 裁定 04b-①）：receipts.projectOptions 参照级清单（全部项目，无收款记录的新项目可登记）
-  const projectOptions = useReceiptProjectOptions(canWrite && registerOpen);
+  const projectOptions = useReceiptProjectOptions(canWrite && (registerOpen || showPrefill));
   const registerProjects = useMemo(() => projectOptions.data ?? [], [projectOptions.data]);
   const exportCsv = useReceiptExport();
   const { density, setDensity } = useTableDensity();
@@ -174,11 +199,13 @@ export default function ReceiptsCenterPage() {
                 <span>状态</span>
                 <span />
               </div>
-              {items.map((r) => (
+              {items.map((r) => {
+                const link = receiptLinkMap.get(r.id);
+                return (
                 <div className={`grant-row ${r.status === "voided" ? "revoked" : ""}`} key={r.id}>
                   <div>
                     <strong>{r.code}</strong>
-                    <small>{r.note ?? ""}</small>
+                    <small>{link ? `已挂 ${link.contractCode} · 计划 #${link.planSeq}` : (r.note ?? "")}</small>
                   </div>
                   <span>{r.projectId.slice(0, 8)}</span>
                   <span className="mono">{formatYuan(r.amountCents)} 元</span>
@@ -195,7 +222,8 @@ export default function ReceiptsCenterPage() {
                     <span className="muted-label">{r.voidReason ?? ""}</span>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
@@ -224,12 +252,29 @@ export default function ReceiptsCenterPage() {
         )
       ) : null}
 
-      {registerOpen && canWrite ? (
-        <FormDialog title="登记收款" eyebrow="PAYMENT RECEIPTS · 创建走弹窗" onClose={() => setRegisterOpen(false)} wide>
+      {(registerOpen || showPrefill) && canWrite ? (
+        <FormDialog
+          title={showPrefill ? "登记收款（应收直跳预填）" : "登记收款"}
+          eyebrow="PAYMENT RECEIPTS · 创建走弹窗"
+          onClose={() => {
+            if (showPrefill) {
+              setPrefillDismissed(true);
+              setSearchParams({}, { replace: true });
+            } else {
+              setRegisterOpen(false);
+            }
+          }}
+          wide
+        >
           <ReceiptRegisterForm
             projects={registerProjects}
+            initialProjectId={showPrefill ? prefillProjectId : ""}
+            initialAmountYuan={showPrefill && prefillAmountCents ? String(prefillAmountCents / 100) : ""}
+            planLink={showPrefill && prefillContractId && prefillPlanId ? { contractId: prefillContractId, planId: prefillPlanId } : null}
             onDone={() => {
               setRegisterOpen(false);
+              setPrefillDismissed(true);
+              setSearchParams({}, { replace: true });
               toast.success("收款已登记", { description: "金额登记后不可编辑；更正=作废+新登记。" });
             }}
             onError={(msg) => {
@@ -286,18 +331,25 @@ export default function ReceiptsCenterPage() {
 
 function ReceiptRegisterForm({
   projects,
+  initialProjectId = "",
+  initialAmountYuan = "",
+  planLink = null,
   onDone,
   onError,
 }: {
   projects: { id: string; name: string }[];
+  /** 9d-03 应收直跳预填：项目（客户详情解析）/金额（应收带出）/挂合同+计划行（成对） */
+  initialProjectId?: string;
+  initialAmountYuan?: string;
+  planLink?: { contractId: string; planId: string } | null;
   onDone: () => void;
   onError: (msg: string) => void;
 }) {
   const mutations = useReceiptMutations();
-  const [pickedProject, setPickedProject] = useState("");
+  const [pickedProject, setPickedProject] = useState(initialProjectId);
   // 项目清单异步到达（managed ∪ summary 全量），未点选时回落到第一项
   const projectId = pickedProject || projects[0]?.id || "";
-  const [amountYuan, setAmountYuan] = useState("");
+  const [amountYuan, setAmountYuan] = useState(initialAmountYuan);
   const [receivedOn, setReceivedOn] = useState(new Date().toISOString().slice(0, 10));
   const [referenceNo, setReferenceNo] = useState("");
   const [payerName, setPayerName] = useState("");
@@ -308,6 +360,11 @@ function ReceiptRegisterForm({
       <p className="context-note">
         项目清单来自 receipts.projectOptions（参照级，全部项目）；登记后金额不可编辑，更正=作废+新登记。
       </p>
+      {planLink ? (
+        <p className="context-note" style={{ color: "#1d4ed8" }}>
+          已挂合同付款计划行：登记成功后该计划行状态写回（paid/partial），并同事务勾稽应收。
+        </p>
+      ) : null}
       <div className="owner-line">
         <label className="form-field">
           <span>项目 *</span>
@@ -358,6 +415,7 @@ function ReceiptRegisterForm({
               payerName: payerName.trim() || undefined,
               note: note.trim() || undefined,
               idempotencyKey: newIdempotencyKey(),
+              ...(planLink ? { contractId: planLink.contractId, planId: planLink.planId } : {}),
             },
             { onSuccess: onDone, onError: (err) => onError(rootErrorMessage(err)) },
           );

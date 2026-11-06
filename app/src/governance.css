@@ -2080,3 +2080,59 @@ a.text-action:focus-visible::after, button.text-action:focus-visible::after { ri
   .danger-action { font-size: 13px; }
   .role-chip { font-size: 11px; }
 }
+
+/* —— 迭代 9d-03：财务核算三页（T-A/T-C/F2 抽屉）+ 9c-05 页签零间隙一处修复 —— */
+/* 9c-05 登记项（全局一处）：页签条按钮间零间隙 → 6px（4–8px 区间内） */
+.p9a-wizard-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.p9a-wizard-tabs button { border: 0; border-radius: 8px; padding: 6px 14px; font-size: 12px; cursor: pointer; background: #f2f4f8; color: var(--muted); }
+.p9a-wizard-tabs button.active { background: #eff4ff; color: #2563eb; font-weight: 600; }
+.p9a-wizard-tabs button:hover:not(.active) { background: #e9edf3; }
+
+/* T-A 表格套件（净行：无竖线无行框，hover 浮底；行高/列宽由页面 inline gridTemplateColumns 定） */
+.p9a-ta-table { display: grid; background: #fff; border-radius: 12px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06); min-height: 0; overflow: hidden; }
+.p9a-ta-head { color: var(--muted); font-size: 10px; letter-spacing: .04em; background: #fafbfc; }
+.p9a-ta-row { display: grid; column-gap: 8px; align-items: center; padding: 0 12px; min-height: 40px; font-size: 12px; min-width: 0; }
+.p9a-ta-body { display: grid; align-content: start; min-height: 0; overflow-y: auto; }
+.p9a-ta-body .p9a-ta-row { border-top: 1px solid #eef0f3; }
+.p9a-ta-body .p9a-ta-row:hover { background: #f8fafc; }
+.p9a-ta-row > span, .p9a-ta-row > strong { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p9a-ta-pager { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; color: var(--muted); font-size: 11px; }
+.p9a-ta-filter { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* M5 行内动作浮现（T-A 行） */
+.p9a-ta-row .p9a-row-actions { display: flex; gap: 8px; justify-content: flex-end; opacity: 0; transition: opacity 120ms ease-out; }
+.p9a-ta-row:hover .p9a-row-actions, .p9a-ta-row:focus-within .p9a-row-actions { opacity: 1; }
+
+/* 指标卡/滚动列表（核算卡复用） */
+.p9a-metric { display: grid; gap: 4px; background: #fff; border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06); }
+.p9a-metric > span { color: var(--muted); font-size: 11px; }
+.p9a-metric > strong { font-weight: 600; color: var(--ink); }
+.p9a-scroll-list { display: grid; gap: 2px; align-content: start; overflow-y: auto; min-height: 0; }
+
+/* F2 抽屉体/模态脚 */
+.p9a-drawer-body { display: grid; gap: 10px; padding: 4px 2px 12px; min-height: 0; overflow-y: auto; }
+.p9a-modal-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid #eef0f3; padding-top: 12px; margin-top: 4px; }
+.p9a-modal-foot > span { color: var(--muted); font-size: 11px; }
+
+/* 高危/提示框（红冲等；发票抬头用 inline 改蓝） */
+.ux-danger-box { border-left: 3px solid #dc2626; background: #fef2f2; border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; }
+.ux-danger-box strong { font-size: 12px; }
+.ux-danger-box p { margin: 0; font-size: 11px; color: #7f1d1d; }
+
+/* 项目核算 T-C 主从 */
+.fin-tc { display: grid; grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); gap: 14px; min-height: 0; flex: 1; }
+.fin-tc-list { background: #fff; border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06); display: flex; flex-direction: column; min-height: 0; }
+.fin-tc-detail { background: #fff; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06); min-height: 0; overflow-y: auto; }
+.fin-tc-item { width: 100%; border-radius: 8px; }
+.fin-tc-item:hover { background: #f4f6f9; }
+.fin-tc-item.active { background: #eef4ff; }
+.fin-cost-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
+.fin-margin-bars { display: grid; gap: 8px; margin-top: 6px; }
+.fin-margin-bar { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.fin-trend { display: flex; align-items: flex-end; gap: 10px; height: 110px; padding-top: 8px; }
+.fin-trend-col { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; height: 100%; }
+.fin-trend-bar { width: min(60%, 40px); border-radius: 4px 4px 0 0; transition: height 240ms ease-out; }
+.fin-trend-col > span { color: var(--muted); font-size: 10px; }
+@media (max-width: 820px) {
+  .fin-tc { grid-template-columns: 1fr; }
+  .fin-tc-list { max-height: 280px; }
+}
