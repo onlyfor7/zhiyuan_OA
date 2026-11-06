@@ -88,8 +88,8 @@
 | 9c-01 CRM 数据建模与种子 | 数据 | **通过** | 数据会话 | 2026-11-05 | 架构验收：273 全绿+库内实测（线索双态/商机 won 挂合同/GD 合同 80 万激活/客户级别行业回填） |
 | 9c-02 CRM 服务端 | 后端 | **通过** | 后端会话 | 2026-11-05 | 架构验收：根 278 全绿+prod 权限实弹（partner 读/member 404）+事务三链路与勾稽用例采信；合同空列属种子归 04 窗口 |
 | 9c-03 CRM 前端 | 前端 | **通过** | 前端会话 | 2026-11-05 | 架构验收：打回三项修复代码核验+截图实证（负责人真名/中文密级/快捷入口指真实页）+根 278 全绿；页签间距观感留 9c-05 走查核认 |
-| 9c-04 prod 发布窗口 | 部署 | 待验收 | 部署会话 | 2026-11-06 | 双镜像+迁移0011+CRM种子同步全实测通过；实录见交接记录置顶条 |
-| 9c-05 验收+手册 v1.5 | 测试 | 未解锁 | — | — | 依赖 04 |
+| 9c-04 prod 发布窗口 | 部署 | **通过** | 部署会话 | 2026-11-05 | 架构实测：CRM 种子五表计数在位（2/2/1/2/3）+三服务 healthy+数据会话保留；权限与兼容实弹采信 |
+| 9c-05 验收+手册 v1.5 | 测试 | 待认领 | — | 2026-11-05 | 依赖 04（已过）：CRM 全链取证（转化/赢单/勾稽/权限）+手册——9c 收口提请架构 |
 
 ## 迭代 9b 工单状态（基础信息维护，arch/12 §9）
 
@@ -255,6 +255,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-05｜架构｜迭代9c-04通过｜**工单 04（prod 发布 9c）验收通过，解锁 9c-05（测试会话·验收+手册 v1.5）。** 实测：crm_leads/opportunities/contracts/plans/followups=2/2/1/2/3 在库；三服务 healthy；迁移 12 行含 0011；sessions/projects 原样保留。其权限实弹（王宝茁可见客户组/管晨 404 同形）与存量收款兼容（郭静文 receipts 3 笔）采信；旧 finance@ 401 属新名单预期。
 
 - 2026-11-06｜部署｜迭代9c-04｜**工单 9c-04（prod 发布窗口）完成，转待验收（实录如下）。** 做了什么：① **双镜像重建**（`DOCKER_BUILDKIT=0` legacy builder）——server `--no-cache`（**65s**，exit 0），新镜像 `sha256:336c91f1c11f2e7852209309fd82a09566c003190f2b7d76bdf1fde666ff3713`（Created 2026-11-06T02:40:40Z），构建后核验产物含 9c：dist/seed.js 命中 `OPP-`×2/`CTR-`×1、dist/index.js `crm`×153；web 常规（**212s**）`sha256:795eac2c585b25b4dbc66b583cfb8bdd1bf43cedb5d51bc8ace3ae92843d9df1`（02:44:12Z）。② `up -d`（全程 `--env-file .env.production`，**不删卷不清会话**）：02:44:52Z 发起，**15s 三服务全 healthy**，postgres 直通未重建，数据原样（projects=5、sessions 保留）。③ **迁移核验**：`drizzle.__drizzle_migrations`=**12 行（0011 就位）**；crm_* 六表全在（crm_leads/opportunities/contracts/contract_payment_plans/contacts/followups）；0011 声明的 **5 个新枚举全部落库**（lead_status/opportunity_stage/contract_status/payment_plan_status/followup_target_type，pg_type 实测）。④ **种子同步**：`docker exec -e SEED_PROFILE=full lexflow-prod-server node /app/dist/seed.js`（MSYS 护栏）→ `profile=full，幂等` <1s；CRM 演示数据就位：线索 2（苏州恒锐/南京云启）、商机 2（OPP-2026-00001/2）、合同 1（CTR-2026-00001+付款计划 2 行）、跟进 3（lead/opportunity/customer 各一）。怎么验证（全实测 prod :8080）：三服务 healthy ✓；**客户组五页 SPA 200**：/crm/leads、/crm/customers、/crm/opportunities、/crm/contracts、/crm/followups ✓；**王宝茁（pm）登录可见客户组**：`crm.leads.list` 200 返回真实线索（LD-2026-00001 苏州恒锐…）✓；**member 不见客户组**：菜单层 `CRM_ROLES`（topnav-config.ts）不含 member，服务端兜底实测——管晨 `crm.leads.list` → 404 同形 `ACCESS_DENIED_OR_GONE` ✓；**存量收款不挂合同兼容**：收款表无 contract 列（合同↔回款经 crm_contract_payment_plans 关联），郭静文（finance）`receipts.list` 200 正常返回存量 3 笔（RCV-2026-00002 比博思特…）✓。注意：新名单后财务账号为 `guojingwen@lexflow.demo`（郭静文），旧 `finance@` 已不存在（401 属预期）。dev 栈与 dev 库全程未动 ✓。未跑任何测试套件（部署工单无此步骤，F3 套件独占规则不涉及）。提交：仅 STATUS.md（[部署] 前缀）。遗留：无。
 
