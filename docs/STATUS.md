@@ -86,8 +86,8 @@
 |---|---|---|---|---|---|
 | 9d-00 总览 | — | 已发布 | 架构 | 2026-11-05 | 契约 arch/12 §7/§11；D1 边界：不做总账凭证 |
 | 9d-01 财务核算数据建模与种子 | 数据 | **通过** | 数据会话 | 2026-11-05 | 架构验收：280 全绿+库内实测（2 应收含逾期/发票 issued/三档成本率/配置键 20） |
-| 9d-02 财务核算服务端 | 后端 | **待验收** | 后端会话 | 2026-11-05 | fin 端点组全落地（账龄/生成幂等/勾稽写回/红冲/成本率/核算公式一处）；四道门 285/285；prod 已发新镜像，e2e-01~16 16/16（F3 先确认无并发） |
-| 9d-03 财务核算前端 | 前端 | 未解锁 | — | — | 应收/发票/项目核算三页+页签间距打磨 |
+| 9d-02 财务核算服务端 | 后端 | **通过** | 后端会话 | 2026-11-05 | 架构验收：根 285 全绿+prod 实弹（核算 5 项目全字段/member 404/partner 穿透）+勾稽/红冲/公式重算用例采信 |
+| 9d-03 财务核算前端 | 前端 | 待认领 | — | 2026-11-05 | 依赖 02（已过）：应收/发票/项目核算三页+页签间距打磨 |
 | 9d-04 prod 发布窗口 | 部署 | 未解锁 | — | — | 依赖 03 |
 | 9d-05 验收+手册 v1.6 | 测试 | 未解锁 | — | — | 依赖 04 |
 
@@ -266,6 +266,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-05｜架构｜迭代9d-02通过｜**工单 02（财务核算服务端）验收通过，解锁 9d-03（前端会话）。** 实测：根测试 285/285 全绿；prod 实弹——projectCosting.list 5 项目返回 §7.3 全字段（revenue/received/arBalance/directCost/laborCost/双口径毛利）、member 应收 404 同形、partner 穿透 200；应收生成幂等（二次零新增）/勾稽同事务写回（全额 settled/作废回 open）/发票红冲冲正行/成本率二态校验用例采信。其工程裁定（直接成本取 EXPENSE_RECOGNIZED 唯一入口不双计）认定合理——核销与经费在台账同源。
 
 - 2026-11-05｜后端｜迭代9d-02｜**工单 9d-02（财务核算服务端，arch/12 §7）完成，转待验收。** **权限**（access 注册）：`fin.read`=finance/partner/项目负责人；`fin.manage`=finance/partner；**member 财务域 404 同形（本人费用端点既有语义不动）、sysadmin 亦无 fin 权**（探针在位）；projectCosting.get 额外放行本项目 manager（项目负责人本项目管理口径）；PM 读通但成本率写 404（无 manage）。**应收**：list 账龄分桶 computed（**逾期不落库**：0-30/31-60/61-90/90+，逾期=超 due+宽限 fin.ar.overdue_grace_days=7，未到期 bucket=null）；generate 读 fin.ar.auto_generate 双开关（合同激活/计划到期）全量扫描，**幂等防重**（已存在应收的合同/计划行跳过；用例：首次补 contract_active 应收 1 条、二次零新增、总数稳定）；**收款勾稽应收同事务写回**——recomputeReceivableForPlan 接入 9c 计划行写回链（link/unlink 尾部同事务调用）：挂 plan 全额 → 应收 settled、作废冲正 → 回 open（用例 DB 级断言）。**发票**：create（**联动应收带出金额**——显式 amountCents 优先否则取应收额；税率默认读 fin.invoice.default_tax_rate=6；**抬头取 company_profile** 随响应下发）/issue/markSent/**void 红冲**（issued/sent→voided + **负数冲正行**同税率 voided；draft 直 void 无冲正行；已 voided 重放零副作用）。**成本率**：list/upsert（fin.manage；按人价/按角色价二态校验 400；同人同生效日或同角色同生效日 update）。**项目核算**：`services/fin/costing.ts` **唯一口径实现**（报表域复用同一函数）——§7.3 冻结公式：收入=Σ合同额（签约口径，排除 terminated）、已回款=registered−voided 净额、应收余额=Σ应收未结剩余（应收−挂钩 registered 回款）、直接成本=Σ台账 EXPENSE_RECOGNIZED actualDelta（**工程裁定：费用核销与经费支出在当前台账同源〔确认实际唯一入口〕，取一次不双计——交接备查**）、人力成本=Σ(approved+locked 工时)×成本率（按人价优先否则角色价，无率计 0）、毛利双口径（回款口径/签约口径）。**用例** `tests/api/fin.test.ts` 5 条（权限三探针+PM 无 manage+二态校验/账龄桶+宽限+生成幂等/勾稽 settled→void 回 open/发票联动+抬头+红冲+重放+原因拦截/公式八字段+毛利双口径自勾稽+回款净额独立重算勾稽+list 同口径）。**F3 执行**：跑套件前确认无其他会话在跑（docker 容器仅既有四件、无并发 vitest/build）。**四道门逐条真实跑**：server vitest **262/262**（52 文件；既有 257 零回归+5 新）✓；根 typecheck/build exit 0✓；根 test **285/285**（262+23）✓。**prod**：server 镜像 DOCKER_BUILDKIT=0 --no-cache 重建复起（--env-file .env.production，healthy）；e2e-01~16 **16/16 不回归**。分支 `iter9d/server-fin`。**交接 9d-03 前端**：应收管理（账龄徽标+行内登记收款跳挂合同/计划行）/发票 F2（联动带出+抬头渲染）/项目核算 T-C 七字段卡片——接 `fin.*`；**9e 报表域**：项目收支核算表直接复用 `computeProjectCosting/listProjectCostings`。
 - 2026-11-05｜架构｜迭代9d-01通过｜**工单 01（财务核算数据建模）验收通过，解锁 9d-02（后端会话）。** 实测：根测试 280/280（257+23）全绿；dev 库复核——AR-00001（10-27 逾期演示）/AR-00002（明年 1 月未到期）、INV-00001 issued 税率 6、成本率三档按角色（partner 500/pm 350/member 200 元每时）、fin.* 三配置键在位（宽限 7 天/自动生成开关/默认税率 6）。其设计口径（逾期不落库由查询算+overdue 枚举值被拒反例、二态 check 23514）与 §7.2 逐字一致。
