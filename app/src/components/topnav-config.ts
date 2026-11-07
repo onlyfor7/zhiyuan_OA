@@ -83,27 +83,27 @@ export const NAV_TREE: NavGroup[] = [
       { to: "/operations/time", label: "工时中心", desc: "页级批量填报 + 快速填报 F1" },
     ] },
   ] },
-  { key: "reports", label: "报表", roles: CRM_ROLES, sections: [
+  { key: "reports", label: "报表", sections: [ // 9e-02：report.read=登录全员（member 本人口径/空集域由服务端同形状返回），组不设角色过滤
     { name: "报表目录", items: [
-      { to: CS("report", "报表工作台", "预定义目录+筛选+导出（9e）"), label: "报表工作台", desc: "T-C：左目录树+右侧说明卡" },
+      { to: "/reports", label: "报表工作台", desc: "T-C：四类目录树+说明卡（一期十张）" },
     ] },
     { name: "项目类", items: [
-      { to: CS("report", "项目健康度汇总"), label: "项目健康度汇总", desc: "健康度矩阵+延期分布" },
-      { to: CS("report", "项目进度与延期"), label: "项目进度与延期", desc: "延期明细+恢复检查点" },
-      { to: CS("report", "项目收支核算表"), label: "项目收支核算表", desc: "收入/成本/毛利三栏" },
+      { to: "/reports/project_health", label: "项目健康度汇总", desc: "健康度矩阵+延期分布" },
+      { to: "/reports/project_delay", label: "项目进度与延期", desc: "延期明细+恢复检查点" },
+      { to: "/reports/project_costing", label: "项目收支核算表", desc: "收入/成本/毛利三栏" },
     ] },
     { name: "财务类", items: [
-      { to: CS("report", "收款账龄分析"), label: "收款账龄分析", desc: "账龄分桶+客户维度" },
-      { to: CS("report", "费用类别分析"), label: "费用类别分析", desc: "类别 8 值分布" },
-      { to: CS("report", "月度收支汇总"), label: "月度收支汇总", desc: "月度收/支/净额趋势" },
+      { to: "/reports/receivable_aging", label: "收款账龄分析", desc: "账龄分桶色阶+客户维度" },
+      { to: "/reports/expense_category", label: "费用类别分析", desc: "类别 8 值×月度交叉" },
+      { to: "/reports/monthly_cashflow", label: "月度收支汇总", desc: "月度收/支/净额趋势" },
     ] },
     { name: "人事工时类", items: [
-      { to: CS("report", "工时汇总"), label: "工时汇总", desc: "按人/项目/部门三视角" },
-      { to: CS("report", "利用率分析"), label: "利用率分析", desc: "人员利用率（成本率折算）" },
+      { to: "/reports/time_summary", label: "工时汇总", desc: "按人/项目/部门三视角页签" },
+      { to: "/reports/utilization", label: "利用率分析", desc: "人员利用率（工作日×8h）" },
     ] },
     { name: "客户类", items: [
-      { to: CS("report", "商机漏斗"), label: "商机漏斗", desc: "五阶段转化" },
-      { to: CS("report", "客户贡献排行"), label: "客户贡献排行", desc: "贡献=合同额/回款" },
+      { to: "/reports/opportunity_funnel", label: "商机漏斗", desc: "六阶段横向漏斗条" },
+      { to: "/reports/customer_contribution", label: "客户贡献排行", desc: "贡献=合同额/回款 Top10" },
     ] },
   ] },
   { key: "office", label: "办公", sections: [
