@@ -24,7 +24,7 @@ export default function SettingsPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">ACCOUNT SECURITY</span>
-          <h1>
+          <h1 aria-label="自助改密">
             自助改密
             <HelpIcon pageKey="settings" />
           </h1>

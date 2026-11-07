@@ -15,7 +15,7 @@ export default function ArchivePage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">PROJECT ARCHIVE</span>
-          <h1>
+          <h1 aria-label="项目结束，记忆仍然清晰。">
             项目结束，记忆仍然清晰。
             <HelpIcon pageKey="archive" />
           </h1>

@@ -46,7 +46,7 @@ export default function RequestsPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">GENERIC REQUEST</span>
-          <h1>
+          <h1 aria-label="通用申请单">
             通用申请单
             <HelpIcon pageKey="requests" />
           </h1>

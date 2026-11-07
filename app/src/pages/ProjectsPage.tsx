@@ -32,7 +32,7 @@ export default function ProjectsPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">PROJECT PORTFOLIO</span>
-          <h1>
+          <h1 aria-label="项目全周期">
             项目全周期
             <HelpIcon pageKey="projects" />
           </h1>

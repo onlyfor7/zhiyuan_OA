@@ -32,7 +32,7 @@ export default function MeetingsPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">MEETING CENTER</span>
-          <h1>
+          <h1 aria-label="会议中心">
             会议中心
             <HelpIcon pageKey="meetings" />
           </h1>

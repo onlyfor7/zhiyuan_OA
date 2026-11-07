@@ -56,7 +56,7 @@ export default function AdminCenterPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">ADMIN CENTER</span>
-          <h1>
+          <h1 aria-label="系统配置中心">
             系统配置中心
             <HelpIcon pageKey="admin-center" />
           </h1>

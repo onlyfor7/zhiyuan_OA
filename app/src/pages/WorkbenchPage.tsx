@@ -142,7 +142,7 @@ export default function WorkbenchPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">MY WORKSPACE · WEEK {week}</span>
-          <h1>
+          <h1 aria-label="今天，从最关键的事开始。">
             今天，从最关键的事开始。
             <HelpIcon pageKey="workbench" />
           </h1>

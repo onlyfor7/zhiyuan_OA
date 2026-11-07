@@ -1,6 +1,5 @@
 import type { ComponentType, ReactNode } from "react";
-import { useEffect } from "react";
-import { useOutletContext } from "react-router";
+import { createContext, useContext, useEffect } from "react";
 
 import type { MeOutput } from "../lib/trpc";
 
@@ -9,9 +8,16 @@ export interface ShellContextValue {
   setRail: (node: ReactNode | null) => void;
 }
 
-/** 页面经 Outlet 上下文向右侧情境栏注入内容 */
+/**
+ * 工作区壳上下文（iter10-02：由 useOutletContext 改为显式 Context——
+ * 多页签 keep-alive 后内容不再经 Outlet 渲染；AppShell 以 <ShellContext.Provider> 直接提供）。
+ */
+export const ShellContext = createContext<ShellContextValue | null>(null);
+
 export function useShell(): ShellContextValue {
-  return useOutletContext<ShellContextValue>();
+  const ctx = useContext(ShellContext);
+  if (!ctx) throw new Error("useShell 必须在 AppShell 工作区内使用");
+  return ctx;
 }
 
 /**

@@ -37,8 +37,8 @@ export default function FundingDetailPage() {
             <ChevronRight size={13} />
             <span>{f.code}</span>
           </div>
-          <h1>
-            {f.purpose}
+          <h1 aria-label="{f.purpose}">
+           {f.purpose}
             <HelpIcon pageKey="funding-detail" />
           </h1>
           <p>

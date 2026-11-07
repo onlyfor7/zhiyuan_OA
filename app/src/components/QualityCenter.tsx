@@ -364,7 +364,7 @@ export function QualityCenter({ projectId }: { projectId?: string }) {
         <div className="screen-heading">
           <div>
             <span className="eyebrow">QUALITY ASSURANCE</span>
-            <h1>
+            <h1 aria-label="质量，是持续发生的闭环。">
               质量，是持续发生的闭环。
               {!projectId ? <HelpIcon pageKey="quality" /> : null}
             </h1>

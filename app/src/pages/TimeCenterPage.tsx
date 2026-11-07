@@ -256,7 +256,7 @@ export default function TimeCenterPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">TIME TRACKING</span>
-          <h1>
+          <h1 aria-label="工时中心">
             工时中心
             <HelpIcon pageKey="time-center" />
           </h1>

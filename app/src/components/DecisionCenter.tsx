@@ -300,7 +300,7 @@ export function DecisionCenter({ projectId }: { projectId?: string }) {
         <div className="screen-heading">
           <div>
             <span className="eyebrow">DECISION CENTER</span>
-            <h1>
+            <h1 aria-label="重要取舍，应当被认真记录。">
               重要取舍，应当被认真记录。
               {!projectId ? <HelpIcon pageKey="decisions" /> : null}
             </h1>

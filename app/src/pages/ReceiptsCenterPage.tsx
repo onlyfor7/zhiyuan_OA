@@ -101,7 +101,7 @@ export default function ReceiptsCenterPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">PAYMENT RECEIPTS</span>
-          <h1>
+          <h1 aria-label="客户收款台账">
             客户收款台账
             <HelpIcon pageKey="receipts-ledger" />
           </h1>

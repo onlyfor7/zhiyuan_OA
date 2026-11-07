@@ -31,7 +31,7 @@ export default function TravelPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">TRAVEL CENTER</span>
-          <h1>
+          <h1 aria-label="出差中心">
             出差中心
             <HelpIcon pageKey="travel" />
           </h1>

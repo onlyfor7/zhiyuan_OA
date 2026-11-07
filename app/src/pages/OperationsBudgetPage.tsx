@@ -308,7 +308,7 @@ export default function OperationsBudgetPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">OPERATIONS · BUDGET</span>
-          <h1>
+          <h1 aria-label="预算管理">
             预算管理
             <HelpIcon pageKey="operations-budget" />
           </h1>

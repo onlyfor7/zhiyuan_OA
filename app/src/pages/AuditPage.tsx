@@ -35,7 +35,7 @@ export default function AuditPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">ACCESS & AUDIT</span>
-          <h1>
+          <h1 aria-label="看得见权限，也查得到足迹。">
             看得见权限，也查得到足迹。
             <HelpIcon pageKey="audit" />
           </h1>

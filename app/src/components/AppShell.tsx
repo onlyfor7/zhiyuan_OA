@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { Component, lazy, Suspense, useEffect, useState } from "react";
-import { Link, Navigate, Outlet, useLocation } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, Navigate, useLocation } from "react-router";
 import { Bell, Menu, Search } from "lucide-react";
 import { Toaster } from "sonner";
 
@@ -10,9 +10,9 @@ import { SearchPalette } from "./SearchPalette";
 import { MobileNavDrawer } from "./MobileNavDrawer";
 import { AvatarMenu } from "./TopNav";
 import { CascadeNav } from "./CascadeNav";
-import type { ShellContextValue } from "./shell-rail";
-import { isAccessDeniedOrGone, isAuthRequired, queryClient } from "../lib/trpc";
-const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
+import { ShellContext, type ShellContextValue } from "./shell-rail";
+import { WorkspaceShell } from "./workspace/WorkspaceShell";
+import { isAuthRequired } from "../lib/trpc";
 
 function BrandMark() {
   return (
@@ -24,60 +24,7 @@ function BrandMark() {
   );
 }
 
-interface BoundaryProps {
-  children: ReactNode;
-  from: string;
-}
-
-interface BoundaryState {
-  error: unknown;
-}
-
-/**
- * 路由错误边界：ACCESS_DENIED_OR_GONE → 403/404 同形页（不泄露存在性）；
- * AUTH_REQUIRED → 跳登录并保留回跳地址；其余错误 → 可重试的错误态。
- */
-class AccessErrorBoundary extends Component<BoundaryProps, BoundaryState> {
-  override state: BoundaryState = { error: null };
-
-  static getDerivedStateFromError(error: unknown): BoundaryState {
-    return { error };
-  }
-
-  override render() {
-    const { error } = this.state;
-    if (error !== null && error !== undefined) {
-      if (isAccessDeniedOrGone(error)) {
-        return (
-          <Suspense fallback={null}>
-            <NotFoundPage fixedCode="404" />
-          </Suspense>
-        );
-      }
-      if (isAuthRequired(error)) {
-        return <Navigate to="/login" replace state={{ from: this.props.from }} />;
-      }
-      return (
-        <div className="error-state" role="alert">
-          <strong>页面加载失败</strong>
-          <p>请求未成功完成，请重试；若持续失败请联系系统管理员。</p>
-          <button
-            className="secondary-action"
-            onClick={() => {
-              void queryClient.invalidateQueries();
-              this.setState({ error: null });
-            }}
-          >
-            重试
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-/** 应用壳：迭代 7 新 IA——顶栏五组下拉 + 头像菜单收口系统级功能（arch/10 §1.1） */
+/** 应用壳：迭代 7 新 IA 顶栏（五组下拉+头像菜单收口）+ 迭代 10 多页签工作区（§15，arch/12 v1.9） */
 export default function AppShell() {
   const me = useMe();
   const location = useLocation();
@@ -130,51 +77,46 @@ export default function AppShell() {
   }
 
   return (
-    <div className="concept-app">
-      <header className="topbar">
-        <Link to="/cockpit" className="brand" aria-label="LEXFLOW 驾驶舱">
-          <BrandMark />
-          <div>
-            <strong>因诺智元</strong>
-            <span>业务管理平台</span>
-          </div>
-        </Link>
-        <CascadeNav globalRoles={data.globalRoles} />
-        <div className="top-actions">
-          <button className="search-trigger" onClick={() => setSearchOpen(true)}>
-            <Search size={16} />
-            <span>搜索项目、任务、报销、文件</span>
-            <kbd>⌘ K</kbd>
-          </button>
-          <Link to="/workbench" className="icon-button dark bell-link" aria-label="通知与待办">
-            <Bell size={18} />
-            {unread.data && unread.data.count > 0 ? (
-              <i className="bell-badge">{unread.data.count > 99 ? "99+" : unread.data.count}</i>
-            ) : null}
+    <ShellContext.Provider value={{ me: data, setRail } satisfies ShellContextValue}>
+      <div className="concept-app">
+        <header className="topbar">
+          <Link to="/cockpit" className="brand" aria-label="LEXFLOW 驾驶舱">
+            <BrandMark />
+            <div>
+              <strong>因诺智元</strong>
+              <span>业务管理平台</span>
+            </div>
           </Link>
-          <AvatarMenu name={data.user.name} email={data.user.email} />
-          <button
-            className="icon-button dark nav-menu-trigger"
-            aria-label="打开主导航"
-            aria-expanded={navOpen}
-            aria-controls="mobile-nav-drawer"
-            onClick={() => setNavOpen(true)}
-          >
-            <Menu size={18} />
-          </button>
-        </div>
-      </header>
-      {searchOpen ? <SearchPalette onClose={() => setSearchOpen(false)} /> : null}
-      <Toaster position="bottom-right" richColors closeButton />
-      <MobileNavDrawer open={navOpen} globalRoles={data.globalRoles} onClose={() => setNavOpen(false)} />
-      <div className="app-body no-rail">
-        <main className="main-workspace">
-          <AccessErrorBoundary key={location.pathname} from={from}>
-            <Outlet context={{ me: data, setRail } satisfies ShellContextValue} />
-          </AccessErrorBoundary>
-        </main>
-        {rail}
+          <CascadeNav globalRoles={data.globalRoles} />
+          <div className="top-actions">
+            <button className="search-trigger" onClick={() => setSearchOpen(true)}>
+              <Search size={16} />
+              <span>搜索项目、任务、报销、文件</span>
+              <kbd>⌘ K</kbd>
+            </button>
+            <Link to="/workbench" className="icon-button dark bell-link" aria-label="通知与待办">
+              <Bell size={18} />
+              {unread.data && unread.data.count > 0 ? (
+                <i className="bell-badge">{unread.data.count > 99 ? "99+" : unread.data.count}</i>
+              ) : null}
+            </Link>
+            <AvatarMenu name={data.user.name} email={data.user.email} />
+            <button
+              className="icon-button dark nav-menu-trigger"
+              aria-label="打开主导航"
+              aria-expanded={navOpen}
+              aria-controls="mobile-nav-drawer"
+              onClick={() => setNavOpen(true)}
+            >
+              <Menu size={18} />
+            </button>
+          </div>
+        </header>
+        {searchOpen ? <SearchPalette onClose={() => setSearchOpen(false)} /> : null}
+        <Toaster position="bottom-right" richColors closeButton />
+        <MobileNavDrawer open={navOpen} globalRoles={data.globalRoles} onClose={() => setNavOpen(false)} />
+        <WorkspaceShell rail={rail} from={from} />
       </div>
-    </div>
+    </ShellContext.Provider>
   );
 }

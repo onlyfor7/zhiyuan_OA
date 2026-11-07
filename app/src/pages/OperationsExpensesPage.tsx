@@ -63,7 +63,9 @@ export default function OperationsExpensesPage() {
       </div>
     );
   }
-  if (stats.isPending || list.isPending) return <p className="list-note">正在加载…</p>;
+  // isFetching 口径：stats 三钩子在无项目时 enabled=false——v5 禁用查询 isPending 恒真，
+  // 用 isFetching 才能区分「真在拉取」与「未启用」（finance 无管辖项目时此页原先永久卡加载）
+  if (stats.isFetching || list.isFetching) return <p className="list-note">正在加载…</p>;
   if (stats.isError) throw stats.error;
   if (list.isError) throw list.error;
 
@@ -88,11 +90,11 @@ export default function OperationsExpensesPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">OPERATIONS · EXPENSES</span>
-          <h1>
+          <h1 aria-label="费用中心">
             费用中心
             <HelpIcon pageKey="operations-expenses" />
           </h1>
-          <p>{stats.data.statusScope}</p>
+          <p>{stats.data ? stats.data.statusScope : "未选项目——列表为与我相关的报销；项目维度预算/统计在项目空间「费用」页签查看。"}</p>
         </div>
         <div className="title-actions">
           <button className="secondary-action" disabled={exporting} onClick={() => void downloadCsv()}>
@@ -103,7 +105,7 @@ export default function OperationsExpensesPage() {
           <CreateInDialog label="新建报销" title="新建费用报销" eyebrow="F2 · 抽屉范式（明细行）" form={ExpenseNewPage} />
         </div>
       </div>
-      <BudgetBar aggregate={stats.data} />
+      {stats.data ? <BudgetBar aggregate={stats.data} /> : null}
       <div className="overview-panels">
         <section>
           <span className="section-label">BY CATEGORY</span>

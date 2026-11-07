@@ -414,7 +414,8 @@ test("E2E-16 移动端 375px 核心填报与审批", async ({ page, browser }) =
   expect(overflow).toBe(0); // 移动形态（叠加滚动条）无越界元素
   await mp.screenshot({ path: "D:/tmp/shots-iter5-e2e/E2E-16-mobile-time.png" });
   await gotoApp(mp, "/meetings");
-  await expect(mp.getByText(/会议|日程/).first()).toBeVisible();
+  // iter10-02 页签条：签标题与页面同词（如「会议中心」）——375 下签条隐藏，getByText 需限定主区避免命中隐藏签
+  await expect(mp.locator(".main-workspace").getByText(/会议|日程/).first()).toBeVisible();
   await mp.screenshot({ path: "D:/tmp/shots-iter5-e2e/E2E-16-mobile-meetings.png" });
   await mob.close();
 });

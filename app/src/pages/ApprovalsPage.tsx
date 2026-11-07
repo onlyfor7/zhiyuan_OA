@@ -244,7 +244,7 @@ export default function ApprovalsPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">APPROVAL CENTER</span>
-          <h1>
+          <h1 aria-label="审批中心">
             审批中心
             <HelpIcon pageKey="approvals" />
           </h1>

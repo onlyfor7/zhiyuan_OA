@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
+import { useEffect } from "react";
 import { Link, NavLink, Outlet } from "react-router";
 import { ChevronRight } from "lucide-react";
 
 import { useMe } from "../../api/auth";
 import { useProject, useProjectOverview } from "../../api/project";
 import { NotConnected } from "../../components/NotConnected";
+import { useWorkspaceTabs } from "../../components/workspace/workspace-tabs-context";
 import { useSpaceParams } from "./space-context";
 import {
   CONFIDENTIALITY_LABEL,
@@ -57,6 +59,11 @@ export default function ProjectSpacePage(): ReactNode {
   const project = useProject(projectId);
   const overview = useProjectOverview(projectId);
   const me = useMe();
+  // §15：项目空间=单个全局页签，签标题回填项目名（dynamicTitle）
+  const workspaceTabs = useWorkspaceTabs();
+  useEffect(() => {
+    if (project.data?.name) workspaceTabs?.renameTab(`project:${projectId}`, project.data.name);
+  }, [project.data?.name, projectId, workspaceTabs]);
 
   if (project.isPending) return <SpaceFallback />;
   if (project.isError) throw project.error;
