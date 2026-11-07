@@ -85,8 +85,8 @@
 | 工单 | 会话 | 状态 | 认领人 | 日期 | 备注 |
 |---|---|---|---|---|---|
 | 9e-00 总览 | — | 已发布 | 架构 | 2026-11-05 | 契约 arch/12 §8（D2 一期形态）；无新表 |
-| 9e-01 报表聚合与导出 | 后端 | **待验收** | 后端会话 | 2026-11-07 | 九报表统一 {columns,rows,summaryCards}+口径复用 services+导出走文件管道；四道门 289/289；prod 已发新镜像，e2e-01~16 16/16（F3 套件独占已确认） |
-| 9e-02 报表中心前端 | 前端 | 未解锁 | — | — | 工作台目录树+单报表页骨架九张共用 |
+| 9e-01 报表聚合与导出 | 后端 | **通过** | 后端会话 | 2026-11-05 | 架构验收：根 289 全绿+prod 实弹（partner 三报表 200/member 空集域与 404 口径）+勾稽与导出全链用例采信；reports.* 与治理 report.* 并存留痕 |
+| 9e-02 报表中心前端 | 前端 | 待认领 | — | 2026-11-05 | 依赖 01（已过）：工作台目录树+九报表页骨架+导出 |
 | 9e-03 prod 发布窗口 | 部署 | 未解锁 | — | — | 依赖 02 |
 | 9e-04 验收+压测+总收口 | 测试 | 未解锁 | — | — | 依赖 03；含 §14.2 100 并发压测冒烟+手册 v1.7 |
 
@@ -276,6 +276,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-05｜架构｜迭代9e-01通过｜**工单 01（报表聚合与导出）验收通过，解锁 9e-02（前端会话）。** 实测：根测试 289/289 全绿；prod 实弹——partner 核算表 5 行/账龄 2 行/漏斗 6 阶段 200，member 无 CRM 权域空集 200、费用类别 404。口径勾稽（costing 回款净额台账重算/账龄同函数重放/月度收 registered 重算/利用率工作日×480 逐行）与导出全链（file_objects+HMAC 令牌+审计快照）用例采信。观察项：member 费用类别分析 404 与其「本人口径 200」描述不一致——属 fin 域安全收紧方向，接受现值；reports.*（报表中心）与治理 report.*（周报）命名并存留痕。
 
 - 2026-11-07｜后端｜迭代9e-01｜**工单 9e-01（报表聚合与导出，arch/12 §8/§11）完成，转待验收。** **权限**：access 注册 `report.read`/`report.export`（登录全员 true）——行级按各数据域既有口径过滤在 service 层：member 本人口径（项目矩阵仅见本项目/费用类别=本人 applicant/收款账龄·月度收支·商机漏斗·客户贡献=空集 200 同形状）、partner 全局穿透、finance/PM 全量（reportProjectScope 助手）；导出同 read 口径+审计。**九报表**（`reports.*` 路由——既有 `report.*` 为周报治理域，本期挂复数路由，前端 /reports 工作台对应）统一入参（日期区间/部门/项目/客户/view）统一出参 `{columns,rows,summaryCards}`，**口径只调 services 既有聚合**：收支核算表直调 9d `listProjectCostings`、账龄复用 `fin.computeAging`（宽限 7 天同配置）、工时三视角复用 `time.statsByUser/ByProject`（**stats 两函数加 `scopeAll` 加性参数**——报表域 finance/partner 全量覆盖，口径实现仍在 stats 一处）、商机/客户贡献走 crm 口径（无 crm.read 空集+金额列对无 fin.read 动态剔除 columns）。九张：项目健康度（状态×健康矩阵）/进度延期明细（count(*) filter 聚合——**修一处 PG 语法：cast 不可夹 FILTER 前**）/收支核算/收款账龄（客户×四桶）/费用类别（类别×月度，member 本人）/月度收支（registered 收−EXPENSE_RECOGNIZED 支−净额）/工时汇总（人/项目/部门）/人员利用率（批准工时÷工作日×8h，同算法勾稽）/商机漏斗/客户贡献 Top10。**导出**：服务端生成 CSV（BOM+引号转义）→ `saveUpload`（**csv 入上传白名单**；file_objects source_type='report'，**source_id/target_id 为 uuid 列**——报表 key 非 uuid，sourceId/targetId 置 null、key+筛选快照全走审计 afterJson，溯源完整）→ HMAC 下载令牌（既有管道）→ 响应 downloadPath；审计 `report.export` 同事务含 key+filter 快照。**用例** `reports.test.ts` 4 条（九报表形状+三处口径抽样勾稽〔costing 回款净额台账重算/账龄同函数重放/月度收 registered 总额〕/权限探针 member 本人口径 vs partner 穿透 vs 空集域/导出全链〔file_objects 落库形状+无会话令牌下载 200+CSV 含表头+审计行 key+filter〕/利用率工作日×480 逐行勾稽+部门归并合计=人视角合计勾稽）。**F3 套件独占**：跑门前确认无其他会话（docker 四件既有/无并发 vitest）。**四道门逐条真实跑**：server vitest **266/266**（53 文件；既有 262 零回归+4 新）✓；根 typecheck/build exit 0✓；根 test **289/289**（266+23）✓。**prod**：server 镜像 DOCKER_BUILDKIT=0 --no-cache 重建复起（--env-file .env.production，healthy）；e2e-01~16 **16/16 不回归**。分支 `iter9e/server-reports`。**交接 9e-02 前端**：/reports 报表工作台（四类目录取 `reports.*`）+单报表页（筛选条/指标卡/内滚动表格/导出按钮接 `reports.exportCsv` downloadPath）；**9e 报表域后续**：月度趋势迷你图可基于 monthlyCashflow rows 客户端渲染。
 - 2026-11-05｜架构｜迭代9d收口+9e发布｜**9d（财务核算）收口，9e（报表中心+总收口）工单包发布。** 9d-05 复核：6/6 取证采信（应收勾稽全链状态机/发票抬头独立断言/核算抽样勾稽/权限三探针）+根 285 复跑全绿+页签 gap 6px 核认关闭+手册 v1.6 四章。**勘误其 T6**：「dev 库 0 项目已重置」不属实——实测 9 项目（5 种子+4 个「迭代7验收mw*」e2e 残留）——e2e-on-dev 自增殖属机制性现象，非"无需处理"；处置建议（dev 定期重置或 e2e 自清创建物）随 9e-04 评估入运维手册。9e 链：01 后端（九报表聚合端点+CSV 导出，无新表）→ 02 前端 → 03 发布窗口 → 04 验收（含 §14.2 100 并发压测冒烟）+迭代 9 总收口。**当前解锁：9e-01（后端会话）。**
