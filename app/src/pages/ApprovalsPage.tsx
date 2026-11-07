@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Check, ChevronRight, Send, ShieldCheck, X } from "lucide-react";
+import { Check, ChevronRight, Send, X } from "lucide-react";
 
 import { useApproval, useApprovalAct, useApprovalsApplied, useApprovalsMine } from "../api/approval";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
 import { ListSkeleton } from "../components/feedback";
+import { HelpIcon } from "../components/HelpIcon";
 import "../lib/form";
 import {
   APPROVAL_BIZ_LABEL,
@@ -11,34 +12,11 @@ import {
   GLOBAL_ROLE_LABEL,
 } from "../lib/labels";
 import type { RouterOutputs } from "../lib/trpc";
-import { useRail } from "../components/shell-rail";
 import { UserPicker } from "../components/UserPicker";
 import { FlowProgressGraph } from "../components/FlowProgressGraph";
 
 type MineItem = RouterOutputs["approval"]["listMine"]["items"][number];
 type AppliedItem = RouterOutputs["approval"]["listMineApplied"]["items"][number];
-
-function ApprovalRail() {
-  return (
-    <aside className="context-rail">
-      <div className="context-heading">
-        <span className="section-label">APPROVAL</span>
-        <h2>审批中心</h2>
-      </div>
-      <div className="context-section">
-        <div className="section-label">SINGLE ENGINE</div>
-        <h2>唯一审批实现</h2>
-        <p className="context-note">
-          延期与档案授权统一走公共审批引擎；通过/驳回/转交即时生效，重复提交与并发操作由幂等键与条件更新保证单一结果。
-        </p>
-      </div>
-      <div className="assurance">
-        <ShieldCheck size={16} />
-        <span>审批动作与结果均写入审计。</span>
-      </div>
-    </aside>
-  );
-}
 
 interface ApprovalCheck {
   name: string;
@@ -252,7 +230,6 @@ function AppliedSteps({ id }: { id: string }) {
 
 /** 审批中心：待我审批队列（act）+ 我申请的（进度） */
 export default function ApprovalsPage() {
-  useRail(ApprovalRail);
   const mine = useApprovalsMine();
   const applied = useApprovalsApplied();
   const [tab, setTab] = useState<"mine" | "applied">("mine");
@@ -267,7 +244,10 @@ export default function ApprovalsPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">APPROVAL CENTER</span>
-          <h1>审批中心</h1>
+          <h1>
+            审批中心
+            <HelpIcon pageKey="approvals" />
+          </h1>
           <p>待我审批 {mine.data.items.length} 项 · 我申请的 {applied.data.items.length} 项</p>
         </div>
       </div>

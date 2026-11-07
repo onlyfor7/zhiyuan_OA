@@ -89,7 +89,7 @@
 | 工单 | 会话 | 状态 | 认领人 | 日期 | 备注 |
 |---|---|---|---|---|---|
 | 10-00 总览 | — | 已发布 | 架构 | 2026-11-07 | 用户实测六裁定映射 |
-| 10-01 全局打磨包 | 前端 | 待认领 | — | — | 表单视口/Excel 报表/分钟清零/ⓘ 化/H2 修订 |
+| 10-01 全局打磨包 | 前端 | **待验收** | 前端会话 | 2026-11-07 | 五裁定全落地（表单视口约束+出差拆F3/报表Excel风格/分钟清零/ⓘ注册表+16右栏全拆/H2内滚框清零）；四道门 289 全绿+走查 41/41 断言（D:\tmp\shots-iter10\） |
 | 10-02 多页签工作区 | 前端 | 未解锁 | — | — | 依赖 01；原型确认门 |
 | 10-03 验收+手册 v1.8 | 测试 | 未解锁 | — | — | 依赖 02 |
 
@@ -289,6 +289,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-07｜前端｜迭代10-01｜**工单 10-01（全局打磨包，arch/12 v1.9 五裁定逐条）完成，转「待验收」。** 分支 `iter10/frontend-polish`（基于 9e-02 线）。**① 表单视口约束**：共享弹窗壳 `.decision-modal`（F1–F4 全走此壳）上 `max-height: calc(100vh - 64px)`+sticky 头（`.drawer-head` top）+sticky 尾（`.drawer-actions`/`.p9a-modal-foot` bottom），纯 CSS 零结构改动；**新建出差拆 F3 三页签**（基本/行程段/费用与借款，页签校验红点 `.rep-tab-dot`，提交置底末页签）；1280×800 下限逐弹窗断言（收款登记 h=687/开具发票 F2 h=611/快速填报 h=586/新建线索 h=500，均 ≤736 且不超屏）。**② 报表 Excel 风格**（仅 `.rep-excel` 报表表格，业务列表不动）：全格线 1px 细边+表头灰底 #f3f4f6 sticky 冻结+行高 34+`.mono` 数值右对齐。**③ 分钟清零**：前端删 `formatMinutes`（labels.ts），TimesheetTab×3/TimeCenterPage×6/MeetingDetail 预填/TravelDetail 日建议全改 `formatHours`（0.5 步进小时）；报表 time_summary/utilization 列头与合计经 meta.label 映射（（分钟）→（小时）、合计分钟→合计工时）+cell/summary 小时化；服务端 time.ts 两条校验消息改小时显示（`工时须为 X 小时的整数倍（当前 Y 小时）`，iter8-ext 断言 "0.5 小时"/"1 小时" 兼容）、time stats CSV 表头改「工时（小时）」值按小时导出（iter4 断言同步改）、治理周报 timeSection 全小时化（保留「已批准工时」前缀，iter4/time-stats 断言兼容）；grep 断言：UI 分钟显示零残留（仅 meta.ts 映射必需字面量/注释）。**④ 说明 ⓘ 化**：新建 `lib/help-texts.ts` 注册表（16 页面 key）+`components/HelpIcon.tsx`（点击开/Esc/外点关）；**16 页右侧说明栏全拆**（含 DecisionCenter/QualityCenter 共享组件页），context-rail 页面残留=0。**⑤ H2 修订**：全局 CSS 去纵向内滚——`.p9a-ta-body`/`.p9a-scroll-list`/`.fin-tc-*`/`.org-tree-list`/`.org-detail`/`.crm-tab-body`/驾驶舱四处（todo-scroll/delay-body/schedule-list/quick-fill）；报表表格容器 `overflow-y: clip`（防 visible+x=auto 回退 auto 的规范陷阱）；承载改法：发票页补游标分页、驾驶舱待办**扁平化 6 行/页分页**（组头折叠态保留+组头计数）、日程联动截 5+「···显示全部(N)→/workbench」、客户详情三列表（跟进/合同/文件）≤10 折叠+显示全部、组织树/详情整页渲染；弹窗体/设计器画布/移动抽屉按裁定例外保留。**质量门**（F3 合规）：根四道门逐条真实执行全绿（typecheck/build/db:migrate/test 289）。**走查**（1280×800 窗口）：**41/41 断言 PASS**（12 截图 D:\tmp\shots-iter10\）——上述全部实测+驾驶舱/报表/工时三页 H1 三档零溢出+375 四页零横向溢出。**留给 10-02**：多页签工作区（§15，原型确认门）；`shell-rail.tsx` 的 useRail 已零消费者保留未删。
 
 - 2026-11-07｜架构｜迭代10发布｜**迭代 10（体验打磨）六裁定冻结（arch/12 v1.9）与工单包发布。** ① 表单视口约束（截图 1 出差表单超屏类问题全局清零，超长拆 F3/F4）；② 报表页 Excel 风格（全格线/灰底表头/34px/右对齐/冻结表头）；③ 工时全局小时 0.5、分钟显示清零（服务端存量不动）；④ 右侧说明栏废止→标题旁 ⓘ 气泡+help-texts 注册表；⑤ §15 多页签工作区（页签条+keep-alive+拖拽+sessionStorage 恢复，原型确认门）；⑥ **H2 修订**：禁纵向内部滚动框——数据量大用分页/分组折叠/显示全部承载（用户最新裁定优先于此前确认的模块内滚动）。链：01 打磨包 → 02 多页签（确认门） → 03 验收。**当前解锁：10-01（前端会话）。**
 

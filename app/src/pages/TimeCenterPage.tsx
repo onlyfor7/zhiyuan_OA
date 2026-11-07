@@ -19,31 +19,11 @@ import {
   type TimeEntryInput,
   type TimeEntryRow,
 } from "../api/time";
-import { useRail } from "../components/shell-rail";
 import { FormDialog } from "../components/FormDialog";
+import { HelpIcon } from "../components/HelpIcon";
 import { businessDetailsOf, useTRPC } from "../lib/trpc";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
-import { formatHours, formatMinutes, TIMESHEET_STATUS_LABEL, TIME_ACTIVITY_LABEL, TIME_SOURCE_LABEL } from "../lib/labels";
-
-function TimeRail() {
-  return (
-    <aside className="context-rail">
-      <div className="context-heading">
-        <span className="section-label">TIMESHEET</span>
-        <h2>工时中心</h2>
-      </div>
-      <div className="context-section">
-        <div className="section-label">RULES</div>
-        <h2>口径与红线（arch/07 §4）</h2>
-        <p className="context-note">
-          整数分钟；单日 &gt;24h 跨周期合并阻止；预填/复制仅草稿、默认未提交、不计有效工时；有效工时 =
-          已批准 + 已锁定，其余状态单列。
-        </p>
-      </div>
-      <div className="assurance">统计各页面读同一聚合函数，同名指标同数。</div>
-    </aside>
-  );
-}
+import { formatHours, TIMESHEET_STATUS_LABEL, TIME_ACTIVITY_LABEL, TIME_SOURCE_LABEL } from "../lib/labels";
 
 function mondayOf(date: Date): string {
   const d = new Date(date.getTime());
@@ -227,7 +207,6 @@ function toRows(
 }
 
 export default function TimeCenterPage() {
-  useRail(TimeRail);
   const me = useMe();
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
   const myPeriod = useMyPeriod(weekStart);
@@ -277,13 +256,16 @@ export default function TimeCenterPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">TIME TRACKING</span>
-          <h1>工时中心</h1>
+          <h1>
+            工时中心
+            <HelpIcon pageKey="time-center" />
+          </h1>
           <p>
             {weekStart} ~ {addDays(weekStart, 6)} ·{" "}
             {period ? (
               <>
                 {period.code} · <span className={`badge badge-minutes-${period.status === "approved" ? "confirmed" : period.status === "locked" ? "none_required" : "pending_draft"}`}>{TIMESHEET_STATUS_LABEL[period.status]}</span> · 本周合计{" "}
-                {formatMinutes(totalMinutes)}
+                {formatHours(totalMinutes)}
               </>
             ) : (
               "本周暂无周期（保存时自动创建草稿）"
@@ -463,7 +445,7 @@ export default function TimeCenterPage() {
             >
               <span className="day-name">{["一", "二", "三", "四", "五", "六", "日"][days.indexOf(d)]}</span>
               <strong>{d.slice(5)}</strong>
-              <small>{byDate.get(d) ? formatMinutes(byDate.get(d)) : "—"}</small>
+              <small>{byDate.get(d) ? formatHours(byDate.get(d)) : "—"}</small>
             </button>
           ))}
         </div>
@@ -627,16 +609,16 @@ export default function TimeCenterPage() {
             <div className="metric-strip overview-strip">
               <div>
                 <span>有效工时（批准+锁定）</span>
-                <strong>{formatMinutes(mySummary.data.minutes.approvedAndLocked)}</strong>
+                <strong>{formatHours(mySummary.data.minutes.approvedAndLocked)}</strong>
               </div>
               <div>
                 <span>待审批</span>
-                <strong>{formatMinutes(mySummary.data.minutes.pendingApproval)}</strong>
+                <strong>{formatHours(mySummary.data.minutes.pendingApproval)}</strong>
               </div>
               <div>
                 <span>草稿 / 已退回</span>
                 <strong>
-                  {formatMinutes(mySummary.data.minutes.draft)} / {formatMinutes(mySummary.data.minutes.returned)}
+                  {formatHours(mySummary.data.minutes.draft)} / {formatHours(mySummary.data.minutes.returned)}
                 </strong>
               </div>
             </div>
@@ -650,7 +632,7 @@ export default function TimeCenterPage() {
               <p className="context-note">
                 本周按活动：
                 {byActivity.data.items
-                  .map((i) => `${TIME_ACTIVITY_LABEL[i.key ?? ""] ?? i.key} ${formatMinutes(i.minutes)}`)
+                  .map((i) => `${TIME_ACTIVITY_LABEL[i.key ?? ""] ?? i.key} ${formatHours(i.minutes)}`)
                   .join("；")}
               </p>
             ) : null}
@@ -833,7 +815,7 @@ function DayEditor({
         </div>
       </div>
       <p className="context-note">
-        保存为覆盖式（提交本周全部明细）；时长按小时 0.5 步进（服务端存整数分钟，step 可配）；单日 &gt;24h（跨周期合并）将被阻止。
+        保存为覆盖式（提交本周全部明细）；时长按小时 0.5 步进（步进值可配）；单日 &gt;24h（跨周期合并）将被阻止。
       </p>
       {drafts.length === 0 ? (
         <p className="list-note">当日暂无明细，点击「添加明细」。</p>
@@ -847,7 +829,7 @@ function DayEditor({
               value={row.durationMinutes / 60}
               aria-label="时长（小时，0.5 步进）"
               onChange={(e) => {
-                // G9：0.5h 步进（30 分钟倍数），服务端校验 step_minutes
+                // G9：0.5h 步进（step 可配），服务端校验
                 const minutes = Math.max(30, Math.round(Number(e.target.value) * 2) * 30);
                 setDrafts((prev) => prev.map((x, i) => (i === idx ? { ...x, durationMinutes: minutes } : x)));
               }}

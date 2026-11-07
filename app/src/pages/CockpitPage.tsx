@@ -137,7 +137,7 @@ function GreetCalendar({ projectIdList }: { projectIdList: string[] }) {
           {schedule.length === 0 ? (
             <p className="p9a-schedule-empty">当日无安排</p>
           ) : (
-            schedule.map((it, i) => (
+            schedule.slice(0, 5).map((it, i) => (
               <div className="p9a-schedule-row" key={i}>
                 <DomainIconBlock domain={it.domain} size={22} iconSize={13} />
                 <div className="p9a-queue-main">
@@ -147,6 +147,9 @@ function GreetCalendar({ projectIdList }: { projectIdList: string[] }) {
               </div>
             ))
           )}
+          {schedule.length > 5 ? (
+            <Link to="/workbench" className="p9a-show-all">··· 显示全部（{schedule.length}）</Link>
+          ) : null}
         </div>
       </div>
     </div>
@@ -194,6 +197,7 @@ export default function CockpitPage() {
   const [todoTab, setTodoTab] = useState<"todo" | "delay">("todo");
   const [chip, setChip] = useState<"全部" | DomainKey>("全部");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [todoPage, setTodoPage] = useState(0);
 
   const previewItems = projects.data?.items ?? [];
   const projectIdList = previewItems.map((p) => p.id);
@@ -226,6 +230,15 @@ export default function CockpitPage() {
   const chips: Array<"全部" | DomainKey> = ["全部", ...todoGroups.map(([d]) => d)];
   const total = todoGroups.reduce((n, [, items]) => n + items.length, 0);
   const visibleGroups = todoGroups.filter(([d]) => chip === "全部" || d === chip);
+  // H2 v1.9：待办面板禁纵向内滚——展开项打平后固定 6 行/页分页承载
+  const TODO_PAGE = 6;
+  const todoRows = visibleGroups.flatMap(([domain, items]) => [
+    { kind: "head", domain } as const,
+    ...(collapsed[domain] ? [] : items.map((it) => ({ kind: "item", domain, it }) as const)),
+  ]);
+  const todoPageCount = Math.max(1, Math.ceil(todoRows.length / TODO_PAGE));
+  const todoCur = Math.min(todoPage, todoPageCount - 1);
+  const todoPageRows = todoRows.slice(todoCur * TODO_PAGE, (todoCur + 1) * TODO_PAGE);
 
   const s = dashboard.data;
   const roleBadges = (me.globalRoles ?? []).slice(0, 3);
@@ -350,7 +363,7 @@ export default function CockpitPage() {
           {todoTab === "todo" ? (
             <div className="p9a-chips">
               {chips.map((c) => (
-                <button key={c} className={chip === c ? "active" : ""} onClick={() => setChip(c)}>
+                <button key={c} className={chip === c ? "active" : ""} onClick={() => { setChip(c); setTodoPage(0); }}>
                   {c === "全部" ? `全部 ${total}` : `${DOMAIN_ICONS[c].label} ${todoGroups.find(([d]) => d === c)?.[1].length ?? 0}`}
                 </button>
               ))}
@@ -358,38 +371,46 @@ export default function CockpitPage() {
           ) : null}
         </div>
         {todoTab === "todo" ? (
-          <div className="p9a-scroll-list p9a-todo-scroll">
-            {visibleGroups.map(([domain, items]) => {
-              const isCollapsed = collapsed[domain] ?? false;
-              return (
-                <section className="p9a-todo-group" key={domain}>
-                  <button
-                    className="p9a-todo-group-head"
-                    aria-expanded={!isCollapsed}
-                    onClick={() => setCollapsed((c) => ({ ...c, [domain]: !isCollapsed }))}
-                  >
-                    <DomainIconBlock domain={domain} size={24} />
-                    <strong>{DOMAIN_ICONS[domain].label}</strong>
-                    <span className="count-badge neutral">{items.length}</span>
-                    <span className="p9a-collapse-arrow">{isCollapsed ? "▸" : "▾"}</span>
-                  </button>
-                  {!isCollapsed
-                    ? items.map((it) => (
-                        <div className="p9a-queue-card slim" key={it.title}>
-                          <DomainIconBlock domain={domain} size={20} iconSize={12} />
-                          <div className="p9a-queue-main">
-                            <strong>{it.title}</strong>
-                            <small>{it.project} · {it.ago}</small>
-                          </div>
-                          <Link className="p9a-pill" to="/approvals">去处理</Link>
-                        </div>
-                      ))
-                    : null}
-                </section>
-              );
-            })}
-            {total === 0 ? <p className="list-note">没有待办事项。</p> : null}
-          </div>
+          <>
+            <div className="p9a-scroll-list p9a-todo-scroll">
+              {todoPageRows.map((row, i) =>
+                row.kind === "head" ? (
+                  <section className="p9a-todo-group" key={`h-${row.domain}`}>
+                    <button
+                      className="p9a-todo-group-head"
+                      aria-expanded={!(collapsed[row.domain] ?? false)}
+                      onClick={() => {
+                        setCollapsed((c) => ({ ...c, [row.domain]: !(c[row.domain] ?? false) }));
+                        setTodoPage(0);
+                      }}
+                    >
+                      <DomainIconBlock domain={row.domain} size={24} />
+                      <strong>{DOMAIN_ICONS[row.domain].label}</strong>
+                      <span className="count-badge neutral">{todoGroups.find(([d]) => d === row.domain)?.[1].length ?? 0}</span>
+                      <span className="p9a-collapse-arrow">{collapsed[row.domain] ? "▸" : "▾"}</span>
+                    </button>
+                  </section>
+                ) : (
+                  <div className="p9a-queue-card slim" key={`i-${row.it.title}-${i}`}>
+                    <DomainIconBlock domain={row.domain} size={20} iconSize={12} />
+                    <div className="p9a-queue-main">
+                      <strong>{row.it.title}</strong>
+                      <small>{row.it.project} · {row.it.ago}</small>
+                    </div>
+                    <Link className="p9a-pill" to="/approvals">去处理</Link>
+                  </div>
+                ),
+              )}
+              {total === 0 ? <p className="list-note">没有待办事项。</p> : null}
+            </div>
+            {todoRows.length > TODO_PAGE ? (
+              <div className="p9a-todo-pager">
+                <button className="p9a-pill" disabled={todoCur === 0} onClick={() => setTodoPage(todoCur - 1)}>‹ 上一页</button>
+                <span>{todoCur + 1} / {todoPageCount}</span>
+                <button className="p9a-pill" disabled={todoCur >= todoPageCount - 1} onClick={() => setTodoPage(todoCur + 1)}>下一页 ›</button>
+              </div>
+            ) : null}
+          </>
         ) : (
           <div className="p9a-delay-body">
             <div className="p9a-steps">

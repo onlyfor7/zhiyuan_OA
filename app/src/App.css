@@ -409,3 +409,29 @@ h2 { font-size: 16px; letter-spacing: -.02em; margin: 6px 0 0; }
 .blocked-gate strong { display: block; color: var(--ink); font-size: 11px; }
 .blocked-gate p { color: #9a4b29; font-size: 9px; margin: 5px 0; }
 .blocked-gate span { color: var(--muted); font-size: 8px; }
+
+/* iter10 §5 v1.9 表单视口约束（F1–F4 全局硬规则）：max-height=视口-64px、头固定、尾固定、体滚动 */
+@media (min-width: 821px) {
+  .overlay.centered .decision-modal,
+  .overlay.centered .ux-modal-wide {
+    max-height: calc(100vh - 64px);
+    overflow-y: auto;
+  }
+  .overlay.centered .decision-modal > .drawer-head {
+    position: sticky;
+    top: -28px;
+    z-index: 3;
+    background: var(--surface);
+    padding-top: 4px;
+    margin-top: -4px;
+  }
+  .overlay.centered .decision-modal > .drawer-actions,
+  .overlay.centered .decision-modal > .p9a-modal-foot {
+    position: sticky;
+    bottom: -28px;
+    z-index: 3;
+    background: var(--surface);
+    padding-bottom: 4px;
+    margin-bottom: -4px;
+  }
+}

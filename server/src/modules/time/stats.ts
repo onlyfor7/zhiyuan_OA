@@ -202,9 +202,9 @@ export async function exportCsv(
     .innerJoin(timesheetPeriods, eq(timesheetPeriods.id, timeEntries.periodId))
     .where(and(...conditions))
     .orderBy(timeEntries.workDate, timesheetPeriods.code);
-  const header = "周期,用户,项目,活动类型,日期,分钟,说明,来源,周期状态";
+  const header = "周期,用户,项目,活动类型,日期,工时（小时）,说明,来源,周期状态";
   const escape = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const csv = `﻿${header}\n${rows.map((r) => [r.code, r.userId, r.projectId, r.activityType, r.workDate, r.minutes, r.description, r.source, r.status].map(escape).join(",")).join("\n")}`;
+  const csv = `﻿${header}\n${rows.map((r) => [r.code, r.userId, r.projectId, r.activityType, r.workDate, (r.minutes / 60).toFixed(1), r.description, r.source, r.status].map(escape).join(",")).join("\n")}`;
   await recordAudit(db, {
     actorId: user.id,
     sessionId,

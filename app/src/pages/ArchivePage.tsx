@@ -1,34 +1,11 @@
 import { Link } from "react-router";
-import { FolderOpen, History } from "lucide-react";
+import { FolderOpen} from "lucide-react";
 
 import { useMe } from "../api/auth";
-import { useRail } from "../components/shell-rail";
-
-function ArchiveRail() {
-  return (
-    <aside className="context-rail">
-      <div className="context-heading">
-        <span className="section-label">PROJECT ARCHIVE</span>
-        <h2>档案中心</h2>
-      </div>
-      <div className="context-section">
-        <div className="section-label">CONTROLLED ACCESS</div>
-        <h2>受控访问</h2>
-        <p className="context-note">
-          项目档案按固定十一目录组织；文件下载与预览经服务端鉴权直链，授权到期或撤销即时失效。
-        </p>
-      </div>
-      <div className="assurance">
-        <History size={16} />
-        <span>预览、导出和授权行为均进入审计日志。</span>
-      </div>
-    </aside>
-  );
-}
+import { HelpIcon } from "../components/HelpIcon";
 
 /** 全局档案中心入口：选择项目进入项目空间·档案页签 */
 export default function ArchivePage() {
-  useRail(ArchiveRail);
   const me = useMe();
   if (me.isPending) return <p className="list-note">正在加载…</p>;
   if (me.isError) throw me.error;
@@ -38,7 +15,10 @@ export default function ArchivePage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">PROJECT ARCHIVE</span>
-          <h1>项目结束，记忆仍然清晰。</h1>
+          <h1>
+            项目结束，记忆仍然清晰。
+            <HelpIcon pageKey="archive" />
+          </h1>
           <p>档案按项目组织；请选择项目进入其档案空间。</p>
         </div>
       </div>

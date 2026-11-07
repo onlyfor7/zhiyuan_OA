@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { BackButton } from "../components/feedback";
+import { HelpIcon } from "../components/HelpIcon";
 import { useParams } from "react-router";
 import { ArrowRight, ChevronRight, Wallet, X } from "lucide-react";
 
@@ -8,32 +9,11 @@ import { useBudgetLedger } from "../api/finance-budget";
 import { formatYuan } from "../api/reference";
 import { ApprovalSteps } from "../components/ApprovalSteps";
 import { LedgerTable } from "../components/finance";
-import { useRail } from "../components/shell-rail";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
 import { FUNDING_STATUS_LABEL, FUNDING_USAGE_LABEL } from "../lib/labels";
 
-function FundingRail() {
-  return (
-    <aside className="context-rail">
-      <div className="context-heading">
-        <span className="section-label">FUNDING</span>
-        <h2>经费申请</h2>
-      </div>
-      <div className="context-section">
-        <div className="section-label">TWO STATES</div>
-        <h2>审批态与使用态分离</h2>
-        <p className="context-note">
-          获批只发生一次占用（FUNDING_RESERVED）；核销/释放/关闭均有台账依据；存在未决报销时不得关闭。
-        </p>
-      </div>
-      <div className="assurance">四数全部由台账与明细重算，前端不做任何口径计算。</div>
-    </aside>
-  );
-}
-
 /** 经费详情：四数卡 + 审批进度 + 关闭/释放动作 + 台账下钻（arch/06 §7） */
 export default function FundingDetailPage() {
-  useRail(FundingRail);
   const { fundingId } = useParams();
   const funding = useFunding(fundingId ?? null);
   const mutations = useFundingMutations();
@@ -57,7 +37,10 @@ export default function FundingDetailPage() {
             <ChevronRight size={13} />
             <span>{f.code}</span>
           </div>
-          <h1>{f.purpose}</h1>
+          <h1>
+            {f.purpose}
+            <HelpIcon pageKey="funding-detail" />
+          </h1>
           <p>
             金额 {formatYuan(f.amountCents)} 元{f.expectedUseDate ? ` · 预计使用 ${f.expectedUseDate}` : ""}
             {f.recipientInfo ? ` · ${f.recipientInfo}` : ""}

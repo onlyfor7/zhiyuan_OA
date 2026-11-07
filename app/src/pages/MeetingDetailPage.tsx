@@ -24,6 +24,7 @@ import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
 import { formatDateTime } from "../lib/trpc";
 import {
   ATTENDANCE_LABEL,
+  formatHours,
   MEETING_STATUS_LABEL,
   MEETING_TYPE_LABEL,
   MINUTES_STATUS_LABEL,
@@ -459,7 +460,7 @@ export default function MeetingDetailPage() {
           ) : prefill.data ? (
             <>
               <strong>
-                建议预填 {prefill.data.minutes} 分钟/人（{prefill.data.attendeeUserIds.length} 位出席人）
+                建议预填 {formatHours(prefill.data.minutes)}/人（{prefill.data.attendeeUserIds.length} 位出席人）
               </strong>
               <p className="context-note">
                 出席人：{prefill.data.attendeeUserIds.map((id) => userNames.get(id) ?? id.slice(0, 8)).join("、")}

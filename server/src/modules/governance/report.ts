@@ -125,14 +125,18 @@ async function aggregateContent(
   const userNames = new Map(
     (await db.select({ id: users.id, name: users.name }).from(users)).map((u) => [u.id, u.name]),
   );
+  const fmtH = (m: number) => {
+    const h = m / 60;
+    return `${Number.isInteger(h) ? h : h.toFixed(1)} 小时`;
+  };
   const fmtTime = (items: typeof timeByPerson.items) =>
     items.length === 0
       ? "无"
-      : items.map((i) => `${userNames.get(i.key ?? "") ?? i.key}:${i.minutes}分钟`).join("；");
+      : items.map((i) => `${userNames.get(i.key ?? "") ?? i.key}:${fmtH(i.minutes)}`).join("；");
   const timeSection =
-    `已批准工时（有效口径）：${timeByPerson.items.reduce((s, i) => s + i.minutes, 0)} 分钟。` +
-    `按人员：${fmtTime(timeByPerson.items)}。按活动：${timeByActivity.items.map((i) => `${i.key}:${i.minutes}分钟`).join("；")}。` +
-    `待审批单列：${timePending.items.reduce((s, i) => s + i.minutes, 0)} 分钟（${fmtTime(timePending.items)}）。`;
+    `已批准工时（有效口径）：${fmtH(timeByPerson.items.reduce((s, i) => s + i.minutes, 0))}。` +
+    `按人员：${fmtTime(timeByPerson.items)}。按活动：${timeByActivity.items.map((i) => `${i.key}:${fmtH(i.minutes)}`).join("；")}。` +
+    `待审批单列：${fmtH(timePending.items.reduce((s, i) => s + i.minutes, 0))}（${fmtTime(timePending.items)}）。`;
 
   return {
     progress: doneTasks.length

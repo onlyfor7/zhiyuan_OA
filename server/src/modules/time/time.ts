@@ -141,8 +141,8 @@ async function validateEntryShapes(
 ): Promise<void> {
   for (const entry of entries) {
     if (!Number.isInteger(entry.durationMinutes) || entry.durationMinutes <= 0) {
-      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "工时必须为整数分钟且 >0（禁止浮点小时）", {
-        entries: [`${entry.workDate} 分钟数非法`],
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "工时数值非法（须为整数且 >0，按小时 0.5 步进填报）", {
+        entries: [`${entry.workDate} 数值非法`],
       });
     }
     if (!entry.projectId && entry.activityType !== "internal_admin" && entry.activityType !== "other") {
@@ -192,7 +192,7 @@ export async function validatePeriodEntries(
   for (const entry of candidateEntries) {
     if (entry.durationMinutes > 0 && entry.durationMinutes % config.stepMinutes !== 0) {
       blockers.push(
-        `${entry.workDate} 工时 ${entry.durationMinutes} 分钟须为 ${stepHoursLabel(config.stepMinutes)} 小时（${config.stepMinutes} 分钟）的整数倍`,
+        `${entry.workDate} 工时须为 ${stepHoursLabel(config.stepMinutes)} 小时的整数倍（当前 ${(entry.durationMinutes / 60).toFixed(1)} 小时）`,
       );
     }
   }

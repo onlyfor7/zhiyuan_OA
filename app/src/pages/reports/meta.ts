@@ -1,4 +1,5 @@
 import { EXPENSE_CATEGORY_LABEL, LIFECYCLE_LABEL } from "../../lib/labels";
+import { formatHours } from "../../lib/labels";
 import { formatYuan } from "../../api/reference";
 import type { ReportKey } from "../../api/reports";
 import type { DomainKey } from "../../lib/icons";
@@ -29,6 +30,8 @@ export interface ReportMeta {
   mini: "none" | "cashflow" | "funnel" | "hbars";
   /** 迷你图取值列（hbars：数值列 key） */
   miniValueKey?: string;
+  /** 列头/指标卡文案映射（§4.6：分钟→小时显示等） */
+  label?: (raw: string) => string;
   /** 单元格渲染 */
   cell: (key: string, value: unknown) => string;
   /** summaryCards 值渲染 */
@@ -131,8 +134,9 @@ export const REPORT_META: Array<ReportMeta> = [
     filters: { fromTo: true, project: true, view: true },
     mini: "hbars",
     miniValueKey: "minutes",
-    cell: (_k, v) => num(v),
-    summary: (_k, v) => `${num(v)} 分钟`,
+    label: (l) => l.replace(/（分钟）$/, "（小时）").replace("合计分钟", "合计工时"),
+    cell: (k, v) => (k === "minutes" ? formatHours(Number(v)) : num(v)),
+    summary: (_k, v) => formatHours(Number(v)),
   },
   {
     key: "utilization",
@@ -143,7 +147,8 @@ export const REPORT_META: Array<ReportMeta> = [
     filters: { fromTo: true, project: true, orgUnit: true },
     mini: "hbars",
     miniValueKey: "utilization",
-    cell: (k, v) => (k === "utilization" ? pct(v) : num(v)),
+    label: (l) => l.replace(/（分钟）$/, "（小时）"),
+    cell: (k, v) => (k === "utilization" ? pct(v) : k === "minutes" || k === "availableMinutes" ? formatHours(Number(v)) : num(v)),
     summary: (k, v) => (k === "avg" ? pct(v) : num(v)),
   },
   {

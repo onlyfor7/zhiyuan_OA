@@ -8,7 +8,7 @@ import {
   useTimeStatsByUser,
 } from "../../api/time";
 import { useUserNameMap } from "../../api/reference";
-import { formatMinutes, TIME_ACTIVITY_LABEL } from "../../lib/labels";
+import { formatHours, TIME_ACTIVITY_LABEL } from "../../lib/labels";
 import { useSpaceParams } from "./space-context";
 
 /** 项目空间·工时页签：项目维度统计（成员按可见范围；有效=approved+locked 口径标注） */
@@ -68,7 +68,7 @@ export default function TimesheetTab() {
                   <i style={{ width: "60%" }} />
                 </div>
                 <strong>
-                  {formatMinutes(i.minutes)} × {i.entryCount}
+                  {formatHours(i.minutes)} × {i.entryCount}
                 </strong>
               </div>
             ))
@@ -84,7 +84,7 @@ export default function TimesheetTab() {
                 <i style={{ width: "60%" }} />
               </div>
               <strong>
-                {formatMinutes(i.minutes)} × {i.entryCount}
+                {formatHours(i.minutes)} × {i.entryCount}
               </strong>
             </div>
           ))}
@@ -103,7 +103,7 @@ export default function TimesheetTab() {
                 <i style={{ width: "60%" }} />
               </div>
               <strong>
-                {formatMinutes(i.minutes)} × {i.entryCount}
+                {formatHours(i.minutes)} × {i.entryCount}
               </strong>
             </div>
           ))

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { History } from "lucide-react";
+import {} from "lucide-react";
 
 import { useAuditList, type AuditFilters } from "../api/audit";
-import { useRail } from "../components/shell-rail";
+import { HelpIcon } from "../components/HelpIcon";
 import { isAccessDeniedOrGone } from "../lib/trpc";
 import { UserPicker } from "../components/UserPicker";
 
@@ -19,31 +19,8 @@ const TARGET_TYPES = [
   ["user", "用户"],
 ] as const;
 
-function AuditRail() {
-  return (
-    <aside className="context-rail">
-      <div className="context-heading">
-        <span className="section-label">SECURITY POSTURE</span>
-        <h2>审计查阅</h2>
-      </div>
-      <div className="context-section">
-        <div className="section-label">APPEND ONLY</div>
-        <h2>只追加</h2>
-        <p className="context-note">
-          审计事件只增不删；列表、导出与查看同样受 audit.read 授权约束（sysadmin/archivist/partner）。
-        </p>
-      </div>
-      <div className="assurance">
-        <History size={16} />
-        <span>操作者/对象/动作/时间筛选均由服务端执行；未授权访问与不存在同形。</span>
-      </div>
-    </aside>
-  );
-}
-
 /** 权限审计页：audit.list 真实数据（未授权由边界渲染同形 404） */
 export default function AuditPage() {
-  useRail(AuditRail);
   const [filters, setFilters] = useState<AuditFilters>({});
   const [draft, setDraft] = useState<AuditFilters>({});
   const audit = useAuditList(filters);
@@ -58,7 +35,10 @@ export default function AuditPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">ACCESS & AUDIT</span>
-          <h1>看得见权限，也查得到足迹。</h1>
+          <h1>
+            看得见权限，也查得到足迹。
+            <HelpIcon pageKey="audit" />
+          </h1>
           <p>关键写入与敏感读取全部留痕；筛选由服务端执行。</p>
         </div>
       </div>

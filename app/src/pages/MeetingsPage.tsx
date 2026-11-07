@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router";
 import { CalendarDays, ChevronRight } from "lucide-react";
 
 import { useMeetingList } from "../api/meeting";
-import { useRail } from "../components/shell-rail";
+import { HelpIcon } from "../components/HelpIcon";
 import { formatDateTime } from "../lib/trpc";
 import { ListSkeleton } from "../components/feedback";
 import { CreateInDialog } from "../components/CreateInDialog";
@@ -14,31 +14,8 @@ import type { RouterOutputs } from "../lib/trpc";
 
 type MeetingItem = RouterOutputs["meeting"]["list"]["items"][number];
 
-function MeetingsRail() {
-  return (
-    <aside className="context-rail">
-      <div className="context-heading">
-        <span className="section-label">MEETINGS</span>
-        <h2>会议中心</h2>
-      </div>
-      <div className="context-section">
-        <div className="section-label">CONTINUITY</div>
-        <h2>议程 — 结论 — 行动项 — 档案</h2>
-        <p className="context-note">
-          会议详情按连续关系组织；确认版纪要与材料自动归集项目档案目录 09；行动项可一键转为项目任务。
-        </p>
-      </div>
-      <div className="assurance">
-        <CalendarDays size={16} />
-        <span>工时预填仅为建议（只算不存），不计入任何统计。</span>
-      </div>
-    </aside>
-  );
-}
-
 /** 会议中心：我的日程/全部 + 状态筛选（arch/05 §5） */
 export default function MeetingsPage() {
-  useRail(MeetingsRail);
   const [params] = useSearchParams();
   const projectId = params.get("projectId") ?? undefined;
   const [mine, setMine] = useState(true);
@@ -55,7 +32,10 @@ export default function MeetingsPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">MEETING CENTER</span>
-          <h1>会议中心</h1>
+          <h1>
+            会议中心
+            <HelpIcon pageKey="meetings" />
+          </h1>
           <p>{projectId ? "项目内全部会议" : "我参与或我组织的会议"}；列表按项目权限过滤。</p>
         </div>
         {/* 9a §5：创建走弹窗（页级路由 /meetings/new 保留深链） */}

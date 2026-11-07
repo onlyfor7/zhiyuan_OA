@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { BackButton } from "../components/feedback";
+import { HelpIcon } from "../components/HelpIcon";
 import { Link, useParams } from "react-router";
 import { ArrowRight, ChevronRight, Plus } from "lucide-react";
 
 import { useApproval } from "../api/approval";
 import { useRequest, useRequestList, useRequestMutations, useRequestTypes } from "../api/generic-request";
 import { useMe } from "../api/auth";
-import { useRail } from "../components/shell-rail";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
 import { ListSkeleton } from "../components/feedback";
 import { toast } from "sonner";
@@ -24,25 +24,8 @@ const STATUS_LABEL: Record<string, string> = {
   withdrawn: "已撤回",
 };
 
-function RequestsRail() {
-  return (
-    <aside className="context-rail">
-      <div className="context-heading">
-        <span className="section-label">GENERIC REQUEST</span>
-        <h2>通用申请单</h2>
-      </div>
-      <div className="context-section">
-        <div className="section-label">FIXED FIELDS</div>
-        <h2>固定核心字段</h2>
-        <p className="context-note">标题/理由/起止/金额/附件；不做自由表单设计器（arch/09 §3.2）。走统一引擎与自定义流程。</p>
-      </div>
-    </aside>
-  );
-}
-
 /** /requests 通用申请单（真实 genericRequest.*） */
 export default function RequestsPage() {
-  useRail(RequestsRail);
   const me = useMe();
   const isPrivileged = (me.data?.globalRoles ?? []).includes("partner") || (me.data?.globalRoles ?? []).includes("sysadmin");
   const [scope, setScope] = useState<"mine" | "all">("mine");
@@ -63,7 +46,10 @@ export default function RequestsPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">GENERIC REQUEST</span>
-          <h1>通用申请单</h1>
+          <h1>
+            通用申请单
+            <HelpIcon pageKey="requests" />
+          </h1>
           <p>请假/采购/用章等通用审批（统一引擎 + 自定义流程节点图）。</p>
         </div>
         <button className="primary-action" onClick={() => setCreateOpen((v) => !v)}>

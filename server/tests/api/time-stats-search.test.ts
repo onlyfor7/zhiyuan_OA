@@ -179,7 +179,7 @@ describe("迭代 4 统计/搜索/导出（D7–D9/D11）", () => {
     expect(exported.status).toBe(200);
     const data = (exported.json as { result: { data: { csv: string; rowCount: number; statusScope: string } } }).result.data;
     expect(data.rowCount).toBeGreaterThan(0);
-    expect(data.csv).toContain("分钟");
+    expect(data.csv).toContain("工时（小时）");
     expect(data.csv).not.toContain("费率");
     const audit = await query<{ n: number }>(`SELECT count(*)::int AS n FROM audit_events WHERE action = 'export.run' AND target_type = 'time_entry'`);
     expect(audit[0].n).toBeGreaterThanOrEqual(1);

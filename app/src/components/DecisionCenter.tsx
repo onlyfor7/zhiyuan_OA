@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { Check, CheckCircle2, ChevronRight, CircleAlert, Plus, Send, X } from "lucide-react";
 
 import { useDecision, useDecisionList, useDecisionMutations } from "../api/decision";
+import { HelpIcon } from "./HelpIcon";
 import { useProjectMembers } from "../api/project";
 import { useMe } from "../api/auth";
 import { rootErrorMessage } from "../lib/form";
@@ -299,7 +300,10 @@ export function DecisionCenter({ projectId }: { projectId?: string }) {
         <div className="screen-heading">
           <div>
             <span className="eyebrow">DECISION CENTER</span>
-            <h1>重要取舍，应当被认真记录。</h1>
+            <h1>
+              重要取舍，应当被认真记录。
+              {!projectId ? <HelpIcon pageKey="decisions" /> : null}
+            </h1>
             <p>比较方案、明确条件、跟踪执行，而不是只留下一句“同意”。</p>
           </div>
           <Link to="/decisions/new" className="primary-action">

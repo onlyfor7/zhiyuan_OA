@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { ArrowRight, Bell, Check, ChevronRight, Clock3, MailOpen } from "lucide-react";
+import { ArrowRight, Bell, Check, ChevronRight, MailOpen } from "lucide-react";
 import { getWeek } from "date-fns";
 
 import { useNotifications, useNotificationMutations, useUnreadCount } from "../api/notification";
 import { useTodoMine } from "../api/todo";
-import { useRail } from "../components/shell-rail";
+import { HelpIcon } from "../components/HelpIcon";
 import { TODO_KIND_LABEL } from "../lib/labels";
 import type { RouterOutputs } from "../lib/trpc";
 
@@ -52,32 +52,6 @@ function notificationLink(sourceType: string | null): string {
     default:
       return "/workbench";
   }
-}
-
-function WorkbenchRail() {
-  return (
-    <aside className="context-rail">
-      <div className="context-heading">
-        <span className="section-label">TODAY</span>
-        <h2>今日安排</h2>
-      </div>
-      <div className="context-section">
-        <div className="section-label">FOCUS</div>
-        <h2>处理顺序</h2>
-        <div className="attention-item">
-          <Clock3 size={16} />
-          <div>
-            <strong>逾期优先，其次临期</strong>
-            <p>统一待办按逾期/临期与来源聚合；处理后卡片自动消失。</p>
-          </div>
-        </div>
-      </div>
-      <div className="assurance">
-        <Clock3 size={16} />
-        <span>待办来自任务/审批/复核/周报确认/授权五源并集（服务端聚合）。</span>
-      </div>
-    </aside>
-  );
 }
 
 function NotificationPanel() {
@@ -155,7 +129,6 @@ function NotificationPanel() {
 
 /** 我的工作台：统一待办 + 通知（工单 03-9/11 入口） */
 export default function WorkbenchPage() {
-  useRail(WorkbenchRail);
   const todo = useTodoMine();
   const unread = useUnreadCount();
   const week = getWeek(new Date());
@@ -169,7 +142,10 @@ export default function WorkbenchPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">MY WORKSPACE · WEEK {week}</span>
-          <h1>今天，从最关键的事开始。</h1>
+          <h1>
+            今天，从最关键的事开始。
+            <HelpIcon pageKey="workbench" />
+          </h1>
           <p>
             统一待办 {items.length} 项
             {unread.data ? ` · 未读通知 ${unread.data.count} 条` : ""}

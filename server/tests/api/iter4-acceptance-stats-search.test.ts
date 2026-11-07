@@ -176,7 +176,7 @@ describe("迭代 4 验收·统计/搜索/导出（arch/07 §8）", () => {
     expect(exported.status).toBe(200);
     const data = (exported.json as { result: { data: { csv: string; rowCount: number; statusScope: string } } }).result.data;
     expect(data.rowCount).toBeGreaterThan(0);
-    expect(data.csv).toContain("分钟");
+    expect(data.csv).toContain("工时（小时）");
     expect(data.csv).not.toContain("费率");
     expect(data.statusScope).toContain("approved + locked");
     const audit = await query<{ n: number }>(

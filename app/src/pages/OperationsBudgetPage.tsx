@@ -7,32 +7,12 @@ import { useBudget, useBudgetLedger, useBudgetList, useBudgetMutations } from ".
 import { useMe } from "../api/auth";
 import { formatYuan, parseYuanToCents } from "../api/reference";
 import { BudgetBar, LedgerTable } from "../components/finance";
-import { useRail } from "../components/shell-rail";
+import { HelpIcon } from "../components/HelpIcon";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
 import { BUDGET_STATUS_LABEL, EXPENSE_CATEGORY_LABEL } from "../lib/labels";
 import type { RouterOutputs } from "../lib/trpc";
 
 type BudgetRow = RouterOutputs["budget"]["list"]["items"][number];
-
-function OperationsRail() {
-  return (
-    <aside className="context-rail">
-      <div className="context-heading">
-        <span className="section-label">OPERATIONS</span>
-        <h2>经营中心</h2>
-      </div>
-      <div className="context-section">
-        <div className="section-label">LEDGER FORMULAS</div>
-        <h2>台账口径（arch/01 §4）</h2>
-        <p className="context-note">
-          有效预算 = 生效版本总额；有效占用 = 未释放占用净额；实际支出 = 已确认实际净额；可用 = 预算 − 占用 −
-          实际；执行率 = 实际 ÷ 有效预算。台账只追加、幂等键唯一。
-        </p>
-      </div>
-      <div className="assurance">同名指标全站同数；合计与明细可下钻一致。</div>
-    </aside>
-  );
-}
 
 function BudgetCreateForm({ projectId, onDone }: { projectId: string; onDone: () => void }) {
   const mutations = useBudgetMutations();
@@ -304,7 +284,6 @@ function BudgetPanel({ budgetId }: { budgetId: string | null }) {
 
 /** 经营中心·预算：项目预算列表 + 执行横条 + 版本/调整/台账（arch/06 §7） */
 export default function OperationsBudgetPage() {
-  useRail(OperationsRail);
   const me = useMe();
   const [params] = useSearchParams();
   const preProjectId = params.get("projectId") ?? "";
@@ -329,7 +308,10 @@ export default function OperationsBudgetPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">OPERATIONS · BUDGET</span>
-          <h1>预算管理</h1>
+          <h1>
+            预算管理
+            <HelpIcon pageKey="operations-budget" />
+          </h1>
           <p>预算版本、执行横条与台账下钻；无预算项目显示「未设预算」。</p>
         </div>
         <Link to="/operations/expenses" className="secondary-action">

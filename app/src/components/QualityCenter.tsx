@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Check, ChevronRight, GitBranch, Plus, RotateCcw, Send, ShieldAlert, X } from "lucide-react";
+import { HelpIcon } from "./HelpIcon";
 
 import { useProjectMembers } from "../api/project";
 import {
@@ -363,7 +364,10 @@ export function QualityCenter({ projectId }: { projectId?: string }) {
         <div className="screen-heading">
           <div>
             <span className="eyebrow">QUALITY ASSURANCE</span>
-            <h1>质量，是持续发生的闭环。</h1>
+            <h1>
+              质量，是持续发生的闭环。
+              {!projectId ? <HelpIcon pageKey="quality" /> : null}
+            </h1>
             <p>从发现、处理到独立复核，每个结论都有证据与责任人。</p>
           </div>
         </div>

@@ -182,7 +182,7 @@ function ReportSkeleton({ reportKey }: { reportKey: string }) {
         <div className="metric-strip overview-strip rep-cards">
           {data.summaryCards.map((c) => (
             <div key={c.key}>
-              <span>{c.label}</span>
+              <span>{meta.label ? meta.label(c.label) : c.label}</span>
               <strong className="mono">{meta.summary(c.key, c.value)}</strong>
             </div>
           ))}
@@ -200,9 +200,9 @@ function ReportSkeleton({ reportKey }: { reportKey: string }) {
         </div>
       ) : (
         <div className="rep-table-scroll">
-          <div className="p9a-ta-table rep-table" style={{ gridTemplateRows: "40px minmax(0,1fr)", minWidth: `${cols.length * 110}px` }}>
+          <div className="p9a-ta-table rep-table rep-excel" style={{ minWidth: `${cols.length * 110}px` }}>
             <div className="p9a-ta-head p9a-ta-row" style={{ gridTemplateColumns: colGrid }}>
-              {cols.map((c) => <span key={c.key}>{c.label}</span>)}
+              {cols.map((c) => <span key={c.key}>{meta.label ? meta.label(c.label) : c.label}</span>)}
             </div>
             <div className="p9a-ta-body">
               {pageRows.map((r, i) => (
@@ -289,7 +289,7 @@ function MiniChart({ kind, meta, rows }: { kind: string; meta: { miniValueKey?: 
   const top = rows.slice(0, 10);
   return (
     <div className="rep-mini rep-mini-hbars">
-      <span className="section-label">Top {Math.min(10, rows.length)} 条形（宽度∝{vk === "utilization" ? "利用率%" : vk === "contractSum" ? "合同额" : "分钟"}）</span>
+      <span className="section-label">Top {Math.min(10, rows.length)} 条形（宽度∝{vk === "utilization" ? "利用率%" : vk === "contractSum" ? "合同额" : "工时"}）</span>
       <div className="rep-hbar-rows">
         {top.map((r, i) => {
           const label = String(r.name ?? r.project ?? r.department ?? r.customer ?? "—");

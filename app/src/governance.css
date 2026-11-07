@@ -1331,13 +1331,14 @@
 .p9a-cal-dots { position: absolute; left: 0; right: 0; bottom: 2px; display: flex; justify-content: center; gap: 2px; }
 .p9a-cal-dot { width: 4px; height: 4px; border-radius: 50%; }
 .p9a-schedule { min-height: 0; display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #eef0f3; padding-top: 6px; }
-.p9a-schedule-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; gap: 4px; align-content: start; }
+/* H2 v1.9：截 5 条+显示全部，禁纵向内滚 */
+.p9a-schedule-list { flex: 1 1 auto; min-height: 0; display: grid; gap: 4px; align-content: start; }
 .p9a-schedule-empty { color: var(--muted); font-size: 12px; margin: 4px 0; }
 .p9a-schedule-row { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 8px; background: #f8f9fb; }
 .p9a-schedule-row .p9a-queue-main strong { font-size: 12px; font-weight: 500; }
 .p9a-schedule-row .p9a-queue-main small { font-size: 11px; }
 /* 快捷入口 */
-.p9a-quick-fill { flex: 1 1 auto; align-content: flex-start; align-items: flex-start; justify-content: flex-start; flex-wrap: wrap; overflow-y: auto; }
+.p9a-quick-fill { flex: 1 1 auto; align-content: flex-start; align-items: flex-start; justify-content: flex-start; flex-wrap: wrap; }
 .p9a-quick-icons { display: flex; gap: 10px; }
 .p9a-quick-icon {
   display: grid; justify-items: center; gap: 6px; padding: 8px 12px; border: 0; cursor: pointer;
@@ -1382,7 +1383,8 @@
 .p9a-chips { display: flex; gap: 4px; flex-wrap: wrap; }
 .p9a-chips button { border: 0; border-radius: 999px; padding: 4px 12px; font-size: 11px; cursor: pointer; background: #f2f4f8; color: var(--muted); }
 .p9a-chips button.active { background: #eff4ff; color: #2563eb; font-weight: 600; }
-.p9a-todo-scroll { display: grid; gap: 8px; align-content: start; flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-top: 0; }
+/* H2 v1.9：分组折叠+6 行/页分页承载 */
+.p9a-todo-scroll { display: grid; gap: 8px; align-content: start; flex: 1 1 auto; min-height: 0; margin-top: 0; }
 .p9a-todo-group-head { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: transparent; padding: 4px 2px; cursor: pointer; font-size: 12px; }
 .p9a-todo-group-head strong { font-weight: 600; }
 .p9a-collapse-arrow { margin-left: auto; color: var(--muted); }
@@ -1393,7 +1395,7 @@
 .p9a-queue-main small { color: var(--muted); font-size: 11px; }
 .p9a-pill { border: 0; border-radius: 999px; padding: 5px 14px; font-size: 12px; cursor: pointer; background: #eff4ff; color: #2563eb; font-weight: 600; text-decoration: none; transition: background 120ms ease-out; }
 .p9a-pill:hover { background: #dfe9ff; }
-.p9a-delay-body { overflow-y: auto; display: grid; gap: 10px; align-content: start; }
+.p9a-delay-body { display: grid; gap: 10px; align-content: start; }
 .p9a-steps { display: flex; align-items: center; gap: 4px; margin: 10px 0; flex-wrap: wrap; }
 .p9a-step-node { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink); }
 .p9a-step-line { width: 36px; height: 1px; background: var(--line); margin: 0 6px; }
@@ -1432,7 +1434,7 @@
 /* 9b 组织管理：T-D 部门主从 / T-A 员工列表 / F3 角色勾选 */
 .org-td { display: grid; grid-template-columns: minmax(260px, 380px) minmax(0, 1fr); gap: 14px; min-height: 0; flex: 1; }
 .org-tree { background: #fff; border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06); display: flex; flex-direction: column; min-height: 0; }
-.org-tree-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-top: 8px; }
+.org-tree-list { flex: 1 1 auto; min-height: 0; margin-top: 8px; }
 .org-tree-row { display: flex; align-items: center; gap: 6px; border-radius: 8px; padding: 2px 6px 2px 0; }
 .org-tree-row:hover { background: #f4f6f9; }
 .org-tree-row.active { background: #eef4ff; }
@@ -1440,7 +1442,7 @@
 .org-tree-label span:first-of-type { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .org-tree-ops { display: flex; gap: 8px; opacity: 0; transition: opacity 120ms ease-out; flex: 0 0 auto; }
 .org-tree-row:hover .org-tree-ops, .org-tree-row:focus-within .org-tree-ops { opacity: 1; }
-.org-detail { background: #fff; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06); min-height: 0; overflow-y: auto; }
+.org-detail { background: #fff; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06); min-height: 0; }
 .org-role-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; }
 .org-member-row strong { display: block; font-size: 13px; }
 .org-member-row small { font-size: 10px; }
@@ -1450,7 +1452,7 @@
 }
 
 /* 9c CRM：看板/跟进时间线/页签体 */
-.crm-tab-body { min-height: 0; overflow-y: auto; padding-top: 4px; }
+.crm-tab-body { min-height: 0; padding-top: 4px; }
 .crm-follow-list { display: grid; gap: 6px; max-width: 760px; }
 .crm-board { display: grid; grid-template-columns: repeat(6, minmax(200px, 1fr)); gap: 10px; min-height: 0; overflow-x: auto; flex: 1; align-items: start; }
 .crm-board-col { background: #f5f6f8; border-radius: 12px; padding: 10px; min-height: 240px; display: grid; gap: 8px; align-content: start; }
@@ -2092,7 +2094,8 @@ a.text-action:focus-visible::after, button.text-action:focus-visible::after { ri
 .p9a-ta-table { display: grid; background: #fff; border-radius: 12px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06); min-height: 0; overflow: hidden; }
 .p9a-ta-head { color: var(--muted); font-size: 10px; letter-spacing: .04em; background: #fafbfc; }
 .p9a-ta-row { display: grid; column-gap: 8px; align-items: center; padding: 0 12px; min-height: 40px; font-size: 12px; min-width: 0; }
-.p9a-ta-body { display: grid; align-content: start; min-height: 0; overflow-y: auto; }
+/* H2 v1.9：禁纵向内滚框——表格整页渲染，高度由分页（20/页）承载；横向滚动允许 */
+.p9a-ta-body { display: grid; align-content: start; min-height: 0; }
 .p9a-ta-body .p9a-ta-row { border-top: 1px solid #eef0f3; }
 .p9a-ta-body .p9a-ta-row:hover { background: #f8fafc; }
 .p9a-ta-row > span, .p9a-ta-row > strong { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -2106,7 +2109,7 @@ a.text-action:focus-visible::after, button.text-action:focus-visible::after { ri
 .p9a-metric { display: grid; gap: 4px; background: #fff; border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06); }
 .p9a-metric > span { color: var(--muted); font-size: 11px; }
 .p9a-metric > strong { font-weight: 600; color: var(--ink); }
-.p9a-scroll-list { display: grid; gap: 2px; align-content: start; overflow-y: auto; min-height: 0; }
+.p9a-scroll-list { display: grid; gap: 2px; align-content: start; min-height: 0; }
 
 /* F2 抽屉体/模态脚 */
 .p9a-drawer-body { display: grid; gap: 10px; padding: 4px 2px 12px; min-height: 0; overflow-y: auto; }
@@ -2121,7 +2124,7 @@ a.text-action:focus-visible::after, button.text-action:focus-visible::after { ri
 /* 项目核算 T-C 主从 */
 .fin-tc { display: grid; grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); gap: 14px; min-height: 0; flex: 1; }
 .fin-tc-list { background: #fff; border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06); display: flex; flex-direction: column; min-height: 0; }
-.fin-tc-detail { background: #fff; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06); min-height: 0; overflow-y: auto; }
+.fin-tc-detail { background: #fff; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 12px rgba(16,24,40,.06); min-height: 0; }
 .fin-tc-item { width: 100%; border-radius: 8px; }
 .fin-tc-item:hover { background: #f4f6f9; }
 .fin-tc-item.active { background: #eef4ff; }
@@ -2156,7 +2159,8 @@ a.text-action:focus-visible::after, button.text-action:focus-visible::after { ri
 .rep-filter { gap: 8px; }
 .rep-filter-note { margin-left: auto; }
 .rep-cards { margin: 0; }
-.rep-table-scroll { flex: 1 1 auto; min-height: 0; overflow: auto; border-radius: 12px; }
+/* overflow-y 必须 clip（visible 在 x=auto 时按规范回退为 auto=纵向滚动盒，违 H2） */
+.rep-table-scroll { flex: 1 1 auto; min-height: 0; overflow-x: auto; overflow-y: clip; border-radius: 12px; }
 .rep-table { min-width: 100%; }
 .rep-empty { display: flex; align-items: center; gap: 12px; padding: 18px; flex: 1 1 auto; min-height: 120px; }
 
@@ -2177,3 +2181,29 @@ a.text-action:focus-visible::after, button.text-action:focus-visible::after { ri
   .rep-filter-note { display: none; }
   .rep-funnel-row, .rep-hbar-row { grid-template-columns: 72px minmax(0, 1fr) auto; }
 }
+
+/* —— iter10 §4.5: title HelpIcon (i) bubble —— */
+.help-icon-wrap { position: relative; display: inline-flex; vertical-align: middle; margin-left: 6px; }
+.help-icon { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border: 0; border-radius: 50%; background: #eef2f7; color: #64748b; cursor: pointer; padding: 0; }
+.help-icon:hover, .help-icon[aria-expanded="true"] { background: #dfe7f2; color: #2563eb; }
+.help-bubble { position: absolute; z-index: 70; top: 24px; left: -8px; width: 320px; max-width: 78vw; background: #171c24; color: #e6e9ee; border-radius: 10px; padding: 12px 14px; box-shadow: 0 12px 32px rgba(16,24,40,.28); display: grid; gap: 6px; animation: modal-in 160ms var(--ease); }
+.help-bubble strong { font-size: 12px; }
+.help-bubble p { margin: 0; font-size: 11px; line-height: 1.7; color: #b8c0cc; }
+
+/* iter10 F3 页签校验角标（红点） */
+.rep-tab-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #dc2626; margin-left: 5px; vertical-align: 2px; }
+
+/* iter10 H2 v1.9：驾驶舱待办分页条 */
+.p9a-todo-pager { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 6px; font-size: 11px; color: var(--muted); }
+.p9a-todo-pager .p9a-pill { padding: 3px 10px; font-size: 11px; }
+.p9a-todo-pager .p9a-pill:disabled { opacity: .45; cursor: default; }
+
+/* iter10 §8 v1.9 报表页 Excel 风格（仅报表表格，业务列表页不动）：全格线细边+灰底表头+行高 34+数值右对齐+冻结表头 */
+.rep-excel { border-top: 1px solid #e8eaee; border-left: 1px solid #e8eaee; background: #fff; }
+.rep-excel .p9a-ta-row { min-height: 34px; }
+.rep-excel .p9a-ta-row > span { border-right: 1px solid #e8eaee; border-bottom: 1px solid #e8eaee; padding: 0 10px; }
+.rep-excel .p9a-ta-head { background: #f3f4f6; color: #374151; font-weight: 600; position: sticky; top: 0; z-index: 2; }
+.rep-excel .p9a-ta-head > span { border-bottom: 1px solid #dfe3e8; }
+.rep-excel .p9a-ta-body .p9a-ta-row { border-top: 0; }
+.rep-excel .p9a-ta-body .p9a-ta-row:hover { background: #f8fafc; }
+.rep-excel .p9a-ta-row > span.mono { text-align: right; }

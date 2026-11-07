@@ -119,7 +119,8 @@ function InvoiceDrawer({ onClose }: { onClose: () => void }) {
 /** 经营组·发票管理（arch/12 §7.4：T-A——开具 F2 抽屉联动+状态列含寄送登记+红冲 DangerConfirm） */
 export default function InvoicesPage() {
   const [status, setStatus] = useState("");
-  const list = useInvoiceList({ status: status || undefined });
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const list = useInvoiceList({ status: status || undefined, cursor });
   const customers = useCustomerList({});
   const m = useFinMutations();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -141,7 +142,7 @@ export default function InvoicesPage() {
           <p>draft→issued→sent / voided（红冲=voided+负数冲正行）；抬头取公司信息。</p>
         </div>
         <div className="title-actions">
-          <select value={status} aria-label="状态筛选" onChange={(e) => setStatus(e.target.value)}>
+          <select value={status} aria-label="状态筛选" onChange={(e) => { setStatus(e.target.value); setCursor(undefined); }}>
             <option value="">全部状态</option>
             {Object.entries(INVOICE_STATUS_LABEL).map(([v, l]) => (
               <option key={v} value={v}>{l}</option>
@@ -187,6 +188,13 @@ export default function InvoicesPage() {
               </span>
             </div>
           ))}
+        </div>
+      </div>
+      <div className="p9a-ta-pager">
+        <span>本页 {list.data.items.length} 条 · 每页 20</span>
+        <div className="row-ops">
+          <button className="secondary-action" disabled={!cursor} onClick={() => setCursor(undefined)}>上一页</button>
+          <button className="secondary-action" disabled={!list.data.nextCursor} onClick={() => setCursor(list.data.nextCursor ?? undefined)}>下一页</button>
         </div>
       </div>
       {error ? <p className="form-error" role="alert">{error}</p> : null}

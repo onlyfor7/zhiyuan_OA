@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router";
 import { ChevronRight, MapPin } from "lucide-react";
 
 import { useTravelList } from "../api/travel";
-import { useRail } from "../components/shell-rail";
+import { HelpIcon } from "../components/HelpIcon";
 import { TRAVEL_STATUS_LABEL } from "../lib/labels";
 import { ListSkeleton } from "../components/feedback";
 import { CreateInDialog } from "../components/CreateInDialog";
@@ -13,31 +13,8 @@ import type { RouterOutputs } from "../lib/trpc";
 
 type TravelItem = RouterOutputs["travel"]["list"]["items"][number];
 
-function TravelRail() {
-  return (
-    <aside className="context-rail">
-      <div className="context-heading">
-        <span className="section-label">TRAVEL</span>
-        <h2>出差中心</h2>
-      </div>
-      <div className="context-section">
-        <div className="section-label">TIMELINE</div>
-        <h2>行程 — 申请 — 费用</h2>
-        <p className="context-note">
-          关键字段变更须走变更重审（前后值留痕）；完成 ≠ 费用已批准，预计费用绝不写预算台账（TRV-004）。
-        </p>
-      </div>
-      <div className="assurance">
-        <MapPin size={16} />
-        <span>借款出差触发项目负责人+财务会签；超阈值两步升级。</span>
-      </div>
-    </aside>
-  );
-}
-
 /** 出差中心：列表/筛选（arch/05 §5） */
 export default function TravelPage() {
-  useRail(TravelRail);
   const [params] = useSearchParams();
   const projectId = params.get("projectId") ?? undefined;
   const [mine, setMine] = useState(true);
@@ -54,7 +31,10 @@ export default function TravelPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">TRAVEL CENTER</span>
-          <h1>出差中心</h1>
+          <h1>
+            出差中心
+            <HelpIcon pageKey="travel" />
+          </h1>
           <p>{projectId ? "项目内全部出差单" : "我申请与我相关的出差单"}；按申请人/负责人/审批人/财务范围过滤。</p>
         </div>
         {/* 9a §5：创建走弹窗（页级路由 /travel/new 保留深链） */}

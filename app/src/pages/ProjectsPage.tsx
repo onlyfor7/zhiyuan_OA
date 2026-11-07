@@ -1,37 +1,17 @@
 import { useState } from "react";
 import { EmptyGuide, EmptyStep, ListSkeleton } from "../components/feedback";
+import { HelpIcon } from "../components/HelpIcon";
 import { Link, useNavigate } from "react-router";
-import { ChevronRight, ShieldCheck } from "lucide-react";
+import { ChevronRight} from "lucide-react";
 import { PROJECT_HEALTH_STATUS, PROJECT_LIFECYCLE_STATUS } from "@lexflow/shared";
 
 import { useProjectList } from "../api/project";
-import { useRail, useShell } from "../components/shell-rail";
+import { useShell } from "../components/shell-rail";
 import type { ProjectListFilters } from "../lib/trpc";
 import { formatDateTime } from "../lib/trpc";
 import { CONFIDENTIALITY_LABEL, HEALTH_LABEL, LIFECYCLE_LABEL } from "../lib/labels";
 
-function ProjectsRail() {
-  return (
-    <aside className="context-rail">
-      <div className="context-heading">
-        <span className="section-label">PORTFOLIO</span>
-        <h2>项目组合说明</h2>
-      </div>
-      <div className="context-section">
-        <p className="context-note">
-          项目列表由服务端按你的项目成员身份与有效授权过滤；未授权项目不会出现在列表中，也不会泄露其存在。
-        </p>
-      </div>
-      <div className="assurance">
-        <ShieldCheck size={17} />
-        <span>列表、详情与直链执行同一套服务端权限校验（arch/03 §5）。</span>
-      </div>
-    </aside>
-  );
-}
-
 export default function ProjectsPage() {
-  useRail(ProjectsRail);
   const navigate = useNavigate();
   const { me } = useShell();
   const canCreateProject = me.globalRoles.includes("partner") || me.globalRoles.includes("sysadmin");
@@ -52,7 +32,10 @@ export default function ProjectsPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">PROJECT PORTFOLIO</span>
-          <h1>项目全周期</h1>
+          <h1>
+            项目全周期
+            <HelpIcon pageKey="projects" />
+          </h1>
           <p>你权限范围内的全部项目；筛选与分页由服务端执行。</p>
         </div>
         {canCreateProject ? (

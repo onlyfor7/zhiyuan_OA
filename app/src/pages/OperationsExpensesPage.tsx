@@ -13,7 +13,7 @@ import {
 import { useTRPC } from "../lib/trpc";
 import { formatYuan } from "../api/reference";
 import { BudgetBar } from "../components/finance";
-import { useRail } from "../components/shell-rail";
+import { HelpIcon } from "../components/HelpIcon";
 import { CreateInDialog } from "../components/CreateInDialog";
 import ExpenseNewPage from "./ExpenseNewPage";
 import { EXPENSE_CATEGORY_LABEL, EXPENSE_STATUS_LABEL } from "../lib/labels";
@@ -21,28 +21,8 @@ import type { RouterOutputs } from "../lib/trpc";
 
 type ExpenseItem = RouterOutputs["expense"]["list"]["items"][number];
 
-function OperationsRail() {
-  return (
-    <aside className="context-rail">
-      <div className="context-heading">
-        <span className="section-label">EXPENSES</span>
-        <h2>费用中心</h2>
-      </div>
-      <div className="context-section">
-        <div className="section-label">SAME NUMBER</div>
-        <h2>同名指标同数</h2>
-        <p className="context-note">
-          统计口径：实际支出 = 已批准及之后状态的报销净额；已支付不重复计。导出由服务端生成并写审计。
-        </p>
-      </div>
-      <div className="assurance">成员无财务汇总权限（服务端强制，本页对其同形 404）。</div>
-    </aside>
-  );
-}
-
 /** 经营中心·费用：统计摘要 + 报销列表 + CSV 导出（arch/06 §7） */
 export default function OperationsExpensesPage() {
-  useRail(OperationsRail);
   const me = useMe();
   const [params] = useSearchParams();
   const preProjectId = params.get("projectId") ?? "";
@@ -108,7 +88,10 @@ export default function OperationsExpensesPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">OPERATIONS · EXPENSES</span>
-          <h1>费用中心</h1>
+          <h1>
+            费用中心
+            <HelpIcon pageKey="operations-expenses" />
+          </h1>
           <p>{stats.data.statusScope}</p>
         </div>
         <div className="title-actions">

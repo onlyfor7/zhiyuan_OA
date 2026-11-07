@@ -75,6 +75,22 @@ function ContactDialog({ customerId, contact, onClose }: { customerId: string; c
 }
 
 /** 客户组·客户详情（arch/12 §6.4：T-B 六页签 + 跟进时间线） */
+/** H2 v1.9：动态列表 ≤cap 折叠 + 显示全部（禁纵向内滚框） */
+function ShowAll<T extends { id: string }>({ items, render, cap = 10 }: { items: T[]; render: (it: T) => React.ReactNode; cap?: number }) {
+  const [all, setAll] = useState(false);
+  const shown = all ? items : items.slice(0, cap);
+  return (
+    <>
+      {shown.map(render)}
+      {items.length > cap ? (
+        <button type="button" className="p9a-show-all" onClick={() => setAll((v) => !v)}>
+          {all ? "收起" : `··· 显示全部（${items.length}）`}
+        </button>
+      ) : null}
+    </>
+  );
+}
+
 export default function CustomerDetailPage() {
   const { customerId } = useParams();
   const customer = useCustomer(customerId ?? null);
@@ -144,7 +160,7 @@ export default function CustomerDetailPage() {
             <span className="section-label">跟进时间线</span>
             <div className="crm-follow-list">
               {d.followups.length === 0 ? <p className="list-note">暂无跟进记录。</p> : null}
-              {d.followups.map((f) => (
+              <ShowAll items={d.followups} render={(f) => (
                 <div className="p9a-schedule-row" key={f.id}>
                   <DomainIconBlock domain="customer" size={22} iconSize={13} />
                   <div className="p9a-queue-main">
@@ -152,7 +168,7 @@ export default function CustomerDetailPage() {
                     <small>{f.createdAt.slice(0, 16).replace("T", " ")}{f.nextAt ? ` · 下次跟进 ${f.nextAt.slice(0, 16).replace("T", " ")}` : ""}</small>
                   </div>
                 </div>
-              ))}
+              )} />
               <div className="owner-line" style={{ marginTop: 8 }}>
                 <input value={followText} placeholder="写跟进…" aria-label="跟进内容" onChange={(e) => setFollowText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addFollow(); }} />
                 <button className="secondary-action" onClick={addFollow} disabled={!followText.trim() || m.createFollowup.isPending}>
@@ -206,7 +222,7 @@ export default function CustomerDetailPage() {
         {tab === "contracts" ? (
           <div className="report-list">
             {d.contracts.length === 0 ? <p className="list-note">暂无合同。</p> : null}
-            {d.contracts.map((c) => (
+            <ShowAll items={d.contracts} render={(c) => (
               <div className="report-row" key={c.id}>
                 <div>
                   <strong>{c.title}</strong>
@@ -217,7 +233,7 @@ export default function CustomerDetailPage() {
                 </div>
                 <span className="badge badge-health-normal">{CONTRACT_STATUS_LABEL[c.status] ?? c.status}</span>
               </div>
-            ))}
+            )} />
           </div>
         ) : null}
         {tab === "projects" ? (
@@ -237,14 +253,14 @@ export default function CustomerDetailPage() {
         {tab === "files" ? (
           <div className="report-list">
             {d.files.length === 0 ? <p className="list-note">暂无往来文件（项目档案挂载后此处可见）。</p> : null}
-            {d.files.map((f) => (
+            <ShowAll items={d.files} render={(f) => (
               <div className="report-row" key={f.id}>
                 <div>
                   <strong>{f.sourceId ? f.sourceId.slice(0, 8) : "—"}…</strong>
                   <small>{CONFIDENTIALITY_LABEL[f.confidentialityLevel] ?? f.confidentialityLevel} · {f.uploadedAt.slice(0, 16).replace("T", " ")}</small>
                 </div>
               </div>
-            ))}
+            )} />
           </div>
         ) : null}
       </div>

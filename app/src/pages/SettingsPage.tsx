@@ -1,34 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { KeyRound, LogOut, ShieldCheck } from "lucide-react";
+import { KeyRound, LogOut} from "lucide-react";
 
 import { useChangePassword, useLogout, useMe } from "../api/auth";
-import { useRail } from "../components/shell-rail";
+import { HelpIcon } from "../components/HelpIcon";
 import { rootErrorMessage } from "../lib/form";
-
-function SettingsRail() {
-  return (
-    <aside className="context-rail">
-      <div className="context-heading">
-        <span className="section-label">ACCOUNT</span>
-        <h2>账号安全</h2>
-      </div>
-      <div className="context-section">
-        <div className="section-label">SESSIONS</div>
-        <h2>改密即全端失效</h2>
-        <p className="context-note">修改成功后该账号全部会话立即失效（含当前会话），需用新口令重新登录。</p>
-      </div>
-      <div className="assurance">
-        <ShieldCheck size={16} />
-        <span>口令 scrypt 散列存储；操作写入审计。</span>
-      </div>
-    </aside>
-  );
-}
 
 /** /settings 自助改密（auth.changePassword 真实） */
 export default function SettingsPage() {
-  useRail(SettingsRail);
   const navigate = useNavigate();
   const me = useMe();
   const change = useChangePassword();
@@ -45,7 +24,10 @@ export default function SettingsPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">ACCOUNT SECURITY</span>
-          <h1>自助改密</h1>
+          <h1>
+            自助改密
+            <HelpIcon pageKey="settings" />
+          </h1>
           <p>
             {me.data?.mustChangePassword
               ? "当前账号使用初始口令，须修改后才能继续使用。"

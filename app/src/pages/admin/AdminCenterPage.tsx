@@ -7,7 +7,7 @@ import { useMe } from "../../api/auth";
 import { useClientList, useMatterList } from "../../api/reference";
 import { useProjectTemplates } from "../../api/project";
 import { useFlowList } from "../../api/flow";
-import { useRail } from "../../components/shell-rail";
+import { HelpIcon } from "../../components/HelpIcon";
 import { FormDialog } from "../../components/FormDialog";
 import { rootErrorMessage } from "../../lib/form";
 import { CONFIDENTIALITY_LABEL } from "../../lib/labels";
@@ -24,29 +24,8 @@ const TABS = [
 /** 白名单参数键（CONFIG_KEY 全量展示；编辑逐个 get/set） */
 const PARAM_KEYS = Object.values(CONFIG_KEY);
 
-function AdminRail() {
-  return (
-    <aside className="context-rail">
-      <div className="context-heading">
-        <span className="section-label">ADMIN</span>
-        <h2>配置中心</h2>
-      </div>
-      <div className="context-section">
-        <div className="section-label">SEPARATION</div>
-        <h2>管配置 ≠ 内容权</h2>
-        <p className="context-note">sysadmin 管理组织/角色/参数/流程，但不因此获得法律业务内容权（arch/03 §4.5）。全部写操作服务端鉴权+审计。</p>
-      </div>
-      <div className="assurance">
-        <ShieldCheck size={16} />
-        <span>创建用户的初始口令仅展示一次，须立即转交。</span>
-      </div>
-    </aside>
-  );
-}
-
 /** /admin 配置中心（真实 admin.*；sysadmin 专属，其余角色权限说明门） */
 export default function AdminCenterPage() {
-  useRail(AdminRail);
   const me = useMe();
   const isSysadmin = (me.data?.globalRoles ?? []).includes("sysadmin");
   const [tab, setTab] = useState<(typeof TABS)[number][0]>("clients");
@@ -77,7 +56,10 @@ export default function AdminCenterPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">ADMIN CENTER</span>
-          <h1>系统配置中心</h1>
+          <h1>
+            系统配置中心
+            <HelpIcon pageKey="admin-center" />
+          </h1>
           <p>用户/组织、客户/事项、模板、审批流、参数与编号规则。</p>
         </div>
       </div>

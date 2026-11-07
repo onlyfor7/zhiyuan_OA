@@ -12,6 +12,7 @@ import { ApprovalSteps } from "../components/ApprovalSteps";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
 import { formatDateTime } from "../lib/trpc";
 import {
+  formatHours,
   SEGMENT_TYPE_LABEL,
   TRAVEL_EVENT_LABEL,
   TRAVEL_STATUS_LABEL,
@@ -182,7 +183,7 @@ export default function TravelDetailPage() {
               <ul>
                 {prefill.data.days.map((d) => (
                   <li key={d.date}>
-                    {d.date}：{d.minutes} 分钟
+                    {d.date}：{formatHours(d.minutes)}
                   </li>
                 ))}
               </ul>

@@ -11,35 +11,16 @@ import {
   useReceiptProjectOptions,
   useReceiptSummary,
 } from "../api/receipts";
-import { useRail } from "../components/shell-rail";
 import { FormDialog } from "../components/FormDialog";
+import { HelpIcon } from "../components/HelpIcon";
 import { DensitySwitch } from "../components/density";
 import { useTableDensity } from "../lib/tableDensity";
 import { toast } from "sonner";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
 import { formatYuan, parseYuanToCents } from "../api/reference";
 
-function ReceiptsRail() {
-  return (
-    <aside className="context-rail">
-      <div className="context-heading">
-        <span className="section-label">RECEIPTS</span>
-        <h2>收款台账</h2>
-      </div>
-      <div className="context-section">
-        <div className="section-label">RULES</div>
-        <h2>登记与冲正</h2>
-        <p className="context-note">
-          仅登记台账（无计费/开票/在线支付）；金额不可编辑，更正=作废+新登记；口径=registered−voided 原额。
-        </p>
-      </div>
-    </aside>
-  );
-}
-
 /** /operations/receipts 收款中心（真实 receipts.*；member/viewer 由服务端同形 404，入口亦按角色隐藏） */
 export default function ReceiptsCenterPage() {
-  useRail(ReceiptsRail);
   const me = useMe();
   const managed = useMemo(
     () => (me.data?.projects ?? []).filter((p) => p.projectRole === "manager"),
@@ -120,7 +101,10 @@ export default function ReceiptsCenterPage() {
       <div className="screen-heading">
         <div>
           <span className="eyebrow">PAYMENT RECEIPTS</span>
-          <h1>客户收款台账</h1>
+          <h1>
+            客户收款台账
+            <HelpIcon pageKey="receipts-ledger" />
+          </h1>
           <p>实收口径 = Σregistered − Σvoided（原额）；更正=作废+新登记，不删行。</p>
         </div>
         <div className="title-actions">
