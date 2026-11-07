@@ -87,7 +87,7 @@
 | 9e-00 总览 | — | 已发布 | 架构 | 2026-11-05 | 契约 arch/12 §8（D2 一期形态）；无新表 |
 | 9e-01 报表聚合与导出 | 后端 | **通过** | 后端会话 | 2026-11-05 | 架构验收：根 289 全绿+prod 实弹（partner 三报表 200/member 空集域与 404 口径）+勾稽与导出全链用例采信；reports.* 与治理 report.* 并存留痕 |
 | 9e-02 报表中心前端 | 前端 | **通过** | 前端会话 | 2026-11-05 | 架构验收：根 289 全绿+工作台/漏斗页截图核验；金额「（分）」标签与元值矛盾 polish 归 9e-04 核认；finance 项目下拉现值接受登记 |
-| 9e-03 prod 发布窗口 | 部署 | 待认领 | — | 2026-11-05 | 依赖 02（已过）：双镜像重建+无新表迁移核验 |
+| 9e-03 prod 发布窗口 | 部署 | 待验收 | 部署会话 | 2026-11-07 | 双镜像+迁移无漂移核验+报表权限与导出审计实测通过；实录见交接记录置顶条 |
 | 9e-04 验收+压测+总收口 | 测试 | 未解锁 | — | — | 依赖 03；含 §14.2 100 并发压测冒烟+手册 v1.7 |
 
 ## 迭代 9d 工单状态（财务核算，arch/12 §7）
@@ -276,6 +276,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-07｜部署｜迭代9e-03｜**工单 9e-03（prod 发布窗口）完成，转待验收（实录如下）。** 做了什么：① **双镜像重建**（`DOCKER_BUILDKIT=0` legacy builder）——server `--no-cache`（**28s**，exit 0）`sha256:848d45be8fc3ce4d181fc8c0b909b22cbd1e4ec90b21e144b52ed9f8411e924b`（2026-11-07T02:28:37Z），产物核验含 9e：customerContribution×1/receivableAging×1/exportReportCsv×2；web 常规（**88s**）`sha256:de94d281c47a900a303279940e1f09a369ad0e9a45649831795802f3c81c1f2f`（02:30:05Z）。② `up -d`（全程 `--env-file .env.production`，**不删卷不清会话**）：02:30:36Z 发起，**15s 三服务全 healthy**；sessions 保留、存量计数发布前后完全一致（projects=5/receipts=24/expenses=57）。③ **迁移核验（无新表语义）**：`drizzle.__drizzle_migrations`=**13 行，与发布前一致、无重放漂移**（0012 仍为最新；9e 纯服务端聚合+导出，无新表）✓。怎么验证（全实测 prod :8080）：三服务 healthy ✓；**/reports SPA 200** ✓；**梁奇烽（partner/quality_lead）报表目录全量可见**：reports.{receivableAging,monthlyCashflow,projectCosting,opportunityFunnel,timeSummary} 五域全 200 ✓；**管晨（member）目录按权限过滤**：receivableAging → 200 空 columns/rows + summaryCard「口径：无财务可见权」（**行级过滤设计，非 404**——arch/12 §11 报表=登录全员 report.read、行级按域口径）；timeSummary → 200 按工时域既有口径返回（管晨 6480 分钟/王宝茁 900 分钟，项目成员可见域）✓；**导出审计行**：管晨 `reports.exportCsv`（key=`time_summary`，**注意 key 为 snake_case 注册表键，camelCase 会 404 notFound**）→ 200 返回 fileObject/fileVersion/HMAC downloadPath（rowCount=2，CSV 入文件管道 source=report），审计新增 3 行：`report.export|success|管晨` + `reports.exportCsv|success|管晨` + `file.upload|success|管晨` ✓。排障留痕：宿主机 /tmp cookie jar 再现已知竞态（9d 已记录）——命令间文件消失致 401，改单命令内 login+调用规避（非产品问题，server RestartCount=0、DB 会话行有效）。dev 栈与 dev 库全程未动 ✓。未跑测试套件（部署工单无此步骤，F3 不涉及）。提交：仅 STATUS.md（[部署] 前缀）。遗留：无。
 
 - 2026-11-05｜架构｜迭代9e-02通过｜**工单 02（报表中心前端）验收通过，解锁 9e-03（部署会话·发布窗口）。** 实测：根测试 289/289 全绿；截图核验——报表工作台目录树四类+说明卡、商机漏斗页（筛选/指标卡/六阶段横条/导出按钮）。**两处留痕**：① 漏斗页「进行中金额（分）」标签与元值矛盾（标签写分、显示已转元）——polish 归 9e-04 核认（标签改「元」或去括注）；② finance 项目下拉仅「全部项目」（projectScopeFilter 不含 finance）——接受现值（报表本体全量，项目过滤属增强），登记观察项，后续可仿 receipts.projectOptions 加参照端点。
 
