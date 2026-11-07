@@ -86,8 +86,8 @@
 |---|---|---|---|---|---|
 | 9e-00 总览 | — | 已发布 | 架构 | 2026-11-05 | 契约 arch/12 §8（D2 一期形态）；无新表 |
 | 9e-01 报表聚合与导出 | 后端 | **通过** | 后端会话 | 2026-11-05 | 架构验收：根 289 全绿+prod 实弹（partner 三报表 200/member 空集域与 404 口径）+勾稽与导出全链用例采信；reports.* 与治理 report.* 并存留痕 |
-| 9e-02 报表中心前端 | 前端 | **待验收** | 前端会话 | 2026-11-06 | 工作台 T-C 四类目录树（§4.4 注册表图标）+十报表共用骨架（筛选/指标卡带/内滚动表格分页/迷你图/导出 CSV 直链）替换占位卡；四道门 289 全绿+走查 44/44 断言（D:\tmp\shots-iter9e\） |
-| 9e-03 prod 发布窗口 | 部署 | 未解锁 | — | — | 依赖 02 |
+| 9e-02 报表中心前端 | 前端 | **通过** | 前端会话 | 2026-11-05 | 架构验收：根 289 全绿+工作台/漏斗页截图核验；金额「（分）」标签与元值矛盾 polish 归 9e-04 核认；finance 项目下拉现值接受登记 |
+| 9e-03 prod 发布窗口 | 部署 | 待认领 | — | 2026-11-05 | 依赖 02（已过）：双镜像重建+无新表迁移核验 |
 | 9e-04 验收+压测+总收口 | 测试 | 未解锁 | — | — | 依赖 03；含 §14.2 100 并发压测冒烟+手册 v1.7 |
 
 ## 迭代 9d 工单状态（财务核算，arch/12 §7）
@@ -276,6 +276,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-05｜架构｜迭代9e-02通过｜**工单 02（报表中心前端）验收通过，解锁 9e-03（部署会话·发布窗口）。** 实测：根测试 289/289 全绿；截图核验——报表工作台目录树四类+说明卡、商机漏斗页（筛选/指标卡/六阶段横条/导出按钮）。**两处留痕**：① 漏斗页「进行中金额（分）」标签与元值矛盾（标签写分、显示已转元）——polish 归 9e-04 核认（标签改「元」或去括注）；② finance 项目下拉仅「全部项目」（projectScopeFilter 不含 finance）——接受现值（报表本体全量，项目过滤属增强），登记观察项，后续可仿 receipts.projectOptions 加参照端点。
 
 - 2026-11-06｜前端｜迭代9e-02｜**工单 9e-02（报表中心前端，arch/12 §8.1 逐字）完成，转「待验收」。** 分支 `iter9e/frontend-reports`。**工作台**（/reports，T-C 沿 fin-tc 套件）：左目录树四类（项目/财务/工时/客户，**§4.4 注册表图标** DomainIconBlock）+10 报表项；右侧说明卡（eyebrow/口径描述/分类/筛选/迷你图 facts）+「打开报表」Link；树选卡联动。topnav 报表组全部占位卡改真实路由（/reports、/reports/:key 十项），**组去 roles 过滤**（report.read/export=登录全员；member 本人口径/空集域 note 卡由服务端同形状返回）。**单报表共用骨架**（ReportPage+meta.ts 十 key 与 reports.* 过程名映射，统一 {columns,rows,summaryCards} 零自写公式）：筛选条（日期区间/项目/客户/部门按 meta.filters 与角色渲染——客户=crm.read 角色、部门=sysadmin/partner、项目=project.list 成员可见集）+指标卡带（summaryCards 经 meta.summary 渲染，金额列分→元）+表格（p9a-ta 净行内滚动+客户端分页 20/页，列宽 inline grid 动态生成，列多时可内横滚）+迷你图（月度收支柱/商机六阶段横向漏斗条/工时·利用率·贡献 Top10 横向条形）+账龄分桶色阶单元格（0-30 最浅→90+ 最深）+枚举中文映射（LIFECYCLE/EXPENSE_CATEGORY，**禁直渲**）；工时三视角 p9a-wizard-tabs 页签。**导出**：reports.exportCsv mutation → downloadPath（HMAC 令牌直链）anchor 下载 → Toast 含下一步（行数+file_objects(source=report)+审计 report.export 同事务留痕）；行 0 时禁用。**已知口径**：project.list 参照=projectScopeFilter（partner 全量/member 本项目集），finance 非项目成员→项目下拉仅「全部项目」（报表本体仍全量）——partner 侧过滤正常，接受现值。**质量门**（F3 合规：TaskList 0 后台任务+tasklist 确认 dev 栈 node 进程无测试套件）：根四道门逐条真实执行全绿两遍（typecheck/build/db:migrate/test，server 266+app 23=**289 全绿零回归**）。**走查**（playwright：guojingwen finance / liangqifeng partner / guanchen member）：**44/44 断言 PASS**（19 截图 D:\tmp\shots-iter9e\）——工作台 4 类 10 项+注册表图标+树卡联动+打开跳转；十报表页页可达（table 或 note 空态）；筛选生效（cashflow 月度窗口 UI 行==API 行且默认 2 行→1 行、health 项目过滤 9→1、漏斗客户过滤卡重算）；三视角页签表头 姓名/项目/部门切换；账龄四桶表头+色阶单元格；漏斗 6 横条；导出 download 事件+CSV 中文表头+行数+Toast；H1 三档（1280/1440/1920）× 工作台/报表页 html/body/topbar 零溢出；375 四页零横向溢出；member 工作台可达+导航组可见+aging/funnel note 卡+expense 本人口径 200。
 
