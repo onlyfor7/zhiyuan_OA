@@ -1,7 +1,11 @@
 {
   "name": "lexflow",
   "private": true,
-  "workspaces": ["app", "server", "shared"],
+  "workspaces": [
+    "app",
+    "server",
+    "shared"
+  ],
   "scripts": {
     "dev": "npm run dev -w @lexflow/server & npm run dev -w @lexflow/app",
     "build": "npm run build -w @lexflow/app && npm run build -w @lexflow/server",
@@ -10,5 +14,8 @@
     "db:generate": "npm run db:generate -w @lexflow/server",
     "db:migrate": "npm run db:migrate -w @lexflow/server",
     "db:seed": "npm run db:seed -w @lexflow/server"
+  },
+  "devDependencies": {
+    "autocannon": "^9.0.0"
   }
 }

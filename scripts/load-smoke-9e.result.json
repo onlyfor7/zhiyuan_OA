@@ -1,0 +1,138 @@
+{
+  "base": "http://localhost:8080",
+  "connections": 100,
+  "durationPerEndpoint": 15,
+  "at": "2026-11-07T03:33:12.611Z",
+  "results": [
+    {
+      "name": "读·驾驶舱聚合 dashboard.summary",
+      "rps": 430.5,
+      "latency": {
+        "p50": 116,
+        "p97_5": 254,
+        "p99": 285,
+        "max": 457
+      },
+      "errors": 0,
+      "non2xx": 0,
+      "total": 11457
+    },
+    {
+      "name": "读·项目列表 project.list",
+      "rps": 828.7,
+      "latency": {
+        "p50": 60,
+        "p97_5": 142,
+        "p99": 162,
+        "max": 279
+      },
+      "errors": 0,
+      "non2xx": 0,
+      "total": 17431
+    },
+    {
+      "name": "读·报表 monthlyCashflow",
+      "rps": 664.2,
+      "latency": {
+        "p50": 75,
+        "p97_5": 163,
+        "p99": 178,
+        "max": 338
+      },
+      "errors": 0,
+      "non2xx": 13,
+      "total": 14963
+    },
+    {
+      "name": "读·报表 projectHealth",
+      "rps": 1393.5,
+      "latency": {
+        "p50": 38,
+        "p97_5": 160,
+        "p99": 197,
+        "max": 493
+      },
+      "errors": 0,
+      "non2xx": 14797,
+      "total": 25902
+    },
+    {
+      "name": "写·登录 auth.login 风暴段（429=§14.4 限流实证）",
+      "rps": 30.5,
+      "latency": {
+        "p50": 1543,
+        "p97_5": 3194,
+        "p99": 3286,
+        "max": 3555
+      },
+      "errors": 0,
+      "non2xx": 0,
+      "total": 5457
+    },
+    {
+      "name": "写·工时保存 time.saveEntries #1",
+      "rps": 204.4,
+      "latency": {
+        "p50": 242,
+        "p97_5": 486,
+        "p99": 513,
+        "max": 828
+      },
+      "errors": 0,
+      "non2xx": 0,
+      "total": 8066
+    },
+    {
+      "name": "写·工时保存 time.saveEntries #2",
+      "rps": 214.5,
+      "latency": {
+        "p50": 232,
+        "p97_5": 472,
+        "p99": 510,
+        "max": 653
+      },
+      "errors": 0,
+      "non2xx": 0,
+      "total": 8217
+    },
+    {
+      "name": "写·工时保存 time.saveEntries #3",
+      "rps": 221.4,
+      "latency": {
+        "p50": 225,
+        "p97_5": 450,
+        "p99": 468,
+        "max": 546
+      },
+      "errors": 0,
+      "non2xx": 0,
+      "total": 8321
+    },
+    {
+      "name": "写·工时保存 time.saveEntries #4",
+      "rps": 219.8,
+      "latency": {
+        "p50": 226,
+        "p97_5": 458,
+        "p99": 482,
+        "max": 588
+      },
+      "errors": 0,
+      "non2xx": 0,
+      "total": 8297
+    },
+    {
+      "name": "写·登录 auth.login 标定段（5 连接）",
+      "rps": 250,
+      "latency": {
+        "p50": 3,
+        "p97_5": 7,
+        "p99": 8,
+        "max": 17
+      },
+      "errors": 0,
+      "non2xx": 1250,
+      "total": 1500
+    }
+  ]
+}
