@@ -1,6 +1,6 @@
 import {
   AlertTriangle, Archive, Banknote, BarChart3, Bell, Briefcase, Building2, Calendar,
-  CheckSquare, Clock, FileText, Folder, Gavel, ListTodo, Receipt, Settings, ShieldCheck,
+  CheckSquare, Clock, FileText, Folder, Gavel, Home, ListTodo, Receipt, Settings, ShieldCheck,
   TrendingUp, UserPlus, Users, type LucideIcon,
 } from "lucide-react";
 
@@ -31,6 +31,7 @@ export interface DomainIconDef {
 }
 
 export const DOMAIN_ICONS = {
+  home: { label: "驾驶舱/首页", icon: Home, color: "blue" },
   approval: { label: "审批", icon: CheckSquare, color: "blue" },
   meeting: { label: "会议", icon: Calendar, color: "green" },
   travel: { label: "出差", icon: Briefcase, color: "orange" },

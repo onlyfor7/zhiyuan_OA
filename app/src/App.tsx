@@ -68,6 +68,7 @@ const FinInvoicesPage = lazy(() => import("./pages/fin/InvoicesPage"));
 const FinProjectCostingPage = lazy(() => import("./pages/fin/ProjectCostingPage"));
 const ReportsWorkbenchPage = lazy(() => import("./pages/reports/ReportsWorkbenchPage"));
 const ReportPage = lazy(() => import("./pages/reports/ReportPage"));
+const PreviewTabsPage = lazy(() => import("./pages/preview/PreviewTabsPage"));
 
 /**
  * 路由表（迭代 1 工单 03；迭代 6 工单 04 扩展域转正）。
@@ -78,6 +79,7 @@ export default function App() {
     <Suspense fallback={<div className="page-loader" role="status">正在加载…</div>}>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/preview-tabs" element={<PreviewTabsPage />} />
       <Route path="/coming-soon" element={<ComingSoonPage />} />
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="/cockpit" replace />} />
