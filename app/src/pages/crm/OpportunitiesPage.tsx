@@ -66,12 +66,12 @@ export default function OpportunitiesPage() {
       {view === "table" ? (
         <>
           <div className="p9a-ta-table" style={{ gridTemplateRows: "40px minmax(0,1fr)" }}>
-            <div className="p9a-ta-head p9a-ta-row" style={{ gridTemplateColumns: "110px 1.4fr 100px 90px 110px 70px 90px 100px 130px" }}>
+            <div className="p9a-ta-head p9a-ta-row" style={{ gridTemplateColumns: "110px 1.4fr 100px 110px 80px 90px 100px 130px" }}>
               <span>编号</span><span>商机</span><span>阶段</span><span>预计金额</span><span>赢率</span><span>负责人</span><span>更新</span><span />
             </div>
             <div className="p9a-ta-body">
               {items.map((o) => (
-                <div className="p9a-ta-row" key={o.id} style={{ gridTemplateColumns: "120px 1.6fr 110px 130px 90px 110px 150px" }}>
+                <div className="p9a-ta-row" key={o.id} style={{ gridTemplateColumns: "110px 1.4fr 100px 110px 80px 90px 100px 130px" }}>
                   <span className="mono">{o.code}</span>
                   <strong>{o.name}</strong>
                   <span>

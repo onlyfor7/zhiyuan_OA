@@ -106,7 +106,7 @@ function ReportSkeleton({ reportKey }: { reportKey: string }) {
   if (report.isError) throw report.error;
 
   const cols = data?.columns ?? [];
-  const colGrid = `minmax(140px, 1.2fr) repeat(${Math.max(0, cols.length - 1)}, minmax(96px, auto))`;
+  const colGrid = `minmax(140px, 1.2fr) repeat(${Math.max(0, cols.length - 1)}, minmax(96px, 1fr))`;
   const aging = meta.key === "receivable_aging" ? AGING_SCALE : null;
 
   return (

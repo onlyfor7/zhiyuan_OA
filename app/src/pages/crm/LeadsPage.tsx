@@ -223,7 +223,7 @@ export default function LeadsPage() {
         </div>
         <div className="p9a-ta-body">
           {list.data.items.map((l) => (
-            <div className="p9a-ta-row" key={l.id} style={{ gridTemplateColumns: "120px 1.4fr 1fr 110px 110px 110px 150px" }}>
+            <div className="p9a-ta-row" key={l.id} style={{ gridTemplateColumns: "110px 1.3fr 1fr 90px 100px 90px 90px 140px" }}>
               <span className="mono">{l.code}</span>
               <strong>{l.name}</strong>
               <span>{l.contactName ?? "—"}{l.contactPhone ? ` · ${l.contactPhone}` : ""}</span>
