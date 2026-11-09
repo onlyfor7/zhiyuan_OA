@@ -1,3 +1,4 @@
+import { useUserNameMap } from "../api/reference";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Check, ChevronRight, GitBranch, Plus, RotateCcw, Send, ShieldAlert, X } from "lucide-react";
@@ -73,6 +74,7 @@ function Checklist({ projectId }: { projectId: string }) {
 }
 
 function IssueDrawer({ id, onClose }: { id: string; onClose: () => void }) {
+  const userNames = useUserNameMap();
   const issue = useQualityIssue(id);
   const mutations = useQualityMutations();
   const members = useProjectMembers(issue.data?.projectId ?? "");
@@ -118,7 +120,7 @@ function IssueDrawer({ id, onClose }: { id: string; onClose: () => void }) {
           </div>
           <div>
             <span>登记人</span>
-            <strong>{q.reporterId.slice(0, 8)}</strong>
+            <strong>{userNames.get(q.reporterId) ?? "—"}</strong>
           </div>
           <div>
             <span>关闭时间</span>

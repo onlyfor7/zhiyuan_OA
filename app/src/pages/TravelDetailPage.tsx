@@ -1,4 +1,6 @@
 import { useState } from "react";
+
+import { useUserNameMap } from "../api/reference";
 import { BackButton } from "../components/feedback";
 import { Link, useParams } from "react-router";
 import {
@@ -20,6 +22,7 @@ import {
 
 /** 出差详情：行程—申请—费用 时间轴（arch/05 §5；complete 前必须先 depart） */
 export default function TravelDetailPage() {
+  const userNames = useUserNameMap();
   const { travelId } = useParams();
   const travel = useTravel(travelId ?? null);
   const mutations = useTravelMutations();
@@ -281,7 +284,7 @@ export default function TravelDetailPage() {
             <dl className="detail-list">
               <div>
                 <dt>申请人</dt>
-                <dd>{t.applicantId.slice(0, 8)}</dd>
+                <dd>{userNames.get(t.applicantId) ?? "—"}</dd>
               </div>
               <div>
                 <dt>事由</dt>

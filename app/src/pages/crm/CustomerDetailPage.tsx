@@ -91,6 +91,10 @@ function ShowAll<T extends { id: string }>({ items, render, cap = 10 }: { items:
   );
 }
 
+function detailProjectNames(d: { projects?: Array<{ id: string; name: string }> } | null): Map<string, string> {
+  return new Map((d?.projects ?? []).map((p) => [p.id, p.name]));
+}
+
 export default function CustomerDetailPage() {
   const { customerId } = useParams();
   const customer = useCustomer(customerId ?? null);
@@ -109,6 +113,7 @@ export default function CustomerDetailPage() {
     );
   if (customer.isError) throw customer.error;
   const d = customer.data;
+  const projectNames = detailProjectNames(d);
 
   const addFollow = () => {
     setError(null);
@@ -256,7 +261,7 @@ export default function CustomerDetailPage() {
             <ShowAll items={d.files} render={(f) => (
               <div className="report-row" key={f.id}>
                 <div>
-                  <strong>{f.sourceId ? f.sourceId.slice(0, 8) : "—"}…</strong>
+                  <strong>{f.sourceId ? (projectNames.get(f.sourceId) ?? "项目附件") : "—"}</strong>
                   <small>{CONFIDENTIALITY_LABEL[f.confidentialityLevel] ?? f.confidentialityLevel} · {f.uploadedAt.slice(0, 16).replace("T", " ")}</small>
                 </div>
               </div>

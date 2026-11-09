@@ -1,4 +1,6 @@
 import { useRef, useState } from "react";
+
+import { useUserNameMap } from "../../api/reference";
 import { Download, Eye, FileText, Folder, FolderOpen, Link2, Plus, Upload } from "lucide-react";
 import { ACCESS_GRANT_SCOPE_TYPE } from "@lexflow/shared";
 
@@ -235,6 +237,7 @@ function GrantApplyForm({ onDone }: { onDone: () => void }) {
 }
 
 function GrantPanel() {
+  const userNames = useUserNameMap();
   const grants = useGrantList();
   const mutations = useArchiveMutations();
   const [applyOpen, setApplyOpen] = useState(false);
@@ -275,11 +278,11 @@ function GrantPanel() {
               <div>
                 <span className="mini-avatar">{g.granteeId.slice(0, 1)}</span>
                 <span>
-                  <strong>{g.granteeId.slice(0, 8)}</strong>
+                  <strong>{userNames.get(g.granteeId) ?? "—"}</strong>
                 </span>
               </div>
               <span>
-                {g.scopeType} · {g.scopeId.slice(0, 8)}
+                {g.scopeType}
               </span>
               <span>{g.actions.join("、")}</span>
               <span>{g.expiresAt ? g.expiresAt.slice(0, 10) : "长期"}</span>

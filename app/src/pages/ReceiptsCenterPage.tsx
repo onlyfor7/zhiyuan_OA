@@ -64,6 +64,9 @@ export default function ReceiptsCenterPage() {
   // 登记项目源（arch 裁定 04b-①）：receipts.projectOptions 参照级清单（全部项目，无收款记录的新项目可登记）
   const projectOptions = useReceiptProjectOptions(canWrite && (registerOpen || showPrefill));
   const registerProjects = useMemo(() => projectOptions.data ?? [], [projectOptions.data]);
+  const ownProjects = useMemo(() => new Map((me.data?.projects ?? []).map((p) => [p.id, p.name])), [me.data]);
+  const optionProjects = useMemo(() => new Map((projectOptions.data ?? []).map((p) => [p.id, p.name])), [projectOptions.data]);
+  const projectNames = useMemo(() => new Map([...ownProjects, ...optionProjects]), [ownProjects, optionProjects]);
   const exportCsv = useReceiptExport();
   const { density, setDensity } = useTableDensity();
   const mutations = useReceiptMutations();
@@ -191,7 +194,7 @@ export default function ReceiptsCenterPage() {
                     <strong>{r.code}</strong>
                     <small>{link ? `已挂 ${link.contractCode} · 计划 #${link.planSeq}` : (r.note ?? "")}</small>
                   </div>
-                  <span>{r.projectId.slice(0, 8)}</span>
+                  <span>{projectNames.get(r.projectId) ?? r.code}</span>
                   <span className="mono">{formatYuan(r.amountCents)} 元</span>
                   <span className="mono">{r.receivedOn}</span>
                   <span className="mono">{r.referenceNo}</span>
@@ -349,6 +352,9 @@ function ReceiptRegisterForm({
           已挂合同付款计划行：登记成功后该计划行状态写回（paid/partial），并同事务勾稽应收。
         </p>
       ) : null}
+      <div className="form-section">
+        <span className="section-label">登记信息</span>
+      </div>
       <div className="owner-line">
         <label className="form-field">
           <span>项目 *</span>
@@ -368,6 +374,9 @@ function ReceiptRegisterForm({
           <span>到账日期 *</span>
           <input type="date" value={receivedOn} onChange={(e) => setReceivedOn(e.target.value)} />
         </label>
+      </div>
+      <div className="form-section">
+        <span className="section-label">凭证信息</span>
       </div>
       <div className="owner-line">
         <label className="form-field">

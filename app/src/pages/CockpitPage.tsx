@@ -4,6 +4,7 @@ import { useQueries } from "@tanstack/react-query";
 import { FileText, Wrench } from "lucide-react";
 
 import { useDashboardSummary } from "../api/dashboard";
+import { useProjectNameMap } from "../api/reference";
 import { useProjectPreview } from "../api/project";
 import { useMeetingList } from "../api/meeting";
 import { useTravelList } from "../api/travel";
@@ -181,6 +182,7 @@ const BIZ_DOMAIN: Record<string, DomainKey> = {
 
 export default function CockpitPage() {
   const { me } = useShell();
+  const projectNames = useProjectNameMap();
   const dashboard = useDashboardSummary();
   const projects = useProjectPreview();
   const approvals = useApprovalsMine();
@@ -220,7 +222,7 @@ export default function CockpitPage() {
       const list = map.get(domain) ?? [];
       list.push({
         title: `${item.instance.code} · ${DOMAIN_ICONS[domain].label}`,
-        project: item.instance.projectId ? `项目 ${item.instance.projectId.slice(0, 8)}` : "全局",
+        project: item.instance.projectId ? (projectNames.get(item.instance.projectId) ?? "项目") : "全局",
         ago: item.instance.submittedAt ? item.instance.submittedAt.slice(5, 16).replace("T", " ") : "—",
       });
       map.set(domain, list);

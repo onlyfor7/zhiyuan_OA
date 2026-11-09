@@ -1,4 +1,6 @@
 import { useState } from "react";
+
+import { useProjectNameMap, useUserNameMap } from "../api/reference";
 import { BackButton } from "../components/feedback";
 import { useParams } from "react-router";
 import { ArrowRight, Check, ChevronRight, FileText, X } from "lucide-react";
@@ -35,6 +37,8 @@ function ApprovalChecks({ instanceId }: { instanceId: string }) {
 
 /** 报销详情：明细+票据+检查项+支付登记+调整/冲销（arch/06 §7） */
 export default function ExpenseDetailPage() {
+  const userNames = useUserNameMap();
+  const projectNames = useProjectNameMap();
   const { expenseId } = useParams();
   const me = useMe();
   const expense = useExpense(expenseId ?? null);
@@ -68,7 +72,7 @@ export default function ExpenseDetailPage() {
             {r.isCrossProject ? <em className="mark-duesoon">跨项目</em> : null}
           </h1>
           <p>
-            申请人 {r.applicantId.slice(0, 8)} · 合计 <strong className="mono">{formatYuan(r.totalCents)} 元</strong>
+            申请人 {userNames.get(r.applicantId) ?? "—"} · 合计 <strong className="mono">{formatYuan(r.totalCents)} 元</strong>
             （服务端计算）
             {r.paidAt ? ` · 已支付 ${formatDateTime(r.paidAt)}（参考号 ${r.paymentRef}）` : ""}
           </p>
@@ -170,7 +174,7 @@ export default function ExpenseDetailPage() {
         {r.items.map((it) => (
           <div className="expense-items-row" key={it.id}>
             <span>
-              <strong>{it.projectId.slice(0, 8)}</strong>
+              <strong>{projectNames.get(it.projectId) ?? "—"}</strong>
               <small>{it.date}</small>
             </span>
             <span>{EXPENSE_CATEGORY_LABEL[it.category] ?? it.category}</span>
@@ -193,7 +197,7 @@ export default function ExpenseDetailPage() {
             <span>
               {it.description}
               {it.payee ? <small> → {it.payee}</small> : null}
-              {it.fundingRequestId ? <small> · 经费 {it.fundingRequestId.slice(0, 8)}</small> : null}
+              {it.fundingRequestId ? <small> · 关联经费单</small> : null}
             </span>
           </div>
         ))}

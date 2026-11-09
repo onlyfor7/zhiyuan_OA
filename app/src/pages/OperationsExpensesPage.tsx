@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+
+import { useUserNameMap } from "../api/reference";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router";
 import { ChevronRight, Download } from "lucide-react";
@@ -37,6 +39,7 @@ export default function OperationsExpensesPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [mine, setMine] = useState(false);
+  const userNames = useUserNameMap();
   const [exporting, setExporting] = useState(false);
   const [status, setStatus] = useState("");
   const list = useExpenseList(projectId && !mine ? { projectId } : { mine: true });
@@ -77,7 +80,7 @@ export default function OperationsExpensesPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `报销导出_${projectId.slice(0, 8)}_${r.asOf.slice(0, 10)}.csv`;
+      a.download = `报销导出_${r.asOf.slice(0, 10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     } finally {
@@ -134,7 +137,7 @@ export default function OperationsExpensesPage() {
           ) : (
             byPerson.data?.items.map((p) => (
               <div className="cause-row" key={p.applicantId}>
-                <span>{p.applicantId.slice(0, 8)}</span>
+                <span>{userNames.get(p.applicantId) ?? "—"}</span>
                 <div>
                   <i style={{ width: "60%" }} />
                 </div>
@@ -178,7 +181,7 @@ export default function OperationsExpensesPage() {
                   {e.code} · {e.reason.slice(0, 30)}
                   {e.isCrossProject ? <em className="mark-duesoon">跨项目</em> : null}
                 </strong>
-                <small>申请人 {e.applicantId.slice(0, 8)}</small>
+                <small>申请人 {userNames.get(e.applicantId) ?? "—"}</small>
               </div>
               <span className="mono">{formatYuan(e.totalCents)} 元</span>
               <span className={`badge badge-travel-${e.status === "paid" ? "approved" : e.status === "rejected" ? "rejected" : "pending_approval"}`}>

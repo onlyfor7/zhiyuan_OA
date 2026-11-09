@@ -1,4 +1,6 @@
 import { useState } from "react";
+
+import { useUserNameMap } from "../api/reference";
 import {} from "lucide-react";
 
 import { useAuditList, type AuditFilters } from "../api/audit";
@@ -21,6 +23,7 @@ const TARGET_TYPES = [
 
 /** 权限审计页：audit.list 真实数据（未授权由边界渲染同形 404） */
 export default function AuditPage() {
+  const userNames = useUserNameMap();
   const [filters, setFilters] = useState<AuditFilters>({});
   const [draft, setDraft] = useState<AuditFilters>({});
   const audit = useAuditList(filters);
@@ -109,11 +112,11 @@ export default function AuditPage() {
             audit.data?.items.map((row) => (
               <div className="log-row" key={row.id}>
                 <time>{row.createdAt.slice(0, 19).replace("T", " ")}</time>
-                <span>{row.actorId ? row.actorId.slice(0, 8) : "系统"}</span>
+                <span>{row.actorId ? (userNames.get(row.actorId) ?? "—") : "系统"}</span>
                 <span>{row.action}</span>
                 <span>
                   {row.targetType ?? "—"}
-                  {row.targetId ? ` · ${row.targetId.slice(0, 8)}` : ""}
+                  {row.targetId ? ` · 对象 ${row.targetType ?? ""}` : ""}
                 </span>
                 <span className={row.result === "success" ? "log-success" : "log-denied"}>{row.result}</span>
               </div>

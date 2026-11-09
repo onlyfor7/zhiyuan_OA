@@ -1,4 +1,6 @@
 import { useState } from "react";
+
+import { useProjectNameMap } from "../api/reference";
 import { Link, useSearchParams } from "react-router";
 import { ArrowRight, Search } from "lucide-react";
 
@@ -12,6 +14,7 @@ const ALL_TYPES = Object.keys(SEARCH_TYPE_LABEL);
 
 /** 全局搜索结果页：O1 分组返回（每组 ≤5 + totalByType 精确计数徽标 + 查看全部该类型提至每类 20 条） */
 export default function SearchPage() {
+  const projectNames = useProjectNameMap();
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";
   const [types, setTypes] = useState<string[]>([]);
@@ -96,7 +99,7 @@ export default function SearchPage() {
                 <strong>{hit.title}</strong>
                 <small>
                   {hit.code ?? ""}
-                  {hit.projectId ? ` · 项目 ${hit.projectId.slice(0, 8)}` : ""}
+                  {hit.projectId ? ` · 项目 ${projectNames.get(hit.projectId) ?? "项目"}` : ""}
                 </small>
               </div>
               {"amountCents" in hit && hit.amountCents != null && canFinance ? (

@@ -19,6 +19,12 @@ export function useApproval(id: string | null) {
   return useQuery(trpc.approval.getById.queryOptions({ id: id ?? "" }, { enabled: !!id }));
 }
 
+/** §16.2 审批业务详情聚合：通用字段（申请人/项目名）+ 按 biz_type 快照；权限=申请人∪当前审批人 */
+export function useApprovalDetail(instanceId: string | null) {
+  const trpc = useTRPC();
+  return useQuery(trpc.approval.detail.queryOptions({ instanceId: instanceId ?? "" }, { enabled: !!instanceId }));
+}
+
 export function useApprovalAct() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();

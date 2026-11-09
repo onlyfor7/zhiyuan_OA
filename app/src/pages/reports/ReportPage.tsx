@@ -211,7 +211,7 @@ function ReportSkeleton({ reportKey }: { reportKey: string }) {
                     <span
                       key={c.key}
                       className={typeof r[c.key] === "number" ? "mono" : undefined}
-                      style={aging && aging[c.key] && typeof r[c.key] === "number" && (r[c.key] as number) > 0 ? { background: aging[c.key], borderRadius: 6, padding: "2px 6px", justifySelf: "start" } : undefined}
+                      style={aging && aging[c.key] && typeof r[c.key] === "number" && (r[c.key] as number) > 0 ? { background: aging[c.key] } : undefined}
                       title={meta.cell(c.key, r[c.key])}
                     >
                       {meta.cell(c.key, r[c.key])}

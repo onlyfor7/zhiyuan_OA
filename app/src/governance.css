@@ -2228,3 +2228,41 @@ a.text-action:focus-visible::after, button.text-action:focus-visible::after { ri
   .ws-bar { display: none; }
 }
 .ws-pane-placeholder { padding: 36px 24px; display: grid; gap: 6px; }
+
+/* —— 迭代11-02 §16.1 表格列对齐：数值右/文本左/状态中（同列边缘由统一 grid 模板保证，偏差=0） —— */
+.p9a-ta-row > span.mono { text-align: right; }
+.p9a-ta-row > span.badge { justify-self: center; }
+.p9a-ta-head > span.mono { text-align: right; }
+
+/* —— 迭代11-02 §16.3 表单精细化（F1–F4 全局同构；覆盖 App.css 基底） —— */
+.form-field { margin: 14px 0; }
+.form-field > span { font-size: 12px; font-weight: 500; color: #64748b; letter-spacing: .01em; }
+.form-field textarea, .form-field input:not([type="checkbox"]):not([type="radio"]), .form-field select {
+  background: #fff; border: 1px solid #d3d9e0; border-radius: 6px; font-size: 12px;
+  transition: border-color 120ms ease-out, box-shadow 120ms ease-out;
+}
+.form-field textarea, .form-field input:not([type="checkbox"]):not([type="radio"]) { width: 100%; resize: vertical; padding: 7px 10px; line-height: 1.5; min-height: 34px; color: var(--ink); }
+.form-field textarea { min-height: 64px; }
+.form-field select { height: 34px; padding: 0 26px 0 10px; color: var(--ink); }
+.form-field :is(textarea, input, select):hover { border-color: #9fa9b7; }
+.form-field :is(textarea, input, select):focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, .18); }
+.form-field :is(textarea, input, select):disabled { background: #f1f3f6; color: #94a3b8; cursor: not-allowed; }
+.form-field.has-error :is(textarea, input, select) { border-color: #dc2626; box-shadow: 0 0 0 2px rgba(220, 38, 38, .15); }
+.field-error { color: #dc2626; font-size: 11px; margin: 4px 0 0; }
+/* 区块分组：弱分隔标题/线 */
+.form-section { margin: 18px 0 2px; padding-top: 14px; border-top: 1px solid #eef0f3; }
+.form-section:first-of-type { border-top: 0; padding-top: 0; margin-top: 8px; }
+.form-section > .section-label { display: block; margin-bottom: 6px; }
+
+/* —— 迭代11-02 §16.2 审批业务快照区 —— */
+.biz-detail { margin-top: 10px; background: #f8fafc; border: 1px solid #edf0f4; border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; }
+.biz-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.biz-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px 14px; }
+.biz-field { display: grid; gap: 2px; font-size: 12px; }
+.biz-field > span { color: var(--muted); font-size: 11px; }
+.biz-field > strong { font-weight: 500; }
+.biz-table { display: grid; border-top: 1px solid #e8eaee; border-left: 1px solid #e8eaee; background: #fff; border-radius: 6px; overflow: hidden; }
+.biz-tr { display: grid; grid-template-columns: repeat(var(--biz-cols, 5), minmax(0, 1fr)); }
+.biz-tr > span { border-right: 1px solid #e8eaee; border-bottom: 1px solid #e8eaee; padding: 5px 8px; font-size: 11px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.biz-tr.biz-head > span { background: #f3f4f6; color: #374151; font-weight: 600; }
+.biz-tr > span.mono { text-align: right; }

@@ -6,6 +6,6 @@ export function useUserNameMap() {
   const items = users.data?.items ?? [];
   return (id: string | null | undefined) => {
     if (!id) return "—";
-    return items.find((u) => u.id === id)?.name ?? id.slice(0, 8);
+    return items.find((u) => u.id === id)?.name ?? "—";
   };
 }

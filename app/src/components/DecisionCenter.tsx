@@ -1,4 +1,6 @@
 import { useState } from "react";
+
+import { useProjectNameMap } from "../api/reference";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { Check, CheckCircle2, ChevronRight, CircleAlert, Plus, Send, X } from "lucide-react";
 
@@ -285,6 +287,7 @@ function DecisionDetailInner({ d }: { d: DecisionDetailData }) {
 
 /** 决策中心（项目页签与全局决策中心共用）：队列 + 工作区 */
 export function DecisionCenter({ projectId }: { projectId?: string }) {
+  const projectNames = useProjectNameMap();
   const list = useDecisionList(projectId ? { projectId } : {});
   const [status, setStatus] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -359,7 +362,7 @@ export function DecisionCenter({ projectId }: { projectId?: string }) {
                   <small className="decision-status">{DECISION_STATUS_LABEL[item.status]}</small>
                 </div>
                 <strong>{item.title}</strong>
-                <small>{item.projectId.slice(0, 8)}</small>
+                <small>{item.projectId ? (projectNames.get(item.projectId) ?? "—") : "—"}</small>
               </button>
             ))
           )}

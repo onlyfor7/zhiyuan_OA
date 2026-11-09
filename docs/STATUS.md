@@ -94,7 +94,7 @@
 |---|---|---|---|---|---|
 | 11-00 总览 | — | 已发布 | 架构 | 2026-11-07 | 用户实测三裁定 |
 | 11-01 审批详情聚合端点 | 后端 | **通过** | 后端会话 | 2026-11-09 | 架构验收：根 292 全绿+prod 实弹（detail 快照全字段/列表 projectName+applicantName 映射/非审批人 404） |
-| 11-02 表格对齐+审批卡详情+表单精细化 | 前端 | 待认领 | — | 2026-11-09 | 依赖 01（已过）：§16.1/16.2/16.3+uuid 清剿 |
+| 11-02 表格对齐+审批卡详情+表单精细化 | 前端 | **待验收** | 前端会话 | 2026-11-09 | §16 四条全落地（8 表对齐扫描偏差≤1px/审批卡十分型快照默认展开+折叠明细/表单精细化计算样式实证/slice(0,8) 字面清零 20+ 处）；四道门 292 全绿+走查 44/44（D:\tmp\shots-iter11\） |
 | 11-03 验收+手册 v1.9 | 测试 | 未解锁 | — | — | 依赖 02；含 prod 发布窗口（双镜像） |
 
 ## 迭代 10 工单状态（体验打磨，arch/12 v1.9）
@@ -302,6 +302,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-09｜前端｜迭代11-02｜**工单 11-02（表格对齐+审批详情+表单精细化，arch/12 §16 四条逐字）完成，转「待验收」。** 分支 `iter11/frontend-polish2`。**①§16.1 表格对齐**：全站 8 类表（报表 rep-excel×3/业务 p9a-ta×4/台账 grant-table）逐列边缘扫描——表头+全部行同列左右缘偏差 ≤1px 全过（走查实测 worst≤1px）；修掉唯一独立盒=账龄分桶格内联 padding（改纯格底全幅色阶不动边缘）；数值右（`.mono` text-align:right 全局+表头同）/文本左/状态中（badge justify-self center）+rep-excel 灰底表头同行对齐。**②§16.2 审批详情**：`approval.detail` 接 `BizSnapshot` 组件——待审批卡默认展开业务快照（审批不盲批）：类型徽标（APPROVAL_BIZ_LABEL 徽标化）+申请人 applicantName+项目 projectName（列表端点 11-01 已带名映射，卡片/我申请列表全改名）；十分型快照渲染（expense=事由+合计+明细小表 5 行折叠「展开全部明细」〔7 行实证〕/expense_adjustment/funding/travel=行程段表〔seq/类型/起止/出发→到达〕/travel_change=changes 键值+原出差概要/generic_request/timesheet=周期+小时合计+明细摘要/change_request/access_grant/budget，kind-only 兜底不 500）；walkthrough 种 7 行报销+出差走全链（create+submit——**教训：create 不自动提审**）实证。**③§16.3 表单精细化**（覆盖 App.css 基底，F1–F4 全局同构）：label 12px 弱色 #64748b 上置/控件统一 34px 白底 6px 圆角/聚焦主色细环（box-shadow 2px rgba(37,99,235,.18) 计算样式实证）/错误红环+红字类（.has-error/.field-error）/禁用灰化/节奏 14px/.form-section 弱分隔分组（发票抽屉三段+登记弹窗两段实装）。**④uuid 截断清剿**：`slice(0, 8)` 全局 grep **零残留**——20+ 处全改名称映射（新 hooks useUserNameMap/useProjectNameMap；审批步骤/台账项目列/驾驶舱待办项目/审计 actor/质量登记人/费用申请人+明细项目/会议组织者记录人出席人/项目空间授权 grantee+变更责任人+工时按任务（useTaskList title 映射）/CRM 兜底「—」等）；导出文件名去 uuid。**质量门**（F3 合规）：根四道门逐条真实执行全绿（typecheck/build/db:migrate/test **292=server 269+app 23**，与 11-01 后端线一致零回归）。**走查 44/44 PASS**（8 截图 D:\tmp\shots-iter11\）：8 表对齐扫描/expense+travel 双卡快照+折叠展开实证/uuid 7 页零残留/表单 5 项计算样式/H1 三档×2 页/375 三页零越界。**遗留说明**：dev 库累积我走查种子数据（TRV-25~30/EXP-29~36 待审批+已批）——e2e 自增殖既有现象，11-03 验收前如需清净库可重置；`AccessErrorBoundary` 逐面板包裹使单签 404 不波及其他签。
 
 - 2026-11-09｜架构｜迭代11-01通过｜**工单 01（审批详情聚合端点）验收通过，解锁 11-02（前端会话）。** 实测：根测试 292/292 全绿；prod 实弹——approval.detail 返回 bizType=expense+申请人管晨+项目名映射+明细行快照（类别/日期/金额/说明）全字段；listMine 行 instance.projectName/applicantName 在位；非审批人 404 同形。十类快照形状与实体缺失 kind-only 不 500 设计采信。注意口径：列表行 projectId 仍带原始 uuid（作 id 字段合理），前端展示必须用 projectName——已随工单交接前端。
 

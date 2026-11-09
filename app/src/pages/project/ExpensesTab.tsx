@@ -1,3 +1,4 @@
+import { useUserNameMap } from "../../api/reference";
 import { Link } from "react-router";
 import { ChevronRight, Receipt } from "lucide-react";
 
@@ -11,6 +12,7 @@ import { useSpaceParams } from "./space-context";
 
 /** 项目空间·费用页签：财务可见者看项目费用；成员只看本人报销与本人经费（arch/03 §3） */
 export default function ExpensesTab() {
+  const userNames = useUserNameMap();
   const { projectId } = useSpaceParams();
   const me = useMe();
   const allowed = canViewFinance(
@@ -76,7 +78,7 @@ export default function ExpensesTab() {
             <Link className="report-row" key={e.id} to={`/expenses/${e.id}`}>
               <div>
                 <strong>{e.code} · {e.reason.slice(0, 30)}</strong>
-                <small>申请人 {e.applicantId.slice(0, 8)}</small>
+                <small>申请人 {userNames.get(e.applicantId) ?? "—"}</small>
               </div>
               <span className="mono">{formatYuan(e.totalCents)} 元</span>
               <span className={`badge badge-travel-${e.status === "paid" ? "approved" : e.status === "rejected" ? "rejected" : "pending_approval"}`}>

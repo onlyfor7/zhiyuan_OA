@@ -9,6 +9,7 @@ import { TIME_ACTIVITY_TYPE } from "@lexflow/shared";
 import { useMeetingList } from "../api/meeting";
 import { useTravelList } from "../api/travel";
 import { useMe } from "../api/auth";
+import { useProjectNameMap, useUserNameMap } from "../api/reference";
 import {
   useMyPeriod,
   useMyTimeSummary,
@@ -208,6 +209,8 @@ function toRows(
 
 export default function TimeCenterPage() {
   const me = useMe();
+  const userNames = useUserNameMap();
+  const projectNames = useProjectNameMap();
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
   const myPeriod = useMyPeriod(weekStart);
   const mutations = useTimeMutations();
@@ -465,7 +468,7 @@ export default function TimeCenterPage() {
             entries.map((e) => (
               <div className="time-list-row" key={e.id}>
                 <span className="mono">{e.workDate}</span>
-                <span>{e.projectId ? e.projectId.slice(0, 8) : "非项目"}</span>
+                <span>{e.projectId ? (projectNames.get(e.projectId) ?? "项目") : "非项目"}</span>
                 <span>{TIME_ACTIVITY_LABEL[e.activityType]}</span>
                 <span className="mono">{formatHours(e.durationMinutes)}</span>
                 <span>
@@ -495,7 +498,7 @@ export default function TimeCenterPage() {
       ) : period ? (
         <p className="context-note" style={{ marginTop: 16 }}>
           当前周期为「{TIMESHEET_STATUS_LABEL[period.status]}」状态，明细只读。
-          {period.status === "pending_approval" && period.approverId ? ` 审批人：${period.approverId.slice(0, 8)}。` : ""}
+          {period.status === "pending_approval" && period.approverId ? ` 审批人：${userNames.get(period.approverId) ?? "—"}。` : ""}
           {period.status === "locked" && period.lockReason ? ` 锁定原因：${period.lockReason}。` : ""}
         </p>
       ) : null}

@@ -36,6 +36,13 @@ export function useUserNameMap(): Map<string, string> {
   return new Map((query.data?.items ?? []).map((u) => [u.id, u.name]));
 }
 
+/** 项目 id→名称 映射（§16.2 uuid 截断清剿：项目一律名称映射不上屏） */
+export function useProjectNameMap(): Map<string, string> {
+  const trpc = useTRPC();
+  const query = useQuery(trpc.project.list.queryOptions({ limit: 100, filters: {} }));
+  return new Map((query.data?.items ?? []).map((p) => [p.id, p.name]));
+}
+
 /** 金额展示：整数分 → 元字符串（展示层换算，输入侧 parseYuanToCents） */
 export function formatYuan(cents: number | null | undefined): string {
   if (cents === null || cents === undefined) return "—";

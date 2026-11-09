@@ -1,6 +1,16 @@
 import { formatYuan } from "../api/reference";
 import { formatDateTime } from "../lib/trpc";
 import { LEDGER_ENTRY_LABEL } from "../lib/labels";
+
+/** 台账来源类型中文（§16 uuid 清剿：来源只显示类型，不显示 uuid 截断） */
+const LEDGER_SOURCE_LABEL: Record<string, string> = {
+  expense: "费用报销",
+  expense_adjustment: "报销调整",
+  funding: "经费申请",
+  budget: "预算",
+  travel: "出差",
+  import: "期初导入",
+};
 import type { RouterOutputs } from "../lib/trpc";
 
 interface Aggregate {
@@ -89,8 +99,8 @@ export function LedgerTable({
           <span>{LEDGER_ENTRY_LABEL[e.entryType] ?? e.entryType}</span>
           <span className="mono">{e.reservedDeltaCents >= 0 ? `+${e.reservedDeltaCents}` : e.reservedDeltaCents}</span>
           <span className="mono">{e.actualDeltaCents >= 0 ? `+${e.actualDeltaCents}` : e.actualDeltaCents}</span>
-          <span className="mono" title={e.idempotencyKey}>
-            {e.sourceType} · {e.sourceId?.slice(0, 8) ?? "—"}
+          <span className="mono" title={e.idempotencyKey ?? undefined}>
+            {LEDGER_SOURCE_LABEL[e.sourceType] ?? e.sourceType}
           </span>
         </div>
       ))}

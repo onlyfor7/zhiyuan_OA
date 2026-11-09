@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { ArrowRight, ChevronRight, Plus, RotateCcw, X } from "lucide-react";
 
+import { useUserNameMap } from "../../api/reference";
+
 import { useChange, useChangeList, useChangeMutations } from "../../api/change";
 import { useProjectMembers } from "../../api/project";
 import type { PlanAdjustment } from "../../api/plan";
@@ -212,6 +214,7 @@ export function ChangeCreateForm({
 }
 
 function ChangeDetailDrawer({ id, onClose }: { id: string; onClose: () => void }) {
+  const userNames = useUserNameMap();
   const change = useChange(id);
   const mutations = useChangeMutations();
   const [idemKey] = useState(newIdempotencyKey);
@@ -280,7 +283,7 @@ function ChangeDetailDrawer({ id, onClose }: { id: string; onClose: () => void }
           <span>恢复措施</span>
           {measures.map((m, i) => (
             <p key={i}>
-              {m.measure} · 责任人 {m.owner_id.slice(0, 8)} · 检查点 {m.checkpoint_date}
+              {m.measure} · 责任人 {m.owner_id ? (userNames.get(m.owner_id) ?? "—") : "—"} · 检查点 {m.checkpoint_date}
             </p>
           ))}
         </div>

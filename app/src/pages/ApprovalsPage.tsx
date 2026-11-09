@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Check, ChevronRight, Send, X } from "lucide-react";
 
 import { useApproval, useApprovalAct, useApprovalsApplied, useApprovalsMine } from "../api/approval";
+import { useUserNameMap } from "../api/reference";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
 import { ListSkeleton } from "../components/feedback";
 import { HelpIcon } from "../components/HelpIcon";
+import BizSnapshot from "../components/BizSnapshot";
 import "../lib/form";
 import {
   APPROVAL_BIZ_LABEL,
@@ -66,6 +68,8 @@ function MineCardExtras({ item }: { item: MineItem }) {
   const [flowOpen, setFlowOpen] = useState(false);
   return (
     <>
+      {/* §16.2：业务详情默认展开——审批人不应盲批 */}
+      <BizSnapshot instanceId={item.instance.id} />
       <div className="row-ops" style={{ marginTop: 8 }}>
         <button className="text-action" onClick={() => setSnapshotOpen((v) => !v)}>
           {snapshotOpen ? "收起快照" : "审批快照/检查项"}
@@ -206,6 +210,7 @@ function ActPanel({ item }: { item: MineItem }) {
 }
 
 function AppliedSteps({ id }: { id: string }) {
+  const userNames = useUserNameMap();
   const approval = useApproval(id);
   if (approval.isPending) return <p className="list-note">正在加载进度…</p>;
   if (approval.isError) throw approval.error;
@@ -218,7 +223,7 @@ function AppliedSteps({ id }: { id: string }) {
           <Check size={15} />
           <span>
             步骤 {Math.floor(s.seq / 1000) || s.seq} ·{" "}
-            {s.approverRole ? (GLOBAL_ROLE_LABEL[s.approverRole] ?? s.approverRole) : (s.approverId?.slice(0, 8) ?? "—")}{" "}
+            {s.approverRole ? (GLOBAL_ROLE_LABEL[s.approverRole] ?? s.approverRole) : s.approverId ? (userNames.get(s.approverId) ?? "—") : "—"}{" "}
             · {APPROVAL_STEP_STATUS_LABEL[s.status]}
             {s.comment ? <small>意见：{s.comment}</small> : null}
           </span>
@@ -269,8 +274,9 @@ export default function ApprovalsPage() {
           mine.data.items.map((item: MineItem) => (
             <div className="approval-card" key={`${item.instance.id}-${item.step.seq}`}>
               <div className="approval-card-head">
+                <span className="badge badge-health-normal">{APPROVAL_BIZ_LABEL[item.instance.bizType] ?? item.instance.bizType}</span>
                 <span className="section-label">
-                  {item.instance.code} · {APPROVAL_BIZ_LABEL[item.instance.bizType] ?? item.instance.bizType}
+                  {item.instance.code} · 申请人 {item.instance.applicantName ?? "—"}
                 </span>
                 <span className="decision-status">
                   步骤 {Math.floor(item.step.seq / 1000) || item.step.seq} ·{" "}
@@ -279,7 +285,7 @@ export default function ApprovalsPage() {
               </div>
               <p>
                 提交于 {item.instance.submittedAt?.slice(0, 16).replace("T", " ")}
-                {item.instance.projectId ? ` · 项目 ${item.instance.projectId.slice(0, 8)}` : ""}
+                {item.instance.projectName ? ` · 项目 ${item.instance.projectName}` : ""}
               </p>
               <MineCardExtras item={item} />
             </div>
@@ -299,7 +305,8 @@ export default function ApprovalsPage() {
                     {item.code} · {APPROVAL_BIZ_LABEL[item.bizType] ?? item.bizType}
                   </strong>
                   <small>
-                    提交 {item.submittedAt?.slice(0, 16).replace("T", " ") ?? "—"} ·{" "}
+                    申请人 {item.applicantName ?? "—"}
+                    {item.projectName ? ` · 项目 ${item.projectName}` : ""} · 提交 {item.submittedAt?.slice(0, 16).replace("T", " ") ?? "—"} ·{" "}
                     {item.completedAt ? `完成 ${item.completedAt.slice(0, 16).replace("T", " ")}` : "进行中"}
                   </small>
                 </div>

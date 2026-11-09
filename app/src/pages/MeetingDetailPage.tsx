@@ -262,7 +262,7 @@ function ActionItemsPanel({ meeting }: { meeting: MeetingDetail }) {
             <div>
               <strong>{item.title}</strong>
               <small>
-                负责人 {userNames.get(item.ownerId) ?? item.ownerId.slice(0, 8)} · 期限 {item.dueDate}
+                负责人 {userNames.get(item.ownerId) ?? "—"} · 期限 {item.dueDate}
                 {item.deliverable ? ` · 交付要求：${item.deliverable}` : ""}
                 {item.checkpoint ? ` · 检查点：${item.checkpoint}` : ""}
               </small>
@@ -391,8 +391,8 @@ export default function MeetingDetailPage() {
           <p>
             {MEETING_TYPE_LABEL[m.type]} · {formatDateTime(m.startAt)} ~ {formatDateTime(m.endAt).slice(11)}
             {m.location ? ` · ${m.location}` : ""}
-            {m.onlineUrl ? ` · 线上` : ""} · 组织者 {userNames.get(m.organizerId) ?? m.organizerId.slice(0, 8)}
-            {m.recorderId ? ` · 记录人 ${userNames.get(m.recorderId) ?? m.recorderId.slice(0, 8)}` : ""}
+            {m.onlineUrl ? ` · 线上` : ""} · 组织者 {userNames.get(m.organizerId) ?? "—"}
+            {m.recorderId ? ` · 记录人 ${userNames.get(m.recorderId) ?? "—"}` : ""}
           </p>
         </div>
         <div className="title-actions">
@@ -463,7 +463,7 @@ export default function MeetingDetailPage() {
                 建议预填 {formatHours(prefill.data.minutes)}/人（{prefill.data.attendeeUserIds.length} 位出席人）
               </strong>
               <p className="context-note">
-                出席人：{prefill.data.attendeeUserIds.map((id) => userNames.get(id) ?? id.slice(0, 8)).join("、")}
+                出席人：{prefill.data.attendeeUserIds.map((id) => userNames.get(id) ?? "—").join("、")}
                 。仅为建议预览：不保存、不计入任何工时统计。
               </p>
               <button

@@ -10,11 +10,14 @@ import {
 import { useUserNameMap } from "../../api/reference";
 import { formatHours, TIME_ACTIVITY_LABEL } from "../../lib/labels";
 import { useSpaceParams } from "./space-context";
+import { useTaskList } from "../../api/task";
 
 /** 项目空间·工时页签：项目维度统计（成员按可见范围；有效=approved+locked 口径标注） */
 export default function TimesheetTab() {
   const { projectId } = useSpaceParams();
   const userNames = useUserNameMap();
+  const tasks = useTaskList({ projectId });
+  const taskNames = new Map((tasks.data?.items ?? []).map((t) => [t.id, t.title]));
   const [statuses, setStatuses] = useState<string[]>([]);
   const input = { projectId, statuses: statuses.length ? statuses : undefined };
   const byUser = useTimeStatsByUser(input);
@@ -63,7 +66,7 @@ export default function TimesheetTab() {
           ) : (
             byUser.data.items.map((i) => (
               <div className="cause-row" key={i.key ?? "none"}>
-                <span>{i.name ?? userNames.get(i.key ?? "") ?? i.key?.slice(0, 8) ?? "非项目工作"}</span>
+                <span>{i.name ?? (i.key ? (userNames.get(i.key) ?? "—") : "非项目工作")}</span>
                 <div>
                   <i style={{ width: "60%" }} />
                 </div>
@@ -98,7 +101,7 @@ export default function TimesheetTab() {
         ) : (
           byTask.data.items.map((i) => (
             <div className="cause-row" key={i.key ?? "none"}>
-              <span>{i.key ? i.key.slice(0, 8) : "非任务"}</span>
+              <span>{i.key ? (taskNames.get(i.key) ?? "任务") : "非任务"}</span>
               <div>
                 <i style={{ width: "60%" }} />
               </div>

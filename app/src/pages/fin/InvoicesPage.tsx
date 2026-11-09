@@ -38,6 +38,9 @@ function InvoiceDrawer({ onClose }: { onClose: () => void }) {
   return (
     <FormDialog title="开具发票" eyebrow="FIN · F2 抽屉（应收/合同联动带出）" onClose={onClose} wide>
       <div className="p9a-drawer-body">
+        <div className="form-section">
+          <span className="section-label">客户信息</span>
+        </div>
         <label className="form-field">
           <span>客户 *</span>
           <select value={customerId} onChange={(e) => { setCustomerId(e.target.value); setContractId(""); setReceivableId(""); }}>
@@ -47,6 +50,9 @@ function InvoiceDrawer({ onClose }: { onClose: () => void }) {
             ))}
           </select>
         </label>
+        <div className="form-section">
+          <span className="section-label">关联与金额</span>
+        </div>
         <div className="owner-line">
           <label className="form-field">
             <span>关联合同（选填）</span>
@@ -77,7 +83,9 @@ function InvoiceDrawer({ onClose }: { onClose: () => void }) {
             <input type="number" min="0" max="100" value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value))} />
           </label>
         </div>
-        <span className="section-label">发票抬头（取公司信息）</span>
+        <div className="form-section">
+          <span className="section-label">发票抬头（取公司信息）</span>
+        </div>
         <div className="ux-danger-box" style={{ borderLeftColor: "#2563eb", background: "#eff4ff" }}>
           <strong>{company.data?.name ?? "（公司信息未维护）"}</strong>
           <p>税号 {company.data?.creditCode ?? "—"} · 开户行 {company.data?.bankName ?? "—"} · 账号 {company.data?.bankAccount ?? "—"}</p>
