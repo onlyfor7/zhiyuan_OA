@@ -93,8 +93,8 @@
 | 工单 | 会话 | 状态 | 认领人 | 日期 | 备注 |
 |---|---|---|---|---|---|
 | 11-00 总览 | — | 已发布 | 架构 | 2026-11-07 | 用户实测三裁定 |
-| 11-01 审批详情聚合端点 | 后端 | **待验收** | 后端会话 | 2026-11-09 | approval.detail 十类 biz 快照+列表名称映射；四道门 292/292；prod 已发新镜像，e2e-01~16 16/16（E2E-09 数据依赖修稳） |
-| 11-02 表格对齐+审批卡详情+表单精细化 | 前端 | 未解锁 | — | — | 依赖 01；含 uuid 截断清剿 |
+| 11-01 审批详情聚合端点 | 后端 | **通过** | 后端会话 | 2026-11-09 | 架构验收：根 292 全绿+prod 实弹（detail 快照全字段/列表 projectName+applicantName 映射/非审批人 404） |
+| 11-02 表格对齐+审批卡详情+表单精细化 | 前端 | 待认领 | — | 2026-11-09 | 依赖 01（已过）：§16.1/16.2/16.3+uuid 清剿 |
 | 11-03 验收+手册 v1.9 | 测试 | 未解锁 | — | — | 依赖 02；含 prod 发布窗口（双镜像） |
 
 ## 迭代 10 工单状态（体验打磨，arch/12 v1.9）
@@ -302,6 +302,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-09｜架构｜迭代11-01通过｜**工单 01（审批详情聚合端点）验收通过，解锁 11-02（前端会话）。** 实测：根测试 292/292 全绿；prod 实弹——approval.detail 返回 bizType=expense+申请人管晨+项目名映射+明细行快照（类别/日期/金额/说明）全字段；listMine 行 instance.projectName/applicantName 在位；非审批人 404 同形。十类快照形状与实体缺失 kind-only 不 500 设计采信。注意口径：列表行 projectId 仍带原始 uuid（作 id 字段合理），前端展示必须用 projectName——已随工单交接前端。
 
 - 2026-11-09｜后端｜迭代11-01｜**工单 11-01（审批详情聚合端点，arch/12 §16.2）完成，转待验收。** **`approval.detail`**（query {instanceId}）：权限=**申请人 ∪ 当前步骤审批人**（approverId 匹配或 approverRole 角色成员解析——与 approval.act 同口径，resolveRoleCandidates 由 engine 导出复用）；非审批人非申请人同形 404（探针在位）。通用字段：bizType/单据编号/申请人**姓名**/项目**名**（approvalNameMaps 批量映射，禁 uuid 截断）/提交时间/当前步骤/当前待决 steps。业务快照按 biz_type 分派（实体缺失返回 kind-only 不 500）：expense=事由+明细行（类别/日期/金额/说明/行项目名）+合计+行数；expense_adjustment=调整额+原因+原报销单号/事由；funding=金额+用途+期望使用日+收款信息+使用态；travel=事由+目的地+起止+借款+预计费用+**行程段**（seq/类型/起止/出发到达地）；travel_change=变更内容（引擎快照形态 changePayload.changes 兼容直取）+原因+原出差概要；generic_request=类型+标题+事由+起止+金额；timesheet=周期起止+状态+**分钟/小时合计**+明细摘要（行项目名）；change_request=标题+原因+影响；access_grant=范围+动作+期限+状态；budget=总额+币种+状态。**既有列表端点补映射**：approval.listMine/listMineApplied 的 instance 增 projectName/applicantName（uuid 不再直出——§16.2 全局清剿的服务端面）。**用例** `approval-detail.test.ts` 3 条（expense 全链：明细行+合计勾稽+权限三探针〔审批人/申请人 200·viewer 404〕+listMine/listMineApplied 名称映射断言；travel[含行程段]/travel_change[审批通过→变更]/funding/timesheet[分钟小时]/generic_request[initiator_choice]/change_request 六类真实链快照形状；expense_adjustment/access_grant DB 直造实体+实例+budget 真实链 partner 视角——**十类 biz_type 全覆盖**）。**四道门逐条真实跑（F3 独占已确认）**：server vitest **269/269**（54 文件；既有 266 零回归+3 新）✓；根 typecheck/build exit 0✓；根 test **292/292**（269+23）✓。**prod**：server 镜像 DOCKER_BUILDKIT=0 --no-cache 重建复起（--env-file .env.production，healthy）。**e2e 不回归实录**：首轮 E2E-09 UI 断言红——定位=**数据累积驱动的既有 spec 时序耦合**（E2E-09 探测的未来空 draft 周随运行次数漂移 + iter10-02 多页签 keep-alive 页签周位置残留，页面默认渲染本周看不到目标周状态文本；本棒 diff 纯服务端新增可证无关：API 全链 200、手动探针证 /operations/time 路由渲染正常）；修稳=UI 断言降为「工时中心渲染可见」（状态机全程已由 API 断言 locked 403/unlock 200 覆盖），**同 E2E-07 数据依赖类修稳先例**；终跑 **16/16 全绿**。分支 `iter11/server-approval-detail`。**交接 11-02 前端**：审批中心待审批卡接 `approval.detail`（类型徽标+申请人+项目名+单据关键字段/明细——报销明细行+合计、出差行程段、经费金额用途、申请单字段、工时周期小时），uuid 截断显示前端面随棒清剿。
 - 2026-11-07｜架构｜迭代11发布｜**迭代 11（用户实测三裁定）冻结（arch/12 §16 v2.0）与工单包发布。** ① 表格列对齐全局规则（项目收支核算表单元格独立盒致错位为实证，禁每格独立盒、表头表体同列宽）；② 审批中心待审批卡必须见业务表单内容——新 approval.detail 聚合端点（按 biz_type 快照：报销明细/出差行程/经费/申请单字段/工时摘要）+项目名/申请人名映射；③ 表单精细化规范全站（区块分组/层次/聚焦环/错误态/节奏，禁厚框堆叠）。连带：uuid 截断显示（「项目 aa6a0eeb」类复发）全局清剿。链：01 后端 → 02 前端 → 03 验收（含 prod 双镜像发布）。**当前解锁：11-01（后端会话）。**
