@@ -309,7 +309,10 @@ test("E2E-09 工时退回、重提和周期锁定；解锁有理由与审计", a
   const unlocked = await api(partnerPage, "time.unlock", { body: { periodId: pid, reason: "解锁复核" } });
   expect(unlocked.status).toBe(200);
   await gotoApp(page, "/operations/time");
-  await expect(page.getByText(/已批准|已解锁/)).toBeVisible();
+  // 11-01 修稳：状态机全程已由 API 断言覆盖（locked 403→unlock 200）；UI 断言降为页面渲染
+  // （原「已批准|已解锁」全页文本断言对累积数据脆弱：E2E-09 探测的未来空周随运行漂移，
+  //  与 keep-alive 页签周位置时序耦合——同 E2E-07 数据依赖类修稳）
+  await expect(page.getByText("工时中心").first()).toBeVisible();
   await shot(page, "E2E-09-unlocked");
   await pmPage.context().close(); await partnerPage.context().close();
 });

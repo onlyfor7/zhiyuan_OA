@@ -110,7 +110,7 @@ async function resolvePolicy(
 }
 
 /** 角色落地为具体人：project_manager → 项目 manager_id；全局角色 → 该角色全部用户（arch/04 §2.9） */
-async function resolveRoleCandidates(
+export async function resolveRoleCandidates(
   db: DbOrTx,
   role: string,
   projectId: string | null,

@@ -23,6 +23,10 @@ export const approvalRouter = router({
     .input(z.object({ id: z.uuid() }))
     .query(({ ctx, input }) => queries.getApprovalById(ctx.db, ctx.user, input.id)),
 
+  detail: authedProcedure
+    .input(z.object({ instanceId: z.uuid() }))
+    .query(({ ctx, input }) => queries.getApprovalDetail(ctx.db, ctx.user, input.instanceId)),
+
   act: authedMutation
     .input(
       z.object({

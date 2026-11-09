@@ -3,14 +3,19 @@ import { and, desc, eq, gte, isNull, sql, type SQL } from "drizzle-orm";
 import { ERROR_CODE } from "@lexflow/shared";
 
 import {
+  accessGrants,
   approvalInstances,
   approvalSteps,
   auditEvents,
   budgets,
   budgetLedger,
+  changeRequests,
   decisions,
+  expenseAdjustments,
+  expenseItems,
   expenseReports,
   fundingRequests,
+  genericRequests,
   meetingMinutes,
   meetings,
   notifications,
@@ -21,6 +26,8 @@ import {
   timeEntries,
   timesheetPeriods,
   travelRequests,
+  travelSegments,
+  users,
 } from "../../db/schema";
 import { BusinessError } from "../../lib/errors";
 import { can, projectScopeFilter } from "../../services/access";
@@ -56,6 +63,7 @@ export async function listMineApprovals(
     .limit(input.limit + 1);
   const page = rows.slice(0, input.limit);
   const last = page[page.length - 1];
+  const names = await approvalNameMaps(db, page.map((r) => r.instance));
   return {
     items: page.map((r) => ({
       step: { seq: r.step.seq, countersign: r.step.countersign, actedAt: r.step.actedAt },
@@ -65,6 +73,8 @@ export async function listMineApprovals(
         bizType: r.instance.bizType,
         bizId: r.instance.bizId,
         projectId: r.instance.projectId,
+        projectName: r.instance.projectId ? (names.projects.get(r.instance.projectId) ?? null) : null,
+        applicantName: names.applicants.get(r.instance.applicantId) ?? null,
         currentStepSeq: r.instance.currentStepSeq,
         status: r.instance.status,
         submittedAt: r.instance.submittedAt,
@@ -74,6 +84,25 @@ export async function listMineApprovals(
       rows.length > input.limit && last
         ? encodeCursor(last.instance.submittedAt, last.instance.id)
         : null,
+  };
+}
+
+/** 审批列表/详情名称映射：项目名+申请人名（arch/12 §16.2：禁 uuid 截断直出） */
+async function approvalNameMaps(
+  db: DbOrTx,
+  instances: Array<{ projectId: string | null; applicantId: string }>,
+): Promise<{ projects: Map<string, string>; applicants: Map<string, string> }> {
+  const projectIds = [...new Set(instances.map((i) => i.projectId).filter((x): x is string => !!x))];
+  const applicantIds = [...new Set(instances.map((i) => i.applicantId))];
+  const projectRows = projectIds.length
+    ? await db.select({ id: projects.id, name: projects.name }).from(projects).where(sql`${projects.id} IN (${sql.join(projectIds.map((x) => sql`${x}`), sql`, `)})`)
+    : [];
+  const applicantRows = applicantIds.length
+    ? await db.select({ id: users.id, name: users.name }).from(users).where(sql`${users.id} IN (${sql.join(applicantIds.map((x) => sql`${x}`), sql`, `)})`)
+    : [];
+  return {
+    projects: new Map(projectRows.map((r) => [r.id, r.name])),
+    applicants: new Map(applicantRows.map((r) => [r.id, r.name])),
   };
 }
 
@@ -92,8 +121,13 @@ export async function listMineApplied(
     .limit(input.limit + 1);
   const page = rows.slice(0, input.limit);
   const last = page[page.length - 1];
+  const names = await approvalNameMaps(db, page);
   return {
-    items: page,
+    items: page.map((r) => ({
+      ...r,
+      projectName: r.projectId ? (names.projects.get(r.projectId) ?? null) : null,
+      applicantName: names.applicants.get(r.applicantId) ?? null,
+    })),
     nextCursor:
       rows.length > input.limit && last ? encodeCursor(last.submittedAt, last.id) : null,
   };
@@ -142,6 +176,256 @@ export async function getApprovalById(db: DbOrTx, user: SessionUser, id: string)
     if (current) flowProgress.currentNodeLabel = seqByIndex.get(current.seq)?.label ?? null;
   }
   return { ...instance, steps, flowProgress };
+}
+
+/* ===== approval.detail（arch/12 §16.2：审批中心业务详情聚合） ===== */
+
+/**
+ * 审批详情聚合：通用字段（名称映射禁 uuid）+ 按 biz_type 业务快照。
+ * 权限=申请人 ∪ 当前步骤审批人（approverId 或角色成员，与 approval.act 同口径）；其余同形 404。
+ */
+export async function getApprovalDetail(db: DbOrTx, user: SessionUser, id: string) {
+  const [instance] = await db.select().from(approvalInstances).where(eq(approvalInstances.id, id)).limit(1);
+  if (!instance) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "审批不存在或无权访问");
+
+  const currentSteps = await db
+    .select()
+    .from(approvalSteps)
+    .where(and(eq(approvalSteps.instanceId, id), eq(approvalSteps.status, "pending")))
+    .orderBy(approvalSteps.seq);
+  const isCurrentApprover =
+    instance.status === "pending" &&
+    (await Promise.all(
+      currentSteps.map(async (step) => {
+        if (step.approverId === user.id) return true;
+        if (!step.approverRole) return false;
+        const { resolveRoleCandidates } = await import("../../services/approval/engine");
+        return (await resolveRoleCandidates(db, step.approverRole, instance.projectId)).includes(user.id);
+      }),
+    )).some(Boolean);
+  if (instance.applicantId !== user.id && !isCurrentApprover) {
+    throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "审批不存在或无权访问");
+  }
+
+  const names = await approvalNameMaps(db, [instance]);
+  const snapshot = await buildBizSnapshot(db, instance.bizType, instance.bizId, instance.formSnapshot);
+  return {
+    id: instance.id,
+    code: instance.code,
+    bizType: instance.bizType,
+    bizId: instance.bizId,
+    status: instance.status,
+    submittedAt: instance.submittedAt,
+    currentStepSeq: instance.currentStepSeq,
+    projectName: instance.projectId ? (names.projects.get(instance.projectId) ?? null) : null,
+    applicantName: names.applicants.get(instance.applicantId) ?? null,
+    steps: currentSteps.map((s) => ({ seq: s.seq, status: s.status, approverId: s.approverId })),
+    snapshot,
+  };
+}
+
+/** 业务快照按 biz_type 分派（形状随棒测试钉住；实体缺失返回 null 字段而非 500） */
+async function buildBizSnapshot(
+  db: DbOrTx,
+  bizType: string,
+  bizId: string,
+  formSnapshot: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  switch (bizType) {
+    case "expense": {
+      const [report] = await db.select().from(expenseReports).where(eq(expenseReports.id, bizId)).limit(1);
+      if (!report) return { kind: bizType };
+      const items = await db
+        .select({
+          category: expenseItems.category,
+          date: expenseItems.date,
+          amountCents: expenseItems.amountCents,
+          description: expenseItems.description,
+          projectId: expenseItems.projectId,
+        })
+        .from(expenseItems)
+        .where(eq(expenseItems.expenseReportId, bizId))
+        .orderBy(expenseItems.date);
+      const projectIds = [...new Set(items.map((i) => i.projectId).filter((x): x is string => !!x))];
+      const projectRows = projectIds.length
+        ? await db.select({ id: projects.id, name: projects.name }).from(projects).where(sql`${projects.id} IN (${sql.join(projectIds.map((x) => sql`${x}`), sql`, `)})`)
+        : [];
+      const projectNames = new Map(projectRows.map((r) => [r.id, r.name]));
+      return {
+        kind: "expense",
+        reason: report.reason,
+        reportCode: report.code,
+        totalCents: report.totalCents,
+        itemCount: items.length,
+        items: items.map((i) => ({
+          category: i.category,
+          date: i.date,
+          amountCents: i.amountCents,
+          description: i.description,
+          projectName: i.projectId ? (projectNames.get(i.projectId) ?? null) : null,
+        })),
+      };
+    }
+    case "expense_adjustment": {
+      const [adj] = await db.select().from(expenseAdjustments).where(eq(expenseAdjustments.id, bizId)).limit(1);
+      if (!adj) return { kind: bizType };
+      const [report] = adj.expenseReportId
+        ? await db.select({ code: expenseReports.code, reason: expenseReports.reason }).from(expenseReports).where(eq(expenseReports.id, adj.expenseReportId)).limit(1)
+        : [];
+      return {
+        kind: "expense_adjustment",
+        deltaCents: adj.deltaCents,
+        reason: adj.reason,
+        sourceReportCode: report?.code ?? null,
+        sourceReportReason: report?.reason ?? null,
+      };
+    }
+    case "funding": {
+      const [funding] = await db.select().from(fundingRequests).where(eq(fundingRequests.id, bizId)).limit(1);
+      if (!funding) return { kind: bizType };
+      return {
+        kind: "funding",
+        code: funding.code,
+        purpose: funding.purpose,
+        amountCents: funding.amountCents,
+        expectedUseDate: funding.expectedUseDate,
+        recipientInfo: funding.recipientInfo,
+        usageStatus: funding.usageStatus,
+      };
+    }
+    case "travel": {
+      const [travel] = await db.select().from(travelRequests).where(eq(travelRequests.id, bizId)).limit(1);
+      if (!travel) return { kind: bizType };
+      const segments = await db
+        .select()
+        .from(travelSegments)
+        .where(eq(travelSegments.travelRequestId, bizId))
+        .orderBy(travelSegments.seq);
+      return {
+        kind: "travel",
+        code: travel.code,
+        reason: travel.reason,
+        destination: travel.destination,
+        startOn: travel.startOn,
+        endOn: travel.endOn,
+        borrow: travel.borrow,
+        borrowAmountCents: travel.borrowAmountCents,
+        estimatedCostCents: travel.estimatedCostCents,
+        segments: segments.map((s) => ({
+          seq: s.seq,
+          type: s.type,
+          startAt: s.startAt,
+          endAt: s.endAt,
+          fromPlace: s.fromPlace,
+          toPlace: s.toPlace,
+        })),
+      };
+    }
+    case "travel_change": {
+      // 引擎快照形态：{ changePayload: { changes, before } } + reason（submitTravelChange 落库口径）
+      const snap = formSnapshot as { reason?: string; changes?: Record<string, unknown>; changePayload?: { changes?: Record<string, unknown> } };
+      const [travel] = await db.select().from(travelRequests).where(eq(travelRequests.id, bizId)).limit(1);
+      return {
+        kind: "travel_change",
+        reason: snap.reason ?? null,
+        changes: snap.changePayload?.changes ?? snap.changes ?? {},
+        travel: travel
+          ? {
+              code: travel.code,
+              reason: travel.reason,
+              destination: travel.destination,
+              startOn: travel.startOn,
+              endOn: travel.endOn,
+            }
+          : null,
+      };
+    }
+    case "generic_request": {
+      const [req] = await db.select().from(genericRequests).where(eq(genericRequests.id, bizId)).limit(1);
+      if (!req) return { kind: bizType };
+      return {
+        kind: "generic_request",
+        code: req.code,
+        requestType: req.requestType,
+        title: req.title,
+        reason: req.reason,
+        startOn: req.startOn,
+        endOn: req.endOn,
+        amountCents: req.amountCents,
+      };
+    }
+    case "timesheet": {
+      const [period] = await db.select().from(timesheetPeriods).where(eq(timesheetPeriods.id, bizId)).limit(1);
+      if (!period) return { kind: bizType };
+      const entries = await db
+        .select({
+          workDate: timeEntries.workDate,
+          durationMinutes: timeEntries.durationMinutes,
+          description: timeEntries.description,
+          activityType: timeEntries.activityType,
+          projectId: timeEntries.projectId,
+        })
+        .from(timeEntries)
+        .where(eq(timeEntries.periodId, bizId))
+        .orderBy(timeEntries.workDate);
+      const projectIds = [...new Set(entries.map((e) => e.projectId).filter((x): x is string => !!x))];
+      const projectRows = projectIds.length
+        ? await db.select({ id: projects.id, name: projects.name }).from(projects).where(sql`${projects.id} IN (${sql.join(projectIds.map((x) => sql`${x}`), sql`, `)})`)
+        : [];
+      const projectNames = new Map(projectRows.map((r) => [r.id, r.name]));
+      const totalMinutes = entries.reduce((sum, e) => sum + e.durationMinutes, 0);
+      return {
+        kind: "timesheet",
+        periodStart: period.periodStart,
+        periodEnd: period.periodEnd,
+        periodStatus: period.status,
+        totalMinutes,
+        totalHours: Math.round((totalMinutes / 60) * 100) / 100,
+        entries: entries.map((e) => ({
+          workDate: e.workDate,
+          durationMinutes: e.durationMinutes,
+          activityType: e.activityType,
+          description: e.description,
+          projectName: e.projectId ? (projectNames.get(e.projectId) ?? null) : null,
+        })),
+      };
+    }
+    case "change_request": {
+      const [cr] = await db.select().from(changeRequests).where(eq(changeRequests.id, bizId)).limit(1);
+      if (!cr) return { kind: bizType };
+      return {
+        kind: "change_request",
+        code: cr.code,
+        title: cr.title,
+        reason: cr.reason,
+        impact: cr.impact,
+      };
+    }
+    case "access_grant": {
+      const [grant] = await db.select().from(accessGrants).where(eq(accessGrants.id, bizId)).limit(1);
+      if (!grant) return { kind: bizType };
+      return {
+        kind: "access_grant",
+        scopeType: grant.scopeType,
+        scopeId: grant.scopeId,
+        actions: grant.actions,
+        expiresAt: grant.expiresAt,
+        grantStatus: grant.status,
+      };
+    }
+    case "budget": {
+      const [budget] = await db.select().from(budgets).where(eq(budgets.id, bizId)).limit(1);
+      if (!budget) return { kind: bizType };
+      return {
+        kind: "budget",
+        totalCents: budget.totalCents,
+        currency: budget.currency,
+        budgetStatus: budget.status,
+      };
+    }
+    default:
+      return { kind: bizType };
+  }
 }
 
 /* ===== notification ===== */
