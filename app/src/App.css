@@ -103,7 +103,7 @@ kbd { font-family: "SFMono-Regular", Consolas, monospace; font-size: 10px; borde
 h1, h2, h3, p { margin-top: 0; }
 h1 { font-size: clamp(25px, 2.25vw, 38px); font-weight: 560; letter-spacing: -.04em; line-height: 1.2; margin: 9px 0 10px; }
 h2 { font-size: 16px; letter-spacing: -.02em; margin: 6px 0 0; }
-.screen-heading p, .project-title-row p { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 0; }
+.screen-heading p, .project-title-row p { color: var(--muted); font-size: 12px; line-height: 1.6; margin: 0; overflow-wrap: anywhere; }
 .primary-action, .secondary-action { min-height: 38px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 5px; font-size: 12px; font-weight: 600; transition: transform 160ms, background 160ms, border-color 160ms; white-space: nowrap; }
 .primary-action { background: var(--blue); color: #f8f9fc; border: 1px solid var(--blue); }
 .primary-action:hover { background: #004de0; transform: translateY(-1px); }
@@ -270,7 +270,7 @@ h2 { font-size: 16px; letter-spacing: -.02em; margin: 6px 0 0; }
   .app-body { display: block; min-height: calc(100dvh - 108px); }
   .project-rail { display: none; }.project-rail.mobile-open { display: flex; position: fixed; z-index: 25; left: 0; top: 108px; bottom: 0; width: min(300px, 88vw); box-shadow: 20px 0 50px #11151d40; }
   .screen { padding: 24px 18px 34px; }
-  .screen-heading, .project-title-row { flex-direction: column; }.title-actions { width: 100%; flex-wrap: wrap; }.title-actions button { flex: 1; }
+  .screen-heading, .project-title-row { flex-direction: column; align-items: stretch; }.title-actions { width: 100%; flex-wrap: wrap; }.title-actions button { flex: 1; }
   .cockpit-hero { grid-template-columns: 1fr 1fr; padding: 24px 0; }.health-orb { grid-column: 1 / 3; grid-row: 1; width: 220px; height: 220px; }.hero-notes { margin-top: 15px; }.right-notes { text-align: right; }
   .metric-strip { grid-template-columns: 1fr 1fr; }.metric-strip > div:nth-child(2) { border-right: 0; }.metric-strip > div:first-child { padding-left: 18px; }.metric-strip > div { border-bottom: 1px solid var(--line); }
   .cockpit-lower, .workstream-grid, .gantt-bottom-grid { grid-template-columns: 1fr; }.week-signal, .quality-panel, .impact-summary { border-left: 0; border-top: 1px solid var(--line); padding: 24px 0 0; }

@@ -46,12 +46,18 @@ function MinutesWorkspace({ meeting, meId }: { meeting: MeetingDetail; meId: str
   // §17.2 A3：小元纪要草稿——进入编辑态预填正文（用户编辑后提交）
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- 小元草稿一次性消费：挂载时预填编辑器（用户确认后提交） */
-    const draft = consumeAiDraft<string>(AI_MINUTES_DRAFT_KEY);
-    if (draft) {
-      setBody(draft);
-      setEditing(true);
-      toast.success("已预填纪要草稿", { description: "正文已生成，请编辑后提交确认。" });
-    }
+    const consume = () => {
+      const draft = consumeAiDraft<string>(AI_MINUTES_DRAFT_KEY);
+      if (draft) {
+        setBody(draft);
+        setEditing(true);
+        toast.success("已预填纪要草稿", { description: "正文已生成，请编辑后提交确认。" });
+      }
+    };
+    consume();
+    // 已在会议详情页时动作不重挂载——监听同事件二次消费（12-04 验收即修 D-12-4-1）
+    window.addEventListener("lexflow:ai-minutes-draft", consume);
+    return () => window.removeEventListener("lexflow:ai-minutes-draft", consume);
     /* eslint-enable react-hooks/set-state-in-effect */
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时消费一次
   }, []);

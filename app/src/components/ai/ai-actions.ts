@@ -79,6 +79,8 @@ export function stageTimeDraft(entries: AiTimeDraftEntry[], navigate: (to: strin
 export function stageMinutesDraft(draft: string, meetingId: string | null, navigate: (to: string) => void) {
   sessionStorage.setItem(AI_MINUTES_DRAFT_KEY, JSON.stringify({ draft, savedAt: new Date().toISOString() }));
   if (meetingId) navigate(`/meetings/${meetingId}`);
+  // 已在会议详情页时同路由导航不重挂载——派发事件让已挂载编辑器即时消费草稿
+  window.dispatchEvent(new CustomEvent("lexflow:ai-minutes-draft"));
   toast.success("已生成纪要草稿", { description: "已进入纪要编辑态并预填正文，请编辑后提交确认。" });
 }
 
