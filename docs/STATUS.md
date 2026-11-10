@@ -98,8 +98,8 @@
 |---|---|---|---|---|---|
 | 12-00 总览 | — | 已发布 | 架构 | 2026-11-09 | 用户三裁定 |
 | 12-01 创建类弹窗统一+字体比例 | 前端 | **通过** | 前端会话 | 2026-11-09 | 架构验收：根 292 全绿+截图核验（经费 F2 弹窗/8 入口不跳页/字体九项 computed） |
-| 12-02 AI 助手基础 | 后端 | **待验收** | 后端会话 | 2026-11-09 | 适配层+ai.chat+A1–A5+MockProvider+限流审计全落地；四道门 298/298；prod 无 key 全链实证 mock，e2e-01~16 16/16 |
-| 12-03 AI 宠物「小元」前端 | 前端 | 未解锁 | — | — | 悬浮+面板+上下文+动作执行 |
+| 12-02 AI 助手基础 | 后端 | **通过** | 后端会话 | 2026-11-09 | 架构验收：根 298 全绿+prod 无 key Mock 实弹+解析器/隐私剥离/限流审计用例采信 |
+| 12-03 AI 宠物「小元」前端 | 前端 | 待认领 | — | 2026-11-09 | 依赖 02（已过）：悬浮+面板+上下文+动作回填 |
 | 12-04 验收+手册 v2.0 | 测试 | 未解锁 | — | — | 依赖 03；含 prod 发布窗口 |
 
 ## 迭代 11 工单状态（arch/12 §16 v2.0）
@@ -316,6 +316,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-09｜架构｜迭代12-02通过｜**工单 02（AI 助手基础）验收通过，解锁 12-03（前端会话·AI 宠物「小元」）。** 实测：根测试 298/298（275+23）全绿；prod 无 key MockProvider 实弹（ai.chat 确定性文案+动作结构）。采信：A4 DSL 强制过 validateFlowStructure+compileFlow 管线（非法不产出）、A2 项目名按可见集 SQL 匹配（权限不放大）、隐私白名单+正则剥离+2k 截断（摘要 sha256 与审计哈希逐字节勾稽）、限流 429、审计双写含 capability/provider、写动作零落库断言。**当前解锁：12-03（前端会话）。生产切换=用户裁定后 .env.production 填三键。**
 
 - 2026-11-09｜后端｜迭代12-02｜**工单 12-02（AI 助手基础，arch/12 §17 逐字）完成，转待验收。** **提供方适配层**（`services/ai/provider.ts`）：OpenAI-compatible chat completions 封装（POST /chat/completions，**env 三键 `AI_PROVIDER_URL/AI_API_KEY/AI_MODEL` 已入 env.ts zod 可选校验**——允许缺省）+**MockProvider**（规则解析 NL→预置动作 JSON 确定性回显，text 按动作类型规则化文案——同输入必同输出）；统一 `complete(messages, ctx, actions): {text, actions[]}` 出口；`resolveAiProvider()` 三键齐备→OpenAI 否则 Mock（**无 key 全链可用**）。**`ai.chat`**（`ai.*` 路由 mutation）：入参 {messages≤20, context{route,pageType,summary} 白名单 zod}→能力分派→provider→审计；**限流同用户 20 次/分**（登录限流器形态复用，内存滑动窗口，429 RATE_LIMITED）；**审计 action=ai.chat**（success/failure 双写）含 **contextSummaryHash**（sha256 剥离后摘要，原文不出审计）+capability+provider+messageCount。**能力解析器 A1–A5**（`modules/ai/capabilities.ts`，写动作一律只产草稿不落库——A2 用例 DB 断言无残留行）：**A1 表单预填**（NL→destination/days/startOn/transport/reason 值集合，form 取 pageType）；**A2 工时草稿**（项目名按用户可见集 SQL 匹配——权限不放大、今天/明天/M月D日、半天/一天/N 小时，**0.5 步进（30 分钟）校验非法即 400**）；**A3 纪要草稿**（议程注入模板文本）；**A4 审批流生成**（NL 解析金额阈值「X 万」→amount_cents gte 字面条件 + 负责人/财务/合伙人/档案审批人序→**条件双链/线性 DSL；必须过既有 `validateFlowStructure`+`compileFlow` 管线——非法（未识别审批人）即 400 不产出**）；**A5 只读问答**（内置口径说明文本）。**隐私**：上下文键白名单（zod 仅 route/pageType/summary）+**密级/口令/token 类键值对正则剥离**（password/passwd/pwd/token/secret/api-key/authorization/cookie/credential/confidentiality/密级/口令/密码/令牌）+**2k 截断**（中文 1 字≈1 token 量级）——用例以独立重算摘要的 sha256 与审计哈希逐字节勾稽（剥离后/截断后两形态）。**用例** `ai-chat.test.ts` 6 条 MockProvider 确定性全覆盖（A1 形状+provider=mock 实证/A2 步通过与非法步进 400+不落库/A4 DSL 双链形状+非法报错/A3+A5/剥离+截断哈希勾稽/限流 20+1 次第 21 次 429）。**四道门逐条真实跑（F3 独占已确认）**：server vitest **275/275**（55 文件；既有 269 零回归+6 新）✓；根 typecheck/build exit 0✓；根 test **298/298**（275+23）✓。**prod**：server 镜像 DOCKER_BUILDKIT=0 --no-cache 重建复起（--env-file .env.production，healthy）；**无 key 全链实证**：curl 调 prod ai.chat（未注入 AI 三键）→ mock 确定性文案+A4 中文意图正确识别+DSL 过管线产出 ✓；e2e-01~16 **16/16 不回归**。分支 `iter12/server-ai`。**交接 12-03 前端**：悬浮宠物+侧边面板接 `ai.chat`（上下文采集白名单+发送前预览+动作执行回填：A1 表单回填/A2 草稿入工时中心/A4 definitionJson 开设计器预填）；生产模型接入=用户裁定后填 .env.production 三键即切换 OpenAI 兼容端点（function calling 动作解析留二期）。
 - 2026-11-09｜架构｜迭代12-01通过｜**工单 01（创建类全弹窗化+字体比例 v2）验收通过，解锁 12-02（后端会话·AI 助手基础）。** 实测：根测试 292/292 全绿；截图核验——经费申请 F2 默认弹窗（页级深链保留）、8 个创建入口逐个「弹窗开且 URL 不跳页」（新建项目 F4 向导例外断言）、字体九项 computed 全对（正文 14/控件 36/报表密度页 13 与行高 34 不动反证）。其 NavLeaf dialog 字段+nav-dialog 事件接线方式认定合理；密度开关预留 hook（--ctrl-h+density-compact）与 npm 包装孤儿化留痕不阻塞。
