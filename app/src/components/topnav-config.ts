@@ -6,6 +6,8 @@ export interface NavLeaf {
   desc: string;
   /** 角色白名单；缺省全角色可见 */
   roles?: string[];
+  /** §5 v2.1：创建类默认弹窗化——点叶子开弹窗（to 保留为深链直达）；缺省=导航 */
+  dialog?: "funding-new";
 }
 export interface NavSection {
   name: string;
@@ -71,7 +73,7 @@ export const NAV_TREE: NavGroup[] = [
     { name: "预算与费用", items: [
       { to: "/operations/budget", label: "预算经费", desc: "预算与经费" },
       { to: "/operations/expenses", label: "费用报销", desc: "费用中心；新建报销 F2 抽屉" },
-      { to: "/operations/funding/new", label: "经费申请", desc: "经费申请链" },
+      { to: "/operations/funding/new", label: "经费申请", desc: "经费申请链（默认弹窗，深链可直达）", dialog: "funding-new" },
     ] },
     { name: "收款与核算", items: [
       { to: "/operations/receipts", label: "收款台账", desc: "收款登记/冲正", roles: ["sysadmin", "partner", "project_manager", "quality_lead", "finance", "archivist"] }, // 9a-03 验收修复：迭代 8 RECEIPTS_ROLES 过滤在 9a 导航重写中丢失（红线：角色过滤不渲染）

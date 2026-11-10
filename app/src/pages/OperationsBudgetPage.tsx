@@ -3,6 +3,8 @@ import { Link, useSearchParams } from "react-router";
 import { ChevronRight, Plus } from "lucide-react";
 import { EXPENSE_CATEGORY } from "@lexflow/shared";
 
+import { FormDialog } from "../components/FormDialog";
+
 import { useBudget, useBudgetLedger, useBudgetList, useBudgetMutations } from "../api/finance-budget";
 import { useMe } from "../api/auth";
 import { formatYuan, parseYuanToCents } from "../api/reference";
@@ -320,7 +322,9 @@ export default function OperationsBudgetPage() {
         </Link>
       </div>
       {createFor ? (
-        <BudgetCreateForm projectId={createFor} onDone={() => setCreateFor(null)} />
+        <FormDialog title="新建预算" eyebrow="F2 · 创建走弹窗" onClose={() => setCreateFor(null)} wide>
+          <BudgetCreateForm projectId={createFor} onDone={() => setCreateFor(null)} />
+        </FormDialog>
       ) : (
         <>
           <div className="quality-toolbar">

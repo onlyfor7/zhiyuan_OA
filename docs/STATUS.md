@@ -97,7 +97,7 @@
 | 工单 | 会话 | 状态 | 认领人 | 日期 | 备注 |
 |---|---|---|---|---|---|
 | 12-00 总览 | — | 已发布 | 架构 | 2026-11-09 | 用户三裁定 |
-| 12-01 创建类弹窗统一+字体比例 | 前端 | 待认领 | — | — | §5 v2.1 全弹窗化+字体 14/36 |
+| 12-01 创建类弹窗统一+字体比例 | 前端 | **待验收** | 前端会话 | 2026-11-09 | §5 v2.1 全弹窗化（8 入口弹窗开不跳页扫描全过+4 深链保留+F4 例外）+字体比例 v2（正文 14/辅助 13/eyebrow 12/h1 22/指标 26/控件 36/行高 44，报表台账 13 不动 computed 实证）；四道门 292 全绿+走查 37/37（D:\tmp\shots-iter12\） |
 | 12-02 AI 助手基础 | 后端 | 未解锁 | — | — | §17.4 适配层+A1–A5 解析器+MockProvider+审计限流 |
 | 12-03 AI 宠物「小元」前端 | 前端 | 未解锁 | — | — | 悬浮+面板+上下文+动作执行 |
 | 12-04 验收+手册 v2.0 | 测试 | 未解锁 | — | — | 依赖 03；含 prod 发布窗口 |
@@ -316,6 +316,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-09｜前端｜迭代12-01｜**工单 12-01（创建类全弹窗化+字体比例 v2，arch/12 v2.1 §5/§4.1）完成，转「待验收」。** 分支 `iter12/frontend-unify`（基于 11-02 线）。**①§5 v2.1 全弹窗化**：补转 5 处页级/内联创建入口——决策中心「新建决策单」（CreateInDialog 复用本地 DecisionNewPage 表单）、项目空间 TasksTab「新建任务」（内联 .task-create → FormDialog F1）、OperationsBudgetPage「新建预算」（BudgetCreateForm → FormDialog F2）、项目空间 ArchiveTab「申请授权」（GrantApplyForm → FormDialog F2）、**顶栏级联「经费申请」叶子按钮化**（NavLeaf 增 dialog 字段；CascadeNav 两处叶子渲染改 button 派 CustomEvent「lexflow:nav-dialog」，AppShell 监听挂 FormDialog+FundingNewPage 嵌入；`to` 保留为深链）；加上既有 CreateInDialog（报销/会议/出差/申请单）与既有抽屉（延期）——**「点击跳新页」类创建入口扫描=0**（全站仅剩 /projects/new=F4 页级向导例外，断言实证非弹窗）；4 条页级深链（decisions/new、funding/new、expenses/new、travel/new）可达性保留实证。**②§4.1 字体比例 v2**：governance.css 级联末位整块——CSS 变量 --fs-body/aux/eyebrow/h1/h2/metric/ctrl-h/row-h；body 14/行高 1.55；`.screen p/td/li` 14、辅助类（context-note/list-note/toolbar-hint/check-line 等）13、eyebrow/section-label 12（letter-spacing .1em）、`.screen-heading h1` 等 22、h2 区块 16、`.metric-strip strong/.rep-cards strong/.p9a-metric strong` 26/600（**顺手清掉 ProjectCostingPage 六块指标内联 fontSize:18 让 token 生效**）；**业务表 .p9a-ta-row 14px+行高 44**（.density-compact 38 hook）；**报表/台账/审批快照密度页钉 13 不动**（.rep-excel/.rep-table-scroll/.grant-table/.biz-* 全列，行高 34 不变）；控件 36（.form-field input/select min-height 36 覆盖 §16.3 的 34；.primary/.secondary-action/.p9a-pill min-height 36 inline-flex；密度 hook --ctrl-h:32）；顶栏/签条 chrome 13。**③表单壳规范不破**（弹窗限高 calc(100vh-64px)+sticky 头尾/聚焦环/分区组沿用）。**质量门**（F3 合规）：根四道门逐条真实执行全绿两遍（typecheck/build/db:migrate/test **292=server 269+app 23** 零回归）。**走查 37/37 PASS**（截图 D:\tmp\shots-iter12\）：8 创建入口逐个「弹窗开且 URL 不跳页」+经费叶子 BUTTON 形态实证、4 深链+F4 例外、字体 computed 九项（正文 14/辅助 13/eyebrow 12/h1 22/指标 26/控件 36+按钮 36/业务表 14+行高 44/**报表格 13+行高 34 不动**）、H1 三档×4 页零溢出、375 三页零越界。**遗留说明**：界面自定义密度开关本体尚未存在（仅台账 E4 表级密度），控件 38/36/32 三档以 --ctrl-h hook+density-compact 类预留，待设置中心落地时接线；嵌入页表单在弹窗内自带页级标题/取消（9a 期既有 .p9a-embed 范式，未动）。
 
 - 2026-11-09｜架构｜迭代12发布｜**迭代 12 三裁定冻结（arch/12 v2.1）与工单包发布。** ① §5 修订：创建/申请类表单一律弹窗（通用申请单范式），禁止跳独立新页——取代 v1.8 页级保留裁定（用户最新裁定优先）；② §4.1 字体比例 v2：正文/表格 14、辅助 13、控件 36、表格行高 44，报表/台账密度页 13 不动；③ **§17 AI 助手「小元」**：右下悬浮宠物+侧边对话面板，页面上下文白名单脱敏采集；一期能力 A1 表单预填/A2 工时草稿/A3 纪要草稿/A4 审批流 NL→DSL 草稿（开设计器预填）/A5 页面问答；**安全红线**：仅以用户身份调既有端点（权限不放大）、写动作先生成草稿用户确认后落库、全审计、限流 20 次/分、密级内容不出上下文；提供方适配层 OpenAI 兼容端点+**内置 MockProvider**（无 key 可演示可验收），生产模型与 key 由用户后续裁定接入（Kimi/DeepSeek/通义/Azure 皆可）。链：01 前端（弹窗+字体） → 02 后端（AI 基础） → 03 前端（AI 宠物） → 04 验收。**当前解锁：12-01（前端会话）。**
 

@@ -144,7 +144,23 @@ function CascadeGroup({
         >
           {sections.map((sec, si) =>
             ungrouped ? (
-              sec.items.map((item) => (
+              sec.items.map((item) =>
+                item.dialog ? (
+                  <button
+                    key={item.to + item.label}
+                    role="menuitem"
+                    data-leaf
+                    type="button"
+                    className={`p9a-bubble-leaf as-button ${itemCurrent(item.to) ? "current" : ""}`}
+                    onClick={() => {
+                      onClose();
+                      window.dispatchEvent(new CustomEvent("lexflow:nav-dialog", { detail: item.dialog }));
+                    }}
+                  >
+                    <strong>{item.label}</strong>
+                    <small>{item.desc}</small>
+                  </button>
+                ) : (
                 <Link
                   key={item.to + item.label}
                   role="menuitem"
@@ -156,7 +172,8 @@ function CascadeGroup({
                   <strong>{item.label}</strong>
                   <small>{item.desc}</small>
                 </Link>
-              ))
+                ),
+              )
             ) : (
               <button
                 key={sec.name}
@@ -187,7 +204,23 @@ function CascadeGroup({
           style={{ left: l2Pos.left, top: l2Pos.top }}
           onMouseEnter={cancelClose}
         >
-          {sections[hoverSection].items.map((item) => (
+          {sections[hoverSection].items.map((item) =>
+            item.dialog ? (
+              <button
+                key={item.to + item.label}
+                role="menuitem"
+                data-leaf
+                type="button"
+                className={`p9a-bubble-leaf as-button ${itemCurrent(item.to) ? "current" : ""}`}
+                onClick={() => {
+                  onClose();
+                  window.dispatchEvent(new CustomEvent("lexflow:nav-dialog", { detail: item.dialog }));
+                }}
+              >
+                <strong>{item.label}</strong>
+                <small>{item.desc}</small>
+              </button>
+            ) : (
             <Link
               key={item.to + item.label}
               role="menuitem"
@@ -199,7 +232,8 @@ function CascadeGroup({
               <strong>{item.label}</strong>
               <small>{item.desc}</small>
             </Link>
-          ))}
+            ),
+          )}
         </div>
       ) : null}
     </div>

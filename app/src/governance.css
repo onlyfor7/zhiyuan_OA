@@ -2266,3 +2266,50 @@ a.text-action:focus-visible::after, button.text-action:focus-visible::after { ri
 .biz-tr > span { border-right: 1px solid #e8eaee; border-bottom: 1px solid #e8eaee; padding: 5px 8px; font-size: 11px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .biz-tr.biz-head > span { background: #f3f4f6; color: #374151; font-weight: 600; }
 .biz-tr > span.mono { text-align: right; }
+
+/* §5 v2.1 顶栏创建类叶子按钮化（p9a-bubble-leaf 原为 Link） */
+.p9a-bubble-leaf.as-button { border: 0; background: transparent; font: inherit; text-align: left; cursor: pointer; width: 100%; }
+
+/* —— 迭代12-01 §4.1 字体比例 v2（2026-11-09 用户裁定；级联末位覆盖） ——
+   正文/表格 14 · 辅助 13 · eyebrow 12 · 页标题 22 · 区块 16 · 指标 26/600 ·
+   控件 36（紧凑档预留 32 hook）· 表格行高 44（紧凑 38 hook）· 行高 1.55；
+   报表/台账/审批快照等密度页正文保持 13（Excel 风不动） */
+:root {
+  --fs-body: 14px;
+  --fs-aux: 13px;
+  --fs-eyebrow: 12px;
+  --fs-h1: 22px;
+  --fs-h2: 16px;
+  --fs-metric: 26px;
+  --ctrl-h: 36px;
+  --row-h: 44px;
+}
+body { font-size: var(--fs-body); line-height: 1.55; }
+h1, .screen-heading h1, .gantt-title h1, .project-title-row h1 { font-size: var(--fs-h1); letter-spacing: -.02em; line-height: 1.25; }
+h2, .context-heading h2, .section-heading h2 { font-size: var(--fs-h2); }
+.eyebrow, .section-label { font-size: var(--fs-eyebrow); letter-spacing: .1em; }
+.metric-strip strong, .rep-cards strong, .ptabs-mock .mono strong { font-size: var(--fs-metric); font-weight: 600; }
+/* 正文 14：主内容区缺省继承 body；显式小字类上调到辅助 13 */
+.screen p, .screen td, .screen li, .screen dd, .screen dt { font-size: var(--fs-body); }
+.screen .context-note, .list-note, .toolbar-hint, .check-line, .p9a-ta-pager, .form-section > .section-label { font-size: var(--fs-aux); }
+/* 辅助 13：既有 11/12px 说明类 */
+.check-line small, .p9a-queue-main small, .p9a-pulse-meta, .org-member-row small, .report-row small, .rep-wb-facts, .biz-field > span { font-size: var(--fs-aux); }
+/* 业务表格 14 + 行高 44（表头同升；同列模板不变对齐不破） */
+.p9a-ta-row { font-size: var(--fs-body); min-height: var(--row-h); }
+.p9a-ta-head { font-size: var(--fs-aux); }
+.p9a-ta-table.density-compact .p9a-ta-row { min-height: 38px; }
+/* 报表/台账/审批快照等密度页：正文保持 13、行高不动（Excel 风不变） */
+.rep-table-scroll, .rep-table-scroll .p9a-ta-row, .rep-excel .p9a-ta-row, .rep-mini, .rep-cards, .rep-filter, .grant-table, .biz-detail, .biz-table, .biz-fields, .biz-tr > span, .rep-wb, .ws-bar { font-size: 13px; }
+.rep-excel .p9a-ta-row, .rep-table-scroll .p9a-ta-row { min-height: 34px; }
+.grant-table .grant-head, .grant-table .grant-row { font-size: 13px; }
+.metric-strip strong { font-size: 26px; }
+/* 控件高 36（覆盖 §16.3 的 34；紧凑档 hook 32） */
+.form-field input:not([type="checkbox"]):not([type="radio"]), .form-field select { min-height: var(--ctrl-h); }
+.form-field input:not([type="checkbox"]):not([type="radio"]) { min-height: var(--ctrl-h); }
+.form-field textarea { min-height: 72px; }
+.concept-app .density-compact, .density-compact .form-field input, .density-compact .form-field select { --ctrl-h: 32px; }
+.primary-action, .secondary-action, .p9a-pill { min-height: var(--ctrl-h); display: inline-flex; align-items: center; }
+.text-action { min-height: 28px; }
+/* 顶栏/签条 chrome 随正文 */
+.p9a-dd-trigger, .ws-tab, .p9a-todo-group-head, .p9a-chips button, .p9a-mini-tabs button { font-size: var(--fs-aux); }
+.p9a-metric > strong { font-size: var(--fs-metric); font-weight: 600; }

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 
 import { useUserNameMap } from "../../api/reference";
+import { FormDialog } from "../../components/FormDialog";
 import { Download, Eye, FileText, Folder, FolderOpen, Link2, Plus, Upload } from "lucide-react";
 import { ACCESS_GRANT_SCOPE_TYPE } from "@lexflow/shared";
 
@@ -260,7 +261,11 @@ function GrantPanel() {
           申请授权
         </button>
       </div>
-      {applyOpen ? <GrantApplyForm onDone={() => setApplyOpen(false)} /> : null}
+      {applyOpen ? (
+        <FormDialog title="申请档案授权" eyebrow="F2 · 创建走弹窗" onClose={() => setApplyOpen(false)} wide>
+          <GrantApplyForm onDone={() => setApplyOpen(false)} />
+        </FormDialog>
+      ) : null}
       {grants.data.length === 0 ? (
         <p className="list-note">暂无授权记录。</p>
       ) : (

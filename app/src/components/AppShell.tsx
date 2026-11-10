@@ -12,6 +12,8 @@ import { AvatarMenu } from "./TopNav";
 import { CascadeNav } from "./CascadeNav";
 import { ShellContext, type ShellContextValue } from "./shell-rail";
 import { WorkspaceShell } from "./workspace/WorkspaceShell";
+import { FormDialog } from "./FormDialog";
+import FundingNewPage from "../pages/FundingNewPage";
 import { isAuthRequired } from "../lib/trpc";
 
 function BrandMark() {
@@ -32,6 +34,8 @@ export default function AppShell() {
   const [rail, setRail] = useState<ReactNode>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  /** §5 v2.1：顶栏创建类叶子「经费申请」默认弹窗（深链 /operations/funding/new 保留） */
+  const [navDialog, setNavDialog] = useState<string | null>(null);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -42,6 +46,11 @@ export default function AppShell() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
+  }, []);
+  useEffect(() => {
+    const handler = (e: Event) => setNavDialog((e as CustomEvent<string>).detail ?? null);
+    window.addEventListener("lexflow:nav-dialog", handler);
+    return () => window.removeEventListener("lexflow:nav-dialog", handler);
   }, []);
 
   if (me.isPending) {
@@ -115,6 +124,13 @@ export default function AppShell() {
         {searchOpen ? <SearchPalette onClose={() => setSearchOpen(false)} /> : null}
         <Toaster position="bottom-right" richColors closeButton />
         <MobileNavDrawer open={navOpen} globalRoles={data.globalRoles} onClose={() => setNavOpen(false)} />
+        {navDialog === "funding-new" ? (
+          <FormDialog title="经费申请" eyebrow="F2 · 顶栏创建默认弹窗（页级路由保留深链）" onClose={() => setNavDialog(null)} wide>
+            <div className="p9a-embed">
+              <FundingNewPage />
+            </div>
+          </FormDialog>
+        ) : null}
         <WorkspaceShell rail={rail} from={from} />
       </div>
     </ShellContext.Provider>

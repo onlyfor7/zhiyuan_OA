@@ -1,7 +1,8 @@
 import { useState } from "react";
 
 import { useProjectNameMap } from "../api/reference";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { CreateInDialog } from "./CreateInDialog";
+import { useNavigate, useSearchParams } from "react-router";
 import { Check, CheckCircle2, ChevronRight, CircleAlert, Plus, Send, X } from "lucide-react";
 
 import { useDecision, useDecisionList, useDecisionMutations } from "../api/decision";
@@ -309,10 +310,7 @@ export function DecisionCenter({ projectId }: { projectId?: string }) {
             </h1>
             <p>比较方案、明确条件、跟踪执行，而不是只留下一句“同意”。</p>
           </div>
-          <Link to="/decisions/new" className="primary-action">
-            <Plus size={15} />
-            新建决策单
-          </Link>
+          <CreateInDialog label="新建决策单" title="新建决策单" eyebrow="F3 · 创建走弹窗（页级路由保留深链）" form={DecisionNewPage} />
         </div>
       ) : (
         <div className="quality-toolbar">

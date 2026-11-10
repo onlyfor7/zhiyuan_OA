@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Check, Play, Plus, RotateCcw, X } from "lucide-react";
 
+import { FormDialog } from "../../components/FormDialog";
 import { useProjectMembers } from "../../api/project";
 import { useTaskList, useTaskMutations } from "../../api/task";
 import { rootErrorMessage } from "../../lib/form";
@@ -39,7 +40,7 @@ export default function TasksTab() {
         </button>
       </div>
       {createOpen ? (
-        <div className="task-create">
+        <FormDialog title="新建任务" eyebrow="F1 · 项目空间创建走弹窗" onClose={() => setCreateOpen(false)}>
           <label className="form-field">
             <span>标题 *</span>
             <input value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -103,7 +104,7 @@ export default function TasksTab() {
               <Check size={15} />
             </button>
           </div>
-        </div>
+        </FormDialog>
       ) : null}
       {error ? (
         <p className="form-error" role="alert">

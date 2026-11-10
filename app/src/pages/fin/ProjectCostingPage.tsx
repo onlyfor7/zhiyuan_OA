@@ -86,7 +86,7 @@ export default function ProjectCostingPage() {
                 {blocks.map(([label, value]) => (
                   <div className="p9a-metric" key={label as string} style={{ gridTemplateColumns: "1fr" }}>
                     <span>{label}</span>
-                    <strong className="mono" style={{ fontSize: 18 }}>{fmt(value as number)}</strong>
+                    <strong className="mono">{fmt(value as number)}</strong>
                   </div>
                 ))}
               </div>
