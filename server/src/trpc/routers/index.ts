@@ -30,6 +30,7 @@ import { orgRouter } from "./org";
 import { crmRouter } from "./crm";
 import { finRouter } from "./fin";
 import { reportsRouter } from "./reports";
+import { aiRouter } from "./ai";
 import { router } from "../trpc";
 
 /** AppRouter：前端经 `import type { AppRouter } from "@lexflow/server"` 消费推断类型 */
@@ -66,6 +67,7 @@ export const appRouter = router({
   crm: crmRouter,
   fin: finRouter,
   reports: reportsRouter,
+  ai: aiRouter,
 });
 
 export type AppRouter = typeof appRouter;
