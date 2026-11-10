@@ -14,6 +14,7 @@ import { ShellContext, type ShellContextValue } from "./shell-rail";
 import { WorkspaceShell } from "./workspace/WorkspaceShell";
 import { FormDialog } from "./FormDialog";
 import FundingNewPage from "../pages/FundingNewPage";
+import { AiPet } from "./ai/AiPet";
 import { isAuthRequired } from "../lib/trpc";
 
 function BrandMark() {
@@ -122,7 +123,7 @@ export default function AppShell() {
           </div>
         </header>
         {searchOpen ? <SearchPalette onClose={() => setSearchOpen(false)} /> : null}
-        <Toaster position="bottom-right" richColors closeButton />
+        <Toaster position="bottom-right" richColors closeButton offset={{ bottom: 76 }} />
         <MobileNavDrawer open={navOpen} globalRoles={data.globalRoles} onClose={() => setNavOpen(false)} />
         {navDialog === "funding-new" ? (
           <FormDialog title="经费申请" eyebrow="F2 · 顶栏创建默认弹窗（页级路由保留深链）" onClose={() => setNavDialog(null)} wide>
@@ -132,6 +133,7 @@ export default function AppShell() {
           </FormDialog>
         ) : null}
         <WorkspaceShell rail={rail} from={from} />
+        <AiPet />
       </div>
     </ShellContext.Provider>
   );

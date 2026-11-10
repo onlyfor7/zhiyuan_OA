@@ -1,4 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { AI_FLOW_DRAFT_KEY, consumeAiDraft } from "../../components/ai/ai-actions";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   Background,
@@ -183,12 +185,25 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
   const navigate = useNavigate();
   const mutations = useFlowMutations();
   const validate = useFlowValidate();
-  const [initial] = useState(() => initialCanvas(isNew, flow));
+  // §17.2 A4：小元 DSL 草稿优先于默认骨架（用户校验后发布）；__fromAi 随 state 携带（refs 渲染期禁触）
+  const [initial] = useState(() => {
+    const ai = consumeAiDraft<{ definitionJson: { nodes: unknown[]; edges: unknown[] }; description: string }>(AI_FLOW_DRAFT_KEY);
+    if (ai && Array.isArray(ai.definitionJson?.nodes) && ai.definitionJson.nodes.length > 0) {
+      return { ...toFlowState(toDesigner(ai.definitionJson)), __fromAi: true };
+    }
+    return { ...initialCanvas(isNew, flow), __fromAi: false };
+  });
   const [nodes, setNodes] = useState<FlowNode[]>(initial.nodes);
   const [edges, setEdges] = useState<Edge[]>(initial.edges);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [serverErrors, setServerErrors] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- 一次性挂载提示（草稿已预填） */
+    if (initial.__fromAi) setNotice("小元 DSL 草稿已预填画布——请校验后保存/发布。");
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载提示一次
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [draftMeta, setDraftMeta] = useState({ name: "", scope: "global" as "global" | "project", bizBinding: "generic_request" });

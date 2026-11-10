@@ -99,7 +99,7 @@
 | 12-00 总览 | — | 已发布 | 架构 | 2026-11-09 | 用户三裁定 |
 | 12-01 创建类弹窗统一+字体比例 | 前端 | **通过** | 前端会话 | 2026-11-09 | 架构验收：根 292 全绿+截图核验（经费 F2 弹窗/8 入口不跳页/字体九项 computed） |
 | 12-02 AI 助手基础 | 后端 | **通过** | 后端会话 | 2026-11-09 | 架构验收：根 298 全绿+prod 无 key Mock 实弹+解析器/隐私剥离/限流审计用例采信 |
-| 12-03 AI 宠物「小元」前端 | 前端 | 待认领 | — | 2026-11-09 | 依赖 02（已过）：悬浮+面板+上下文+动作回填 |
+| 12-03 AI 宠物「小元」前端 | 前端 | **待验收** | 前端会话 | 2026-11-10 | §17 全落地（悬浮呼吸宠物+380px 面板/375 全屏+上下文白名单预览+A1 回填/A4 设计器预填 Mock 实证+Mock 不弹告知）；四道门 298 全绿+走查 16/16（D:\tmp\shots-iter12-ai\） |
 | 12-04 验收+手册 v2.0 | 测试 | 未解锁 | — | — | 依赖 03；含 prod 发布窗口 |
 
 ## 迭代 11 工单状态（arch/12 §16 v2.0）
@@ -316,6 +316,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-10｜前端｜迭代12-03｜**工单 12-03（AI 宠物「小元」，arch/12 §17.1/17.2）完成，转「待验收」。** 分支 `iter12/frontend-ai-pet`（基于 12-01 线）。**①悬浮+面板**：AppShell 全局挂 `<AiPet/>`——右下悬浮钮（小元 SVG 形象+呼吸 scale 微动效 ai-breathe 2.6s）→ 380px 右侧对话面板（对话流气泡+页签式「本次将发送的上下文」预览卡+输入行）；≤820px 全屏抽屉（100dvh 实证 375px）；ai 域图标入 §4.4 注册表（Sparkles 紫）。**②上下文采集**（components/ai/ai-context.ts）：route+pageType（复用 tabsMeta）+summary=页面/打开表单类型+已填字段（label 邻近取 value，跳过密码与「密级/口令」类键）+列表计数；密级不采（前端白名单+服务端剥离双保险）；面板上下文页签结构化预览。**③动作执行**（ai-actions.ts+三处落点）：**A1** form_prefill→label 正则匹配回填当前打开弹窗（setter 注入 React 受控值——**textarea 须用 HTMLTextAreaElement.prototype**（Input setter 对 textarea 静默无效，本棒踩坑实证）；经费申请「用途=客户拜访」走查实证）；**A2** time_draft→sessionStorage 跳工时中心→横幅（项目·日期·小时）+DayEditor 当日行预填（保存后生效，草稿态零落库）；**A3** minutes_draft→会议详情 MinutesWorkspace 挂载消费→进编辑态预填正文；**A4** flow_draft→`/admin/flows/new` DesignerEditor 初始画布改 AI DSL 草稿（toDesigner/toFlowState）+notice「请校验后发布」（画布节点>3 实证）；**A5** 只读问答。全部草稿/预填——用户确认后走既有端点（红线不破）。**④告知**：首次响应 provider!=='mock' 且 localStorage 未标记才弹「数据出域告知」一次；**MockProvider 不弹**（实测 key 未置位+无弹窗）。**过程修复**：Toaster 加 offset bottom 76（toast 遮面板发送钮实证修复）；面板背景钉 #fff（--surface 变量透明坑）；输入区 padding-right 84 让位悬浮钮。**质量门**（F3 合规）：根四道门逐条真实执行全绿两遍（typecheck/build/db:migrate/test **298=server 275+app 23**）。**走查 16/16 PASS**（截图 D:\tmp\shots-iter12-ai\）：悬浮+呼吸（animation-name computed 实证）/面板 380/上下文预览含白名单说明/A5 回复+MockProvider 徽标/A1 动作卡+用途回填值实证/A4 动作卡+设计器节点+提示/Mock 不弹+localStorage 未置位/375 全屏/H1 三档。走查账号=zhaokai（sysadmin，设计器权限；member 开设计器 404 同形属预期权限语义）。**遗留**：生产模型接入=用户裁定后 .env.production 填 AI_PROVIDER_URL/AI_API_KEY/AI_MODEL 三键即切换；A2/A3 走查未单独实证（实现与 A1/A4 同机制+服务端用例已覆盖），12-04 验收可补。
 
 - 2026-11-09｜架构｜迭代12-02通过｜**工单 02（AI 助手基础）验收通过，解锁 12-03（前端会话·AI 宠物「小元」）。** 实测：根测试 298/298（275+23）全绿；prod 无 key MockProvider 实弹（ai.chat 确定性文案+动作结构）。采信：A4 DSL 强制过 validateFlowStructure+compileFlow 管线（非法不产出）、A2 项目名按可见集 SQL 匹配（权限不放大）、隐私白名单+正则剥离+2k 截断（摘要 sha256 与审计哈希逐字节勾稽）、限流 429、审计双写含 capability/provider、写动作零落库断言。**当前解锁：12-03（前端会话）。生产切换=用户裁定后 .env.production 填三键。**
 

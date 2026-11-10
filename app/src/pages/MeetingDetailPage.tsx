@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { AI_MINUTES_DRAFT_KEY, consumeAiDraft } from "../components/ai/ai-actions";
 import { BackButton } from "../components/feedback";
 import { Link, useNavigate, useParams } from "react-router";
 import {
@@ -41,6 +43,18 @@ function MinutesWorkspace({ meeting, meId }: { meeting: MeetingDetail; meId: str
   const [selected, setSelected] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState("");
+  // §17.2 A3：小元纪要草稿——进入编辑态预填正文（用户编辑后提交）
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- 小元草稿一次性消费：挂载时预填编辑器（用户确认后提交） */
+    const draft = consumeAiDraft<string>(AI_MINUTES_DRAFT_KEY);
+    if (draft) {
+      setBody(draft);
+      setEditing(true);
+      toast.success("已预填纪要草稿", { description: "正文已生成，请编辑后提交确认。" });
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时消费一次
+  }, []);
   const [disagreements, setDisagreements] = useState("");
   const [risks, setRisks] = useState("");
   const [confirmerId, setConfirmerId] = useState("");

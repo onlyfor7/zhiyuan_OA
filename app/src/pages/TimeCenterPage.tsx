@@ -21,6 +21,8 @@ import {
   type TimeEntryRow,
 } from "../api/time";
 import { FormDialog } from "../components/FormDialog";
+import { DomainIconBlock } from "../lib/DomainIconBlock";
+import { AI_TIME_DRAFT_KEY, type AiTimeDraftEntry } from "../components/ai/ai-actions";
 import { HelpIcon } from "../components/HelpIcon";
 import { businessDetailsOf, useTRPC } from "../lib/trpc";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
@@ -226,6 +228,10 @@ export default function TimeCenterPage() {
   const [quickOpen, setQuickOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // §17.2 A2：小元工时草稿（sessionStorage 一次性消费；用户保存后生效）
+  const [aiTimeDraft, setAiTimeDraft] = useState<{ entries: AiTimeDraftEntry[] } | null>(() => {
+    try { const raw = sessionStorage.getItem(AI_TIME_DRAFT_KEY); return raw ? (JSON.parse(raw) as { entries: AiTimeDraftEntry[] }) : null; } catch { return null; }
+  });
 
   const period = myPeriod.data?.period ?? null;
   const meProjects = (me.data?.projects ?? []).map((p) => ({ id: p.id, name: p.name }));
@@ -483,6 +489,16 @@ export default function TimeCenterPage() {
         </div>
       )}
 
+      {aiTimeDraft && period && !readOnly ? (
+        <div className="pending-box ai-time-banner">
+          <DomainIconBlock domain="ai" size={24} iconSize={14} />
+          <p className="context-note">
+            小元工时草稿待应用：{aiTimeDraft.entries.map((e) => `${e.projectName} · ${e.workDate} · ${e.hours} 小时`).join("；")}
+            ——已加入下方当日编辑（草稿态），保存后生效。
+          </p>
+          <button className="secondary-action" onClick={() => { sessionStorage.removeItem(AI_TIME_DRAFT_KEY); setAiTimeDraft(null); }}>知道了</button>
+        </div>
+      ) : null}
       {period && !readOnly ? (
         <DayEditor
           key={`${period.id}:${entries.length}:${entries.reduce((s, e) => s + e.rowVersion, 0)}`}
@@ -492,7 +508,11 @@ export default function TimeCenterPage() {
           meProjects={me.data.projects.map((p) => ({ id: p.id, name: p.name }))}
           meetings={(meetings.data?.items ?? []).map((m) => ({ id: m.id, code: m.code, label: m.subject }))}
           travels={(travels.data?.items ?? []).map((t) => ({ id: t.id, code: t.code, label: `${t.destination}` }))}
-          onSaved={() => setNotice("已保存（覆盖式保存本周全量草稿）")}
+          aiDraftEntries={aiTimeDraft?.entries ?? []}
+          onSaved={() => {
+            setNotice("已保存（覆盖式保存本周全量草稿）");
+            if (aiTimeDraft) { sessionStorage.removeItem(AI_TIME_DRAFT_KEY); setAiTimeDraft(null); }
+          }}
           onError={(err) => setError(err)}
         />
       ) : period ? (
@@ -737,6 +757,7 @@ export default function TimeCenterPage() {
 function DayEditor({
   periodId,
   selectedDate,
+  aiDraftEntries = [],
   serverEntries,
   meProjects,
   meetings,
@@ -746,6 +767,7 @@ function DayEditor({
 }: {
   periodId: string;
   selectedDate: string;
+  aiDraftEntries?: Array<{ projectName: string; workDate: string; minutes: number; description: string }>;
   serverEntries: TimeEntryRow[];
   meProjects: { id: string; name: string }[];
   meetings: { id: string; code: string; label: string }[];
@@ -756,7 +778,19 @@ function DayEditor({
   const mutations = useTimeMutations();
   const dayEntries = serverEntries.filter((e) => e.workDate === selectedDate);
   const otherEntries = serverEntries.filter((e) => e.workDate !== selectedDate);
-  const [drafts, setDrafts] = useState<RowDraft[]>(() => toRows(dayEntries));
+  const [drafts, setDrafts] = useState<RowDraft[]>(() => {
+    const base = toRows(dayEntries);
+    for (const e of aiDraftEntries) {
+      if (e.workDate !== selectedDate) continue;
+      base.push({
+        projectId: "",
+        activityType: "professional_work",
+        durationMinutes: e.minutes,
+        description: `[小元草稿] ${e.description}（项目：${e.projectName}，请核对项目）`,
+      } as never);
+    }
+    return base;
+  });
 
   const dirty = JSON.stringify(drafts) !== JSON.stringify(toRows(dayEntries));
 
