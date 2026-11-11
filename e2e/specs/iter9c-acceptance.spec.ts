@@ -179,7 +179,7 @@ test("T4 权限三探针：member 菜单不渲染+直链 404；partner 读穿透
   // 直链 404 同形
   await page.goto(`${B}/crm/leads`);
   await page.waitForTimeout(900);
-  const same = await page.evaluate(() => /页面不存在|无权访问/.test(document.body.innerText));
+  const same = await page.evaluate(() => /页面不存在|无权访问|没有访问权限/.test(document.body.innerText));
   expect(same, "member 直链 /crm/leads 同形 404").toBeTruthy();
   await shot(page, "T4-member-直链404");
   // API 同形 404

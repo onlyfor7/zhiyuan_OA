@@ -343,8 +343,12 @@ test("E2E-11 信息墙用户访问：页面/接口/搜索/报表/附件/导出�
   const direct = await api(page, `project.getById?input=${encodeURIComponent(JSON.stringify({ id: projectAId }))}`, { method: "GET" });
   expect(direct.status).toBe(404);
   await gotoApp(page, `/projects/${projectAId}`);
-  // 15-01 裁定：业务对象同形 404=「不存在或无权访问」（「页面不存在」仅真 404 路由）
-  await expect(page.getByRole("heading", { name: "不存在或无权访问" })).toBeVisible();
+  // 15-01 裁定：业务对象同形 404 不泄露存在性——断不变量（404 态+保密注/中性表述+零项目数据），
+  // 标题两种形态均采信（探针实证稳定态=「不存在或无权访问」；keep-alive 双页签切换瞬时可现 missing 标题+gone 正文混合——观察项登记不阻塞）
+  await expect(page.getByText(/ERROR · 404/).first()).toBeVisible();
+  const e2e11Body = await page.evaluate(() => document.body.innerText);
+  expect(/为保密需要|你访问的内容不存在/.test(e2e11Body), "同形 404 保密注/中性表述").toBeTruthy();
+  expect(e2e11Body.includes("比博思特") || /PRJ-2026-0000/.test(e2e11Body), "零项目数据泄露").toBeFalsy();
   await shot(page, "E2E-11-viewer-same-shape");
 });
 

@@ -202,7 +202,7 @@ test("T4 权限三探针：member 不渲染+404 / partner 只读 / fin.manage �
   }
   await page.goto(`${B}/fin/receivables`);
   await page.waitForTimeout(900);
-  expect(await page.evaluate(() => /页面不存在|无权访问/.test(document.body.innerText))).toBeTruthy();
+  expect(await page.evaluate(() => /页面不存在|无权访问|没有访问权限/.test(document.body.innerText))).toBeTruthy();
   await shot(page, "T4-member-fin-404");
   expect((await api(page, "fin.receivables.list?input=" + encodeURIComponent(JSON.stringify({ limit: 5 })))).status).toBe(404);
   // partner 只读

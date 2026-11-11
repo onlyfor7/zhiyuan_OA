@@ -129,16 +129,12 @@ test("T4 小元宠物化：拖拽+点击互动+位置记忆", async ({ page }) =
   await page.waitForTimeout(800);
   const pos2 = await page.locator(".ai-fab").boundingBox();
   expect(Math.abs(pos2!.x - pos1!.x) < 8, `重载位置保持（Δ=${Math.round(Math.abs(pos2!.x - pos1!.x))}）`).toBeTruthy();
-  // 点击打招呼气泡
+  // 点击互动（15-01 直进语义：首击即开面板无中间层；招呼气泡改闲置巡检触发——形象/四态归 iter15 spec）
   await page.locator(".ai-fab").dispatchEvent("click");
-  await page.waitForTimeout(400);
-  await page.locator(".ai-fab").dispatchEvent("click"); // 关面板
-  await page.waitForTimeout(400);
-  await page.locator(".ai-fab").dispatchEvent("click");
-  await page.waitForTimeout(800);
-  const greet = await page.locator(".ai-bubble-pop").isVisible().catch(() => false);
-  expect(greet, "招呼气泡在位").toBeTruthy();
-  await shot(page, "T4-宠物化招呼气泡");
+  await page.waitForSelector(".ai-panel", { timeout: 8_000 });
+  await page.waitForTimeout(500);
+  await expect(page.locator(".ai-fab .ai-pet-svg").first(), "点击后开心态").toHaveClass(/ai-mood-happy/);
+  await shot(page, "T4-点击互动");
   // 还原默认位置（清记忆）
   await page.evaluate(() => localStorage.removeItem("lexflow-ai-pet-pos"));
 });
