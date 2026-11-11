@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { Send, X } from "lucide-react";
 import { toast } from "sonner";
@@ -42,35 +42,150 @@ function PetSvg() {
     <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true">
       <ellipse cx="24" cy="27" rx="15" ry="13" fill="#7c3aed" />
       <ellipse cx="24" cy="30" rx="9" ry="7" fill="#a78bfa" opacity=".55" />
-      <circle cx="19" cy="25" r="2.2" fill="#fff" />
-      <circle cx="29" cy="25" r="2.2" fill="#fff" />
-      <circle cx="19.5" cy="25.4" r="1" fill="#1f2937" />
-      <circle cx="29.5" cy="25.4" r="1" fill="#1f2937" />
+      <g className="ai-eyes">
+        <circle cx="19" cy="25" r="2.2" fill="#fff" />
+        <circle cx="29" cy="25" r="2.2" fill="#fff" />
+        <circle cx="19.5" cy="25.4" r="1" fill="#1f2937" />
+        <circle cx="29.5" cy="25.4" r="1" fill="#1f2937" />
+      </g>
       <path d="M20 31 Q24 34 28 31" stroke="#fff" strokeWidth="1.6" fill="none" strokeLinecap="round" />
-      <path d="M35 12 l1.8 4 4 1.8 -4 1.8 -1.8 4 -1.8 -4 -4 -1.8 4 -1.8 z" fill="#c4b5fd" />
+      <path className="ai-wave-star" d="M35 12 l1.8 4 4 1.8 -4 1.8 -1.8 4 -1.8 -4 -4 -1.8 4 -1.8 z" fill="#c4b5fd" />
       <circle cx="12" cy="15" r="2" fill="#c4b5fd" opacity=".8" />
     </svg>
   );
 }
 
+const POS_KEY = "lexflow-ai-pet-pos";
+const GREETS = [
+  "在呢！需要我做什么？✨",
+  "我可以帮你预填表单、记工时、写纪要、画审批流～",
+  "点下方「打开对话」，直接对我说需求就行。",
+  "又是忙碌的一天，喝口水再继续吧。",
+];
+const IDLE_TIPS = [
+  "闲置好一会儿了——有表单要填/工时要记吗？我帮你起草。",
+  "试试对我说「帮我填去杭州出差两天的高铁申请」。",
+  "我在右下角待命：预填 / 工时 / 纪要 / 审批流都能起草。",
+];
+
+interface PetPos { x: number; y: number }
+
+let mobileCache: boolean | null = null;
+function isMobileView(): boolean {
+  if (mobileCache === null) mobileCache = window.matchMedia("(max-width: 820px)").matches;
+  return mobileCache;
+}
+
+/** §18.2 桌面宠物化：可拖拽（位置记忆）+贴边停靠+待机眨眼/挥手+点击打招呼气泡+闲置提示；375 仅悬浮钮 */
 export function AiPet() {
   const [open, setOpen] = useState(false);
+  const [bubble, setBubble] = useState<{ kind: "greet" | "tip"; text: string } | null>(null);
+  const [pos, setPos] = useState<PetPos | null>(() => {
+    try {
+      const raw = localStorage.getItem(POS_KEY);
+      return raw ? (JSON.parse(raw) as PetPos) : null;
+    } catch {
+      return null;
+    }
+  });
+  const drag = useRef<{ dx: number; dy: number; moved: boolean } | null>(null);
+  const lastActive = useRef(0);
+  useEffect(() => {
+    lastActive.current = Date.now();
+  }, []);
+
+  const poke = useCallback(() => {
+    lastActive.current = Date.now();
+  }, []);
+
+  // 闲置提示：≥3 分钟无互动且未开面板/气泡时弹一次（30s 巡检）
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      if (!open && !bubble && Date.now() - lastActive.current >= 3 * 60_000) {
+        setBubble({ kind: "tip", text: IDLE_TIPS[Math.floor(Math.random() * IDLE_TIPS.length)] });
+        lastActive.current = Date.now();
+      }
+    }, 30_000);
+    return () => window.clearInterval(t);
+  }, [open, bubble]);
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    poke();
+    if (isMobileView() || open) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    drag.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top, moved: false };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!drag.current) return;
+    if (Math.abs(e.movementX) + Math.abs(e.movementY) > 2) drag.current.moved = true;
+    const x = Math.min(window.innerWidth - 64, Math.max(8, e.clientX - drag.current.dx));
+    const y = Math.min(window.innerHeight - 78, Math.max(8, e.clientY - drag.current.dy));
+    setPos({ x, y });
+  };
+  const onPointerUp = () => {
+    if (!drag.current) return;
+    // 贴边停靠：距左/右缘 <48px 吸附（避让内容居中漂移）
+    setPos((p) => {
+      if (!p) return p;
+      const snapped: PetPos =
+        p.x < 48 ? { ...p, x: 12 } : p.x > window.innerWidth - 112 ? { ...p, x: window.innerWidth - 68 } : p;
+      localStorage.setItem(POS_KEY, JSON.stringify(snapped));
+      return snapped;
+    });
+    window.setTimeout(() => {
+      drag.current = null;
+    }, 0);
+  };
+
+  const onClick = () => {
+    poke();
+    if (drag.current?.moved) return;
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setBubble((b) => (b && b.kind === "greet" ? null : { kind: "greet", text: GREETS[Math.floor(Math.random() * GREETS.length)] }));
+  };
+
+  const style: CSSProperties | undefined = pos
+    ? { left: pos.x, top: pos.y, right: "auto", bottom: "auto" }
+    : undefined;
+
   return (
     <>
       <button
         type="button"
-        className={`ai-fab ${open ? "active" : ""}`}
+        className={`ai-fab ${open ? "active" : ""} ${pos ? "docked" : ""}`}
+        style={style}
         aria-label={open ? "收起小元" : "小元 AI 助手"}
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onClick={onClick}
       >
         <PetSvg />
         <span className="ai-fab-name">小元</span>
       </button>
+      {bubble && !open ? (
+        <div className="ai-bubble-pop" style={pos ? { left: Math.max(8, Math.min(window.innerWidth - 260, pos.x - 190)), top: Math.max(8, pos.y - 108) } : undefined} role="status">
+          <p>{bubble.text}</p>
+          <div className="row-ops">
+            <button type="button" className="primary-action" onClick={() => { poke(); setBubble(null); setOpen(true); }}>
+              打开对话
+            </button>
+            <button type="button" className="text-action" onClick={() => setBubble(null)}>
+              知道了
+            </button>
+          </div>
+        </div>
+      ) : null}
       {open ? <AiPanel onClose={() => setOpen(false)} /> : null}
     </>
   );
 }
+
 
 function AiPanel({ onClose }: { onClose: () => void }) {
   const location = useLocation();

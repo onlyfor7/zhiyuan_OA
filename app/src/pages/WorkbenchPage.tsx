@@ -56,6 +56,8 @@ function notificationLink(sourceType: string | null): string {
 
 function NotificationPanel() {
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const [page, setPage] = useState(0);
+  const PAGE = 8;
   const notifications = useNotifications(unreadOnly);
   const mutations = useNotificationMutations();
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +65,9 @@ function NotificationPanel() {
   if (notifications.isPending) return <p className="list-note">正在加载通知…</p>;
   if (notifications.isError) throw notifications.error;
   const items = notifications.data.items;
+  const pageCount = Math.max(1, Math.ceil(items.length / PAGE));
+  const cur = Math.min(page, pageCount - 1);
+  const pageItems = items.slice(cur * PAGE, (cur + 1) * PAGE);
 
   const act = (fn: (ids: string[]) => void, ids: string[]) => {
     setError(null);
@@ -77,7 +82,7 @@ function NotificationPanel() {
           <h2>通知</h2>
         </div>
         <label className="check-field compact">
-          <input type="checkbox" checked={unreadOnly} onChange={(e) => setUnreadOnly(e.target.checked)} />
+          <input type="checkbox" checked={unreadOnly} onChange={(e) => { setUnreadOnly(e.target.checked); setPage(0); }} />
           仅未读
         </label>
       </div>
@@ -92,7 +97,7 @@ function NotificationPanel() {
           <strong>{unreadOnly ? "没有未读通知" : "暂无通知"}</strong>
         </div>
       ) : (
-        items.map((n) => (
+        pageItems.map((n) => (
           <div className={`notification-row ${n.readAt ? "" : "unread"}`} key={n.id}>
             <div>
               <strong>{n.eventType}</strong>
@@ -123,6 +128,15 @@ function NotificationPanel() {
           </div>
         ))
       )}
+      {items.length > PAGE ? (
+        <div className="p9a-ta-pager">
+          <span>共 {items.length} 条 · 第 {cur + 1}/{pageCount} 页</span>
+          <div className="row-ops">
+            <button className="secondary-action" disabled={cur === 0} onClick={() => setPage(cur - 1)}>上一页</button>
+            <button className="secondary-action" disabled={cur >= pageCount - 1} onClick={() => setPage(cur + 1)}>下一页</button>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -133,9 +147,16 @@ export default function WorkbenchPage() {
   const unread = useUnreadCount();
   const week = getWeek(new Date());
 
+  const [todoPage, setTodoPage] = useState(0);
+  const TODO_PAGE = 12;
+
   if (todo.isPending) return <p className="list-note">正在加载工作台…</p>;
   if (todo.isError) throw todo.error;
   const items = todo.data.items;
+  const todoCount = items.length;
+  const todoPageCount = Math.max(1, Math.ceil(todoCount / TODO_PAGE));
+  const todoCur = Math.min(todoPage, todoPageCount - 1);
+  const todoItems = items.slice(todoCur * TODO_PAGE, (todoCur + 1) * TODO_PAGE);
 
   return (
     <div className="screen workbench-screen">
@@ -163,7 +184,7 @@ export default function WorkbenchPage() {
             <p>任务、审批、复核、周报确认与授权事项均已处理。</p>
           </div>
         ) : (
-          items.map((item: TodoItem) => (
+          todoItems.map((item: TodoItem) => (
             <Link className={`todo-card kind-${item.kind}`} to={todoLink(item)} key={`${item.kind}-${item.id}`}>
               <span className="todo-kind">{TODO_KIND_LABEL[item.kind] ?? item.kind}</span>
               <strong>{item.title}</strong>
@@ -182,6 +203,15 @@ export default function WorkbenchPage() {
           ))
         )}
       </div>
+      {todoCount > TODO_PAGE ? (
+        <div className="p9a-ta-pager">
+          <span>待办共 {todoCount} 项 · 第 {todoCur + 1}/{todoPageCount} 页</span>
+          <div className="row-ops">
+            <button className="secondary-action" disabled={todoCur === 0} onClick={() => setTodoPage(todoCur - 1)}>上一页</button>
+            <button className="secondary-action" disabled={todoCur >= todoPageCount - 1} onClick={() => setTodoPage(todoCur + 1)}>下一页</button>
+          </div>
+        </div>
+      ) : null}
       <div className="workbench-grid">
         <NotificationPanel />
         <section className="quick-actions-panel">

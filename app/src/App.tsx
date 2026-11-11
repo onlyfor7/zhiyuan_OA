@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Route, Routes } from "react-router";
 
 import AppShell from "./components/AppShell";
@@ -12,9 +12,25 @@ import AppShell from "./components/AppShell";
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
+/** §18.1 缓冲骨架：<150ms 完成则不出（防闪烁）；品牌脉冲而非白屏 */
+function DelayedBrandFallback() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setShow(true), 150);
+    return () => window.clearTimeout(t);
+  }, []);
+  if (!show) return null;
+  return (
+    <div className="page-loader brand-pulse" role="status" aria-label="正在加载">
+      <span className="brand-mark" aria-hidden="true"><span /><span /><span /></span>
+      <span>LEXFLOW · 加载中</span>
+    </div>
+  );
+}
+
 export default function App() {
   return (
-    <Suspense fallback={<div className="page-loader" role="status">正在加载…</div>}>
+    <Suspense fallback={<DelayedBrandFallback />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/403" element={<NotFoundPage fixedCode="403" />} />
