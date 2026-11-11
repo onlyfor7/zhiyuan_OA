@@ -105,7 +105,7 @@
 | 工单 | 会话 | 状态 | 认领人 | 日期 | 备注 |
 |---|---|---|---|---|---|
 | 14-00 总览 | — | 已发布 | 架构 | 2026-11-11 | 六裁定 |
-| 14-01 prod 重置窗口+DeepSeek 接入 | 部署 | 待认领 | — | — | 清测试数据（用户重登通知）+ai.config 真模型联通 |
+| 14-01 prod 重置窗口+DeepSeek 接入 | 部署 | 待验收 | 部署会话 | 2026-11-11 | 重置+真模型联通全实测通过；实录见交接记录置顶条；建议用户移走 deepseek api.txt |
 | 14-02 缓冲+宠物化+承载复查 | 前端 | 未解锁 | — | — | §18.1–18.3 |
 | 14-03 CRM 明细抽屉 | 前端 | 未解锁 | — | — | §18.4 线索/商机查看+编辑 |
 | 14-04 验收+手册 v2.2 | 测试 | 未解锁 | — | — | 依赖 03 |
@@ -343,6 +343,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-11｜部署｜迭代14-01｜**工单 14-01（prod 重置窗口 + DeepSeek 接入）完成，转待验收（实录如下）。** 做了什么：① **prod 重置**：`docker compose -f docker-compose.prod.yml --env-file .env.production down -v`（容器×3+网络+两卷全删，0 残留；**全部用户会话随库清除失效，需重新登录**——口令统一 Demo@2026）→ `up -d`（2026-11-11T06:49:44Z 发起，**20s 三服务全 healthy**）→ server 启动自动迁移 `migrate: done`，`drizzle.__drizzle_migrations`=**14 行（0000–0013 全重放）** → 种子 `docker exec -e SEED_PROFILE=full lexflow-prod-server node /app/dist/seed.js`（1s；**本次镜像内种子即最新**——seed 最后变更 6320c15@9d，镜像构建于 11-11 13:48(+08) 之后，无需一次性容器规避）。**重置前后计数对比**：projects 5→5、users 22→22、**approval_instances 212→0、sessions 2458→0、audit_events 33013→0、clients 20→5、e2e 痕迹（「验收客户-/迭代7验收mw-/E2E-」前缀，clients/matters/projects 三表）15→0**，org_root=因诺智元 ✓。② **DeepSeek 接入**：sysadmin（赵凯）会话调 `ai.config.set`（providerUrl=https://api.deepseek.com、apiKey=<工作区 `deepseek api.txt` 文件值，经 node 读取注入、**全程未回显未入库**，响应 `apiKeyMasked=****8c0b` 为系统自身脱敏）、model=deepseek-chat、enabled=true → `{ok:true}`；`ai.config.testConnection` → **`{ok:true, latencyMs:739, model:deepseek-chat}`** 真模型探测 ✓；`ai.chat` 中文实弹（「1+1等于几」）→ **「1+1=2。」usage tokensIn=25/tokensOut=6（真实 usage 计数，非 Mock 的 chars/4 估算）** ✓。（如实注明：响应 `provider:"openai"` 为 OpenAI 兼容客户端标识，实际端点为 api.deepseek.com。）dev 栈与 dev 库全程未动；双镜像未重建（本工单无重建要求，镜像含 ai.* 已就位）。**处置提醒（工单要求）**：`deepseek api.txt` 明文 key 不宜留工作区，建议用户删除/移走（本工单仅读取使用，文件未动）。提交：仅 STATUS.md（[部署] 前缀）。遗留：无。
 
 - 2026-11-11｜架构｜迭代14发布｜**迭代 14 六裁定冻结（arch/12 §18 v2.3）与工单包发布。** ① prod 数据重置窗口（清 e2e 自增殖/走查残留——测试会话两次提请的运维项落地，用户会重登需通知）；② DeepSeek 接入：用户提供 key（工作区 deepseek api.txt，sk- 形态）→ai.config 接入+真模型联通实测（key 不回显不入库）；③ §18.1 切页缓冲禁黑屏；④ §18.2 小元桌面宠物化（可拖拽/待机/互动/避让）；⑤ §18.3 工作台通知等长内容分页/折叠全局复查；⑥ §18.4 线索/商机明细抽屉（查看+编辑）。链：01 部署 → 02 前端 → 03 前端 → 04 测试。**当前解锁：14-01（部署会话）。**
 
