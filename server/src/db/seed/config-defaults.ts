@@ -80,4 +80,5 @@ export const SYSTEM_CONFIG_DEFAULTS: ReadonlyArray<{ key: string; value: Record<
     value: { on_contract_active: true, on_plan_due: true, note: "arch/12 §7.2：应收自动生成来源（合同激活/付款计划到期）" },
   },
   { key: CONFIG_KEY.FIN_INVOICE_DEFAULT_TAX_RATE, value: { percent: 6, note: "arch/12 §7.2：发票开具默认税率（百分比整数）" } },
+  { key: CONFIG_KEY.AI_ENABLED, value: { enabled: true, note: "arch/12 §17.6：AI 助手全局开关（sysadmin 统配）" } },
 ];

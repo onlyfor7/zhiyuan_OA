@@ -14,6 +14,7 @@ export const TEST_DATABASE_URL =
 
 /** 迭代 0–9b 全部业务表（arch/01 §1、arch/04 §2、arch/05 §2.1、arch/06 §2、arch/07 §2、arch/12 §10） */
 export const ALL_TABLES = [
+  "ai_usage_events",
   "org_units",
   "company_profile",
   "users",

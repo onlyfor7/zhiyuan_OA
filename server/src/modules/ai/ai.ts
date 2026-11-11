@@ -5,6 +5,8 @@ import { ERROR_CODE } from "@lexflow/shared";
 import { BusinessError } from "../../lib/errors";
 import { recordAudit } from "../../services/audit";
 import { resolveAiProvider, type AiCompletion, type AiContext, type AiMessage } from "../../services/ai/provider";
+import { getAiConfig } from "./config";
+import { aiUsageEvents } from "../../db/schema";
 import {
   capabilityAnswer,
   capabilityFlowDraft,
@@ -56,8 +58,13 @@ export async function aiChat(
   db: DbOrTx,
   user: SessionUser,
   input: { messages: AiMessage[]; context: AiContext; ip: string | null; sessionId: string | null },
-): Promise<AiCompletion & { capability: string; provider: string }> {
+): Promise<AiCompletion & { capability: string; provider: string; model: string; usage: { tokensIn: number; tokensOut: number } }> {
   assertAiAllowed(user.id);
+  // 统筹配置：enabled=false 拦截（arch/12 §17.6）；system_config 优先于 env（30s 缓存）
+  const cfg = await getAiConfig(db);
+  if (!cfg.enabled) {
+    throw new BusinessError(ERROR_CODE.AI_DISABLED, "AI 助手未启用，请联系管理员（治理→系统配置→AI 配置）");
+  }
   const ctx: AiContext = {
     route: input.context.route,
     pageType: input.context.pageType,
@@ -66,7 +73,7 @@ export async function aiChat(
   const lastUser = [...input.messages].reverse().find((m) => m.role === "user")?.content ?? "";
   const capability = detectCapability(lastUser, ctx);
 
-  let result: AiCompletion & { capability: string; provider: string };
+  let result: AiCompletion & { capability: string; provider: string; model: string; usage: { tokensIn: number; tokensOut: number } };
   try {
     let action: AiAction;
     switch (capability) {
@@ -85,9 +92,23 @@ export async function aiChat(
       default:
         action = capabilityAnswer();
     }
-    const provider = resolveAiProvider();
+    const provider = resolveAiProvider(cfg);
     const completion = await provider.complete(input.messages, ctx, [action]);
-    result = { ...completion, capability, provider: provider.name };
+    // 用量记账（arch/12 §17.6）：真实取 usage 字段；Mock 按 chars/4 估算
+    const inputChars = input.messages.reduce((n, m) => n + m.content.length, 0) + ctx.summary.length;
+    const usage = completion.usage ?? {
+      tokensIn: Math.ceil(inputChars / 4),
+      tokensOut: Math.ceil(completion.text.length / 4),
+    };
+    const model = cfg.model ?? provider.name;
+    await db.insert(aiUsageEvents).values({
+      userId: user.id,
+      capability,
+      model,
+      tokensIn: usage.tokensIn,
+      tokensOut: usage.tokensOut,
+    });
+    result = { ...completion, capability, provider: provider.name, model, usage };
     await recordAudit(db, {
       actorId: user.id,
       sessionId: input.sessionId,

@@ -273,10 +273,11 @@ test("E2E-09 工时退回、重提和周期锁定；解锁有理由与审计", a
     }
     return "";
   })();
-  // 探测可用 draft 周期（向后周移直至 draft）
+  // 探测可用 draft 周期（向后周移直至 draft；13-01 修稳：历轮 e2e 自增殖使 28~182 天窗口耗尽——
+  // 上限扩至 364 天且只要求 draft（saveEntries 为覆盖式保存，既有 entries 不阻塞语义））
   let pid = "";
   let d = "";
-  for (let add = 28; add <= 182; add += 7) {
+  for (let add = 28; add <= 364; add += 7) {
     const cand = (() => {
       const dd = new Date(Date.now() + add * 864e5);
       const mon = new Date(Date.UTC(dd.getUTCFullYear(), dd.getUTCMonth(), dd.getUTCDate()));
@@ -284,7 +285,7 @@ test("E2E-09 工时退回、重提和周期锁定；解锁有理由与审计", a
       return mon.toISOString().slice(0, 10);
     })();
     const mp = await api(page, `time.myPeriod?input=${encodeURIComponent(JSON.stringify({ periodStart: cand }))}`, { method: "GET" });
-    if ((mp.json as any).result.data.period.status === "draft" && (mp.json as any).result.data.entries.length === 0) {
+    if ((mp.json as any).result.data.period.status === "draft") {
       pid = (mp.json as any).result.data.period.id;
       d = (mp.json as any).result.data.period.periodStart;
       break;

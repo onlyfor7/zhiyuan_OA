@@ -101,7 +101,7 @@
 | 工单 | 会话 | 状态 | 认领人 | 日期 | 备注 |
 |---|---|---|---|---|---|
 | 13-00 总览 | — | 已发布 | 架构 | 2026-11-10 | AI 配置统筹+用量+退出入口 |
-| 13-01 AI 配置统筹与用量 | 后端 | 待认领 | — | — | ai_usage_events+config 端点+读序+两聚合 |
+| 13-01 AI 配置统筹与用量 | 后端 | **待验收** | 后端会话 | 2026-11-10 | ai_usage_events(迁移0013)+config 三端点(sysadmin/脱敏/即刻生效/testConnection)+读序30s缓存+enabled 拦截 403+两聚合；四道门 302/302；prod 已发新镜像，e2e-01~16 16/16（E2E-09 探测窗修稳） |
 | 13-02 配置页+用量视图+退出入口 | 前端 | 未解锁 | — | — | 含头像菜单切换账号/退出登录回提 |
 | 13-03 验收+手册 v2.1 | 测试 | 未解锁 | — | — | 依赖 02；含 prod 发布窗口 |
 
@@ -330,6 +330,7 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-11-10｜后端｜迭代13-01｜**工单 13-01（AI 配置统筹与用量，arch/12 §17.6 v2.2 逐字）完成，转待验收。** **新表 `ai_usage_events`**（user_id FK restrict/capability/model/tokens_in/tokens_out/created_at+user×created 索引；迁移 `0013_iter13-ai-usage.sql` 追加式，dev/test 双库已应用；种子零数据；铁律沿用）；ALL_TABLES 注册。**涟漪**：system_config 计数 20→21 五处随动。**配置端点**（`ai.config.*`，sysadmin 专有、其余同形 404 三探针在位）：`get` 返回 provider_url/model/enabled/source + **apiKeyMasked（仅后 4 位，≤4 位全掩）**；`set` 整键全替换（null 显式清除回落 env）+审计同事务 **before/after 只存脱敏形态（用例断言审计行全文检索无明文）**；`testConnection` 1-token 探测（未配外部提供方→mock 直接 ok+说明；OpenAI 配置→真实 max_tokens=1 调用返回 {ok, latencyMs, error?}）。**读序**：system_config 四键（`ai.provider_url/ai.api_key/ai.model/ai.enabled` 入白名单；种子仅 ai.enabled=true）优先于 env，**30s 进程缓存 + set 即刻失效**——用例实证：set model 后下一次 ai.chat 记账 model 即时用新值。**拦截**：`ai.enabled=false` 时 ai.chat 抛新增 `AI_DISABLED`→FORBIDDEN **403**（拦截不计用量，行数不变断言）；恢复即通。**用量**：ai.chat 每调用必记——真实提供方取 usage 字段（OpenAiProvider 解析 prompt/completion_tokens），**Mock 按 chars/4 估算**（输入=Σmessages+summary、输出=text，ceil）——用例逐字节勾稽（响应 usage==DB 行==ceil(chars/4)）。**两聚合**：`ai.myUsage`（本人近 30 天 日×能力）+`ai.usageAdmin`（sysadmin 全局 人×日×能力 Top——**PG 聚合别名在 ORDER BY 表达式被解析为基础列，改 `4 + 5` 列位引用修**）；勾稽：myUsage calls 合计==该用户 ai_usage_events 行数。**用例** `ai-config.test.ts` 4 条（三探针+脱敏+明文零泄漏+testConnection/即刻生效/拦截恢复+Mock 估算勾稽/两聚合勾稽+Top 降序）。**四道门逐条真实跑（F3 独占已确认）**：server vitest **279/279**（56 文件；既有 275 零回归+4 新）✓；根 typecheck/build exit 0✓；根 test **302/302**（279+23）✓。**prod**：server 镜像 DOCKER_BUILDKIT=0 --no-cache 重建复起（--env-file .env.production，healthy）。**e2e 不回归实录**：E2E-09 探测窗 28~182 天**全窗口耗尽**（历轮 e2e 自增殖至 prod——架构 T6 机制性现象）→ 修稳：上限扩 364 天+条件放宽为仅 draft（saveEntries 覆盖式保存语义不破）；终跑 **16/16 全绿**。**运维建议**：e2e-on-prod 自增殖已到需定期重置的节点，建议 13-03/运维手册纳入重置节奏。分支 `iter13/server-ai-config`。**交接 13-02 前端**：治理→系统配置→「AI 配置」页（四键表单+脱敏展示+测试联通按钮+全局用量视图）+设置页「我的 AI 用量」——接 `ai.config.*`/`ai.myUsage`/`ai.usageAdmin`。
 - 2026-11-10｜架构｜迭代13发布｜**迭代 13（AI 配置统筹与用量+退出登录入口）冻结（arch/12 §17.6 v2.2）与工单包发布。** 统筹裁定：管理员统一配置全局生效（不设每用户自配——集中管控成本与合规）；sysadmin 专配+测试联通+key 脱敏；ai_usage_events 每调用必记（Mock 按 chars/4 估算演示可验），本人「我的用量」+sysadmin 全局视图。退出登录/切换账号回提头像菜单（迭代 8 收口时埋进设置页的入口修复）。链：01 后端 → 02 前端 → 03 验收（含发布窗口）。**当前解锁：13-01（后端会话）。**
 
 - 2026-11-10｜架构｜迭代12收口｜**迭代 12（弹窗统一+字体比例+AI 助手「小元」）正式关闭。** 终审：根测试 298/298 全绿；取证 4/4——创建类弹窗化（经费/报销/会议/出差弹窗+URL 不变+不开新签，F4 向导例外）、字体九项 computed（14/36/报表 13 不动）、AI 全链 Mock 确定性（A1 回填确认环落地/A2 零落库断言/A3 纪要预填/A4 设计器预填过校验/限流 429/审计 provider=mock/密级剥离）；其「验收即修」三项真缺陷（A3 同路由二次消费/375 页头破线/拉丁串折行）修复复测归零。prod 双镜像发布（无 key MockProvider 生产可用实证）+prod 复跑 4/4+e2e 16/16；手册 v2.0（T4p+小元使用章）。**生产模型接入待用户裁定后 .env.production 填 AI_PROVIDER_URL/AI_API_KEY/AI_MODEL 三键即切换**（适配层已就位，Kimi/DeepSeek/通义/Azure 兼容端点皆可）。**迭代 0–12 全部通过。**

@@ -30,6 +30,8 @@ export const ERROR_CODE = {
   FLOW_UNPUBLISHABLE: "FLOW_UNPUBLISHABLE",
   /** 登录限流（arch/12 §14.4：同 IP+账号失败次数超窗，429 同形不泄账号存在性） */
   RATE_LIMITED: "RATE_LIMITED",
+  /** AI 助手未启用（arch/12 §17.6：ai.enabled=false 时 ai.chat 拦截提示，403） */
+  AI_DISABLED: "AI_DISABLED",
   /** 兜底，无堆栈，带 requestId */
   INTERNAL: "INTERNAL",
 } as const;

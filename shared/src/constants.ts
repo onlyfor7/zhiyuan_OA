@@ -76,6 +76,11 @@ export const CONFIG_KEY = {
   /** 发票默认税率（百分比整数，arch/12 §7.2） */
   FIN_INVOICE_DEFAULT_TAX_RATE: "fin.invoice.default_tax_rate",
   AUDIT_RETENTION_DAYS: "audit.retention_days",
+  /** AI 提供方配置（arch/12 §17.6：管理员统一配置，system_config 优先于 env，30s 缓存） */
+  AI_PROVIDER_URL: "ai.provider_url",
+  AI_API_KEY: "ai.api_key",
+  AI_MODEL: "ai.model",
+  AI_ENABLED: "ai.enabled",
 } as const;
 export type ConfigKey = (typeof CONFIG_KEY)[keyof typeof CONFIG_KEY];
 

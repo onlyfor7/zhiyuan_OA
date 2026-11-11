@@ -21,6 +21,8 @@ export interface AiContext {
 export interface AiCompletion {
   text: string;
   actions: unknown[];
+  /** 真实提供方 usage 字段；MockProvider 不产出（由调用方按 chars/4 估算，arch/12 §17.6） */
+  usage?: { tokensIn: number; tokensOut: number };
 }
 
 export interface AiProvider {
@@ -38,11 +40,12 @@ const aiEnvSchema = z.object({
   AI_MODEL: z.string().min(1).optional(),
 });
 
-export function resolveAiProvider(): AiProvider {
+export function resolveAiProvider(override?: { providerUrl?: string | null; apiKey?: string | null; model?: string | null }): AiProvider {
+  // 读序：调用方传入的统筹配置（system_config 优先于 env）→ 本函数 env 兜底
   const parsed = aiEnvSchema.safeParse({
-    AI_PROVIDER_URL: process.env.AI_PROVIDER_URL,
-    AI_API_KEY: process.env.AI_API_KEY,
-    AI_MODEL: process.env.AI_MODEL,
+    AI_PROVIDER_URL: override?.providerUrl ?? process.env.AI_PROVIDER_URL,
+    AI_API_KEY: override?.apiKey ?? process.env.AI_API_KEY,
+    AI_MODEL: override?.model ?? process.env.AI_MODEL,
   });
   const { AI_PROVIDER_URL, AI_API_KEY, AI_MODEL } = parsed.success ? parsed.data : {};
   if (AI_PROVIDER_URL && AI_API_KEY && AI_MODEL) return new OpenAiProvider(AI_PROVIDER_URL, AI_API_KEY, AI_MODEL);
@@ -74,9 +77,18 @@ class OpenAiProvider implements AiProvider {
     if (!response.ok) {
       throw new Error(`AI 提供方错误：${response.status}`);
     }
-    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+    };
     const text = data.choices?.[0]?.message?.content ?? "";
-    return { text, actions };
+    return {
+      text,
+      actions,
+      usage: data.usage
+        ? { tokensIn: data.usage.prompt_tokens ?? 0, tokensOut: data.usage.completion_tokens ?? 0 }
+        : undefined,
+    };
   }
 }
 

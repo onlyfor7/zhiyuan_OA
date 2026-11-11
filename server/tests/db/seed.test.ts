@@ -34,7 +34,7 @@ describe("种子幂等与验收布局", () => {
     expect(first.matters).toBe(5);
     expect(first.projects).toBe(5);
     expect(first.project_members).toBe(16); // 4+3+2+3+4
-    expect(first.system_config).toBe(20); // 15 + timesheet.step_minutes（arch/11）+ 保留期两键（9a-04 §14.5）
+    expect(first.system_config).toBe(21); // 15 + timesheet.step_minutes（arch/11）+ 保留期两键（9a-04 §14.5）
     expect(first.code_sequences).toBe(24); // 19 + LD/OPP/CTR + AR/INV（9c/9d；full 档）
   });
 
