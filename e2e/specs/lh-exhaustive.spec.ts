@@ -520,7 +520,7 @@ test("S12 档案与授权（目录/上传归集/授权/撤销 404）", async ({ 
   const denied = await api(vp, `project.getById?input=${encodeURIComponent(JSON.stringify({ id: projectId }))}`);
   expect(denied.status).toBe(404);
   await vp.goto(`${B}/projects/${projectId}`);
-  await vp.waitForSelector("text=页面不存在", { timeout: 15_000 });
+  await vp.waitForSelector("text=不存在或无权访问", { timeout: 15_000 });
   await shot(vp, "S12-04-撤销后同形404");
   await vctx.close();
   log("pm/viewer/archivist", "archive+项目直链", "归集/受控下载/授权/撤销即时失效", "全链", "一致", "S12-04");

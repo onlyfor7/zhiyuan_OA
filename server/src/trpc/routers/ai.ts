@@ -4,6 +4,7 @@ import { authedMutation, authedProcedure, router } from "../trpc";
 import { aiMessagesSchema } from "../../services/ai/provider";
 import { aiChat } from "../../modules/ai/ai";
 import { adminAiUsage, getAiConfigForAdmin, myAiUsage, setAiConfig, testAiConnection } from "../../modules/ai/config";
+import { assistantFeed } from "../../modules/ai/assistant";
 
 /**
  * AI 助手「小元」（arch/12 §17/§17.6）：ai.chat 会话端点（写动作一律只产草稿；限流 20 次/分；全审计摘要哈希）+
@@ -47,6 +48,10 @@ export const aiRouter = router({
     testConnection: authedMutation
       .input(z.object({}).prefault({}))
       .mutation(({ ctx }) => testAiConnection(ctx.db, ctx.user)),
+  }),
+
+  assistant: router({
+    feed: authedProcedure.query(({ ctx }) => assistantFeed(ctx.db, ctx.user)),
   }),
 
   myUsage: authedProcedure

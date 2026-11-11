@@ -343,7 +343,8 @@ test("E2E-11 信息墙用户访问：页面/接口/搜索/报表/附件/导出�
   const direct = await api(page, `project.getById?input=${encodeURIComponent(JSON.stringify({ id: projectAId }))}`, { method: "GET" });
   expect(direct.status).toBe(404);
   await gotoApp(page, `/projects/${projectAId}`);
-  await expect(page.getByRole("heading", { name: "页面不存在" })).toBeVisible();
+  // 15-01 裁定：业务对象同形 404=「不存在或无权访问」（「页面不存在」仅真 404 路由）
+  await expect(page.getByRole("heading", { name: "不存在或无权访问" })).toBeVisible();
   await shot(page, "E2E-11-viewer-same-shape");
 });
 
