@@ -210,11 +210,11 @@ test("E2E-06 重复提交/网络重试只一个有效结果一组台账", async 
 test("E2E-07 相同票据再次报销被识别并定位原报销", async ({ page }) => {
   await login(page, "guanchen@lexflow.demo");
   const pmReader = await authedPage(page, "wangbaozhuo@lexflow.demo");
-  // 9b-02 修稳：expense.list 默认每页 20 条按新建排序——长期运行库中存量带票据单会被挤出首页，翻页扫描（至多 5 页）
+  // 9b-02 修稳：expense.list 默认每页 20 条按新建排序——长期运行库中存量带票据单会被挤出首页，翻页扫描；13-03 再扩至 25 页（e2e-on-prod 自增殖，E2E-09 同先例）
   let withReceipt: any;
   let item: any;
   let cursor: string | null = null;
-  for (let pageIdx = 0; pageIdx < 5 && !item; pageIdx++) {
+  for (let pageIdx = 0; pageIdx < 25 && !item; pageIdx++) {
     const listInput: Record<string, unknown> = { projectId: projectAId, limit: 20 };
     if (cursor) listInput.cursor = cursor;
     const list = await api(pmReader, `expense.list?input=${encodeURIComponent(JSON.stringify(listInput))}`, { method: "GET" });
