@@ -110,8 +110,8 @@
 |---|---|---|---|---|---|
 | 15-00 总览 | — | 已发布 | 架构 | 2026-11-12 | 四裁定 |
 | 15-01 宠物形象+直进+提示页区分 | 前端 | **通过** | 前端会话 | 2026-11-12 | 架构验收：根 303 全绿+截图核验（圆球宠物四态表情/直进去中间层/三类提示页正反例） |
-| 15-02 内置提醒服务聚合端点 | 后端 | **待验收** | 后端会话 | 2026-11-12 | 分支 iter15/server-assistant-feed；ai.assistant.feed 六类聚合+两形态+排序形状+只读不审计；根 305 全绿；dev 实测 18 条；e2e 16/16 |
-| 15-03 小元主动提醒 | 前端 | 未解锁 | — | — | 红点计数+提醒卡+抑制 |
+| 15-02 内置提醒服务聚合端点 | 后端 | **通过** | 后端会话 | 2026-11-12 | 架构验收：根 305 全绿+dev 实弹（王宝茁 18 条六类/danger 置顶/无权限类不出现） |
+| 15-03 小元主动提醒 | 前端 | 待认领 | — | 2026-11-12 | 依赖 02（已过）：红点计数+今日提醒卡+抑制 |
 | 15-04 验收+手册 v2.3 | 测试 | 未解锁 | — | — | 依赖 03；含发布窗口 |
 
 ## 迭代 14 工单状态（arch/12 §18 v2.3）
@@ -357,6 +357,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-12｜架构｜迭代15-02通过｜**工单 02（内置提醒服务聚合端点）验收通过，解锁 15-03（前端会话·小元主动提醒）。** 实测：根测试 305/305（282+23）全绿；dev 实弹 ai.assistant.feed——王宝茁 18 条（approval 10/receivable 7 danger 置顶/timesheet 1），条目结构 {type,icon,title,sourceLabel,link,urgency} 与 counts 勾稽正确，回款类对 member 整类不出现。其排掉的 drizzle and() 链被裸 sql 顶破缺陷（改 or() 组合器）与 E2E-11 spec 同步修复（15-01 裁定连锁适配）认定合理。
 
 - 2026-11-12｜后端｜迭代15-02｜**工单 02（小元内置提醒服务 ai.assistant.feed，arch/12 §19.3）完成，转「待验收」。** ① 新端点 `ai.assistant.feed`（query，authedProcedure **不审计**）聚合当前用户六类提醒：待办审批（approval_steps.approverId=本人+step/instance 均 pending，同 listMine 口径，applicantName 映射禁 uuid）/会议临近（planned 且 30 分钟内开始，参会人∪项目可见 SQL 级）/任务临期与逾期（项目可见集∧未 done/cancelled∧(assignee=本人∨未指派)；截止≤明天=warn，早于今天=danger）/工时未填报（本周一无周期行或 draft/returned；returned=danger）/报销待处理（本人 rejected=danger 被退回/draft=warn 草稿）/回款临期逾期（**fin.read 口径，无权限者该类整类不出现**；未结且 7 天内到期=warn/已逾期=danger）。条目 {type,icon(§4.4 域),title,sourceLabel,link,urgency(warn/danger)}，danger 优先排序+counts{total,danger,warn,byType 六键恒在}汇总。② 用例 2 个：it-1 六类造数+键集精确+urgency 枚举+icon 域+danger 优先排序+计数勾稽；it-2 回款两形态（finance 有逾期 danger 条目/member byType.receivable=0）+工时填报闭环（填报→提交→pm 批准→提醒消失）+只读不审计（audit_events 无 ai.assistant% 行）。③ 实现陷阱两处置实录：可见性 OR 必须走 drizzle `or()` 组合器——裸 sql 片段内联 OR 会顶破 and() 链（toSQL 实证 where 变成 (A∧B∧exists)∨C，时间窗/状态全旁路）；任务临期窗口按日期粒度取「截止≤明天」。④ 根四道门逐条真实全绿——typecheck/build/server **282=280+2**/根 test **305=303+2**；**e2e-01~16 dev 16/16**（第 1/2 轮 E2E-11 红系 15-01 提示页三类区分后 spec 断言未同步：业务对象同形 404 现渲染「不存在或无权访问」（NotFoundPage variant=gone），E2E-11:346 与 lh-exhaustive:523 已按冻结裁定改稳——真 404 路由仍是「页面不存在」；另发现 dev 双进程 tsx/vite watcher 均死、服务陈旧，已由本会话重启 3000/3001）。⑤ dev 联调实测：王宝茁 feed 18 条（审批 10+逾期应收 7 danger 置顶+本周工时 1），member 无回款类，窗口外会议不出现。分支 `iter15/server-assistant-feed`。遗留：无；本棒不发 prod（随迭代 15 发布窗口由部署会话重建 server 镜像）。
 - 2026-11-12｜架构｜迭代15-01通过｜**工单 01（宠物形象+直进+提示页区分）验收通过，解锁 15-02（后端会话·提醒聚合）。** 实测：根测试 303/303 全绿；截图核验——圆球宠物（渐变球体+腮红+星星棒+四态表情随场景）、点击直进面板（中间气泡层清零）、提示页三类区分正反例（真 404/系统页无权限「没有访问权限+当前角色徽标」/业务对象同形 404 不破）。其 iter14 走查探针「招呼气泡」步骤废弃属预期（直进取代），留痕在案。
