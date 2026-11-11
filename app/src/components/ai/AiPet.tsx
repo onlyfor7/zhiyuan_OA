@@ -19,12 +19,11 @@ import {
 import { DomainIconBlock } from "../../lib/DomainIconBlock";
 
 /**
- * AI 宠物「小元」（arch/12 §19.1 修订 §17.1/17.2/18.2）：圆球状俏皮宠物
- * （大眼表情随场景切换：眨眼常态/开心开面板/思考生成中/忙碌拖拽中）；
- * 点击宠物**直进对话面板**（无中间气泡层；招呼气泡仅闲置巡检出现，点气泡=开面板）；
- * 悬浮可拖拽/贴边停靠/位置记忆沿用；375 仅悬浮钮；动作只产草稿/预填由用户确认。
- * §19.3 主动提醒：有提醒条目时头顶红点计数（localStorage 抑制后即时扣减），
- * 面板首屏「今日提醒」卡列表直跳处理页。
+ * AI 宠物「小元」（arch/12 §19.4 v2.5 修订）：**纯宠物本体**——透明背景只剩圆球生物体
+ * （大眼/腮红/四态表情随场景：眨眼常态/开心开面板/思考生成中/忙碌拖拽中，微投影贴地感），
+ * 可拖拽/贴边停靠/位置记忆沿用；点击宠物直进对话面板（纯对话流问答+A1–A5）。
+ * §19.3/§19.4 主动提醒：宠物头顶红点计数；提醒**气泡队列**主动轮播（15s/条：去处理直跳、
+ * 知道了仅关、播完即止、抑制集沿用）；375 仅悬浮本体、气泡改底部横幅。
  */
 
 interface ChatItem extends AiChatMessage {
@@ -135,14 +134,16 @@ function isMobileView(): boolean {
   return mobileCache;
 }
 
-/** §19.1/§18.2 桌面宠物：圆球形象四态表情；点击直进面板；可拖拽（位置记忆）+贴边停靠；闲置巡检气泡；375 仅悬浮钮 */
+/** §19.4 桌面宠物（纯本体形象）：四态表情；点击直进纯对话面板；可拖拽（位置记忆）+贴边停靠；闲置巡检气泡+提醒气泡队列；375 仅悬浮本体 */
 export function AiPet() {
   const chat = useAiChat();
   const feed = useAssistantFeed();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [bubble, setBubble] = useState<{ kind: "tip"; text: string } | null>(null);
+  const [queueItem, setQueueItem] = useState<FeedItem | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [suppressed, setSuppressed] = useState<string[]>(() => readSuppressed());
+  const [suppressed] = useState<string[]>(() => readSuppressed());
   const [pos, setPos] = useState<PetPos | null>(() => {
     try {
       const raw = localStorage.getItem(POS_KEY);
@@ -152,6 +153,8 @@ export function AiPet() {
     }
   });
   const drag = useRef<{ dx: number; dy: number; moved: boolean } | null>(null);
+  /** §19.4 播完即止：本会话已弹出过的提醒键，不重复轮播（新数据带来新键再播） */
+  const shownRef = useRef<Set<string>>(new Set());
   const lastActive = useRef(0);
   useEffect(() => {
     lastActive.current = Date.now();
@@ -164,33 +167,36 @@ export function AiPet() {
   // §19.1 表情随场景：拖拽=忙碌 / 生成中=思考 / 面板开=开心 / 常态眨眼
   const mood: Mood = dragging ? "busy" : chat.isPending ? "thinking" : open ? "happy" : "normal";
 
-  // §19.3 抑制后的可见提醒（红点计数与列表共用口径）
-  const feedItems = feed.data?.items ?? [];
-  const visibleItems = feedItems.filter((it) => !suppressed.includes(feedKey(it)));
+  // §19.3/§19.4 抑制后的可见提醒（红点计数与气泡队列共用口径）
+  const feedItems = useMemo(() => feed.data?.items ?? [], [feed.data]);
+  const visibleItems = useMemo(() => feedItems.filter((it) => !suppressed.includes(feedKey(it))), [feedItems, suppressed]);
   const visibleCount = visibleItems.length;
 
-  const suppressItem = useCallback((it: FeedItem) => {
-    setSuppressed((prev) => {
-      const next = prev.includes(feedKey(it)) ? prev : [...prev, feedKey(it)];
-      try {
-        localStorage.setItem(FEED_SUPPRESS_KEY, JSON.stringify(next));
-      } catch {
-        /* 存储不可用时仅本次会话生效 */
-      }
-      return next;
-    });
-  }, []);
+  /** §19.4 提醒气泡队列：每 15s 弹一条未播过的提醒；面板开/已有气泡时暂停；播完即止 */
+  useEffect(() => {
+    if (open || queueItem) return;
+    const t = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      const next = visibleItems.find((it) => !shownRef.current.has(feedKey(it)));
+      if (!next) return;
+      shownRef.current.add(feedKey(next));
+      setBubble(null);
+      setQueueItem(next);
+      lastActive.current = Date.now();
+    }, 15_000);
+    return () => window.clearInterval(t);
+  }, [open, queueItem, visibleItems]);
 
-  // 闲置提示：≥3 分钟无互动且未开面板/气泡时弹一次（30s 巡检）——招呼气泡仅此处出现
+  // 闲置提示：≥3 分钟无互动且未开面板/无气泡时弹一次（30s 巡检；提醒气泡优先）
   useEffect(() => {
     const t = window.setInterval(() => {
-      if (!open && !bubble && Date.now() - lastActive.current >= 3 * 60_000) {
+      if (!open && !bubble && !queueItem && Date.now() - lastActive.current >= 3 * 60_000) {
         setBubble({ kind: "tip", text: IDLE_TIPS[Math.floor(Math.random() * IDLE_TIPS.length)] });
         lastActive.current = Date.now();
       }
     }, 30_000);
     return () => window.clearInterval(t);
-  }, [open, bubble]);
+  }, [open, bubble, queueItem]);
 
   const onPointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
     poke();
@@ -251,12 +257,50 @@ export function AiPet() {
         onClick={onClick}
       >
         <span className="ai-ball"><PetSvg mood={mood} /></span>
-        <span className="ai-fab-name">小元</span>
         {!open && visibleCount > 0 ? (
           <span className="ai-badge" aria-label={`${visibleCount} 条待提醒`}>{visibleCount > 99 ? "99+" : visibleCount}</span>
         ) : null}
       </button>
-      {bubble && !open ? (
+
+      {/** §19.4 提醒气泡卡：§4.4 图标+标题+来源；去处理=直跳功能页；知道了=仅关本条；不遮宠物本体+避让边缘 */}
+      {queueItem && !open ? (
+        <div
+          className={`ai-remind-pop urgency-${queueItem.urgency}`}
+          style={pos ? {
+            left: Math.max(8, Math.min(window.innerWidth - 276, pos.x - 284)),
+            top: Math.max(8, Math.min(window.innerHeight - 168, pos.y - 40)),
+          } : undefined}
+          role="dialog"
+          aria-label={`提醒：${queueItem.title}`}
+        >
+          <div className="ai-remind-body">
+            <DomainIconBlock domain={queueItem.icon} size={24} iconSize={14} />
+            <div className="p9a-queue-main">
+              <strong>{queueItem.title}</strong>
+              <small>{queueItem.sourceLabel}</small>
+            </div>
+          </div>
+          <div className="ai-remind-ops">
+            <button
+              type="button"
+              className="primary-action"
+              onClick={() => {
+                poke();
+                const link = queueItem.link;
+                setQueueItem(null);
+                navigate(link);
+              }}
+            >
+              去处理
+            </button>
+            <button type="button" className="secondary-action" onClick={() => { poke(); setQueueItem(null); }}>
+              知道了
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {bubble && !open && !queueItem ? (
         <div
           className="ai-bubble-pop"
           style={pos ? { left: Math.max(8, Math.min(window.innerWidth - 260, pos.x - 190)), top: Math.max(8, pos.y - 108) } : undefined}
@@ -270,33 +314,13 @@ export function AiPet() {
           <small className="bubble-hint">点击直接对话 →</small>
         </div>
       ) : null}
-      {open ? (
-        <AiPanel
-          chat={chat}
-          feedItems={visibleItems}
-          feedPending={feed.isPending}
-          onSuppress={suppressItem}
-          onClose={() => setOpen(false)}
-        />
-      ) : null}
+      {open ? <AiPanel chat={chat} onClose={() => setOpen(false)} /> : null}
     </>
   );
 }
 
 
-function AiPanel({
-  chat,
-  feedItems,
-  feedPending,
-  onSuppress,
-  onClose,
-}: {
-  chat: AiChatMutation;
-  feedItems: FeedItem[];
-  feedPending: boolean;
-  onSuppress: (it: FeedItem) => void;
-  onClose: () => void;
-}) {
+function AiPanel({ chat, onClose }: { chat: AiChatMutation; onClose: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [tab, setTab] = useState<"chat" | "context">("chat");
@@ -379,54 +403,7 @@ function AiPanel({
         </button>
       </div>
 
-      {/** §19.3 今日提醒卡（置顶）：类型图标+标题+来源+紧急度色；点击直跳处理页；×=不再提醒本条 */}
-      <div className="ai-reminders">
-        <div className="ai-reminders-head">
-          <span className="section-label">今日提醒 · {feedItems.length}</span>
-          {feedPending ? <small className="list-note">提醒加载中…</small> : null}
-        </div>
-        {!feedPending && feedItems.length === 0 ? <p className="ai-remind-empty">今日无待办，喝口水吧</p> : null}
-        <div className="ai-remind-list">
-          {feedItems.map((it) => (
-            <div
-              key={feedKey(it)}
-              className={`ai-remind-row urgency-${it.urgency}`}
-              role="link"
-              tabIndex={0}
-              title="点击直达处理页"
-              onClick={() => {
-                onClose();
-                navigate(it.link);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onClose();
-                  navigate(it.link);
-                }
-              }}
-            >
-              <DomainIconBlock domain={it.icon} size={22} iconSize={13} />
-              <div className="p9a-queue-main">
-                <strong>{it.title}</strong>
-                <small>{it.sourceLabel}</small>
-              </div>
-              <button
-                type="button"
-                className="icon-button ai-remind-dismiss"
-                aria-label="不再提醒本条"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSuppress(it);
-                }}
-              >
-                <X size={12} />
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
+      {/** §19.4 面板回归纯对话流（提醒改气泡队列，不再进面板） */}
       <div className="p9a-wizard-tabs ai-panel-tabs" role="tablist" aria-label="面板页签">
         <button role="tab" aria-selected={tab === "chat"} className={tab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>对话</button>
         <button role="tab" aria-selected={tab === "context"} className={tab === "context" ? "active" : ""} onClick={() => setTab("context")}>本次将发送的上下文</button>
