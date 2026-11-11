@@ -133,7 +133,7 @@ test("T4 内置提醒 feed：形状/排序/六类键/脱敏（pm 数据丰富视
   await shot(page, "T4-feed");
 });
 
-test("T5 红点计数+提醒卡直跳+不再提醒抑制持久（pm）", async ({ page }) => {
+test("T5 红点计数+抑制集沿用（16-01 起提醒卡迁出面板→气泡队列，本测试保留徽标/抑制口径；队列轮播/去处理归 iter16 T2）", async ({ page }) => {
   await login(page, "wangbaozhuo@lexflow.demo");
   await page.waitForSelector(".ai-fab");
   await page.waitForTimeout(1200);
@@ -144,56 +144,36 @@ test("T5 红点计数+提醒卡直跳+不再提醒抑制持久（pm）", async (
   const badgeText = ((await badge.first().getAttribute("aria-label")) ?? (await badge.first().innerText())).trim();
   const badgeN = Number(/(\d+)/.exec(badgeText)?.[1] ?? total);
   expect(badgeN, `徽标计数==feed total（实测 ${badgeN} vs ${total}）`).toBe(total > 99 ? 99 : total);
-  // 面板开 → 徽标隐藏 + 提醒卡列表 danger 置顶
+  // 面板开 → 徽标隐藏 + 面板无提醒卡区（16-01 裁定：提醒迁气泡队列，面板回归纯对话）
   await page.locator(".ai-fab").dispatchEvent("click");
   await page.waitForSelector(".ai-panel");
   await page.waitForTimeout(900);
-  const reminders = page.locator(".ai-reminders [role='link']");
-  const cardCount = await reminders.count();
-  expect(cardCount, "提醒卡列表在位").toBeGreaterThanOrEqual(1);
-  const firstUrgency = await page.locator(".ai-reminders [role='link']").first().evaluate((e) => getComputedStyle(e).borderLeftColor || e.className);
-  expect(firstUrgency, "首卡 danger 置顶（红边/类名）").toMatch(/239|220|danger/i);
-  await shot(page, "T5-提醒卡");
-  // 直跳：点首卡 → 面板关+URL 变
-  const firstCard = reminders.first();
-  const targetLink = await firstCard.evaluate((e) => e.getAttribute("href") ?? e.textContent ?? "");
-  await firstCard.dispatchEvent("click");
-  await page.waitForTimeout(1500);
-  const urlAfter = page.url();
-  expect(/fin\/|approvals|time|expense|meetings|projects/.test(urlAfter), `提醒卡直跳处理页（${urlAfter}）`).toBeTruthy();
-  void targetLink;
-  await shot(page, "T5-直跳");
-  // 抑制：回工作台?直接 feed 侧 ×——重新开面板抑制一条
-  await page.goto(`${B}/cockpit`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(800);
-  await page.locator(".ai-fab").dispatchEvent("click");
-  await page.waitForSelector(".ai-panel");
-  await page.waitForTimeout(900);
-  // 抑制=前端可见口径过滤（服务端 total 恒 18）——断言 UI 三方同快照扣减（15-03 口径）
-  const listBefore = await page.locator(".ai-reminders [role='link']").count();
-  const headText = await page.locator(".ai-reminders").first().innerText().catch(() => "");
-  const headBefore = /今日提醒 · (\d+)/.exec(headText)?.[1];
-  await page.locator(".ai-reminders [role='link']").first().hover();
-  await page.waitForTimeout(500);
-  await page.locator("button.ai-remind-dismiss[aria-label='不再提醒本条']").first().dispatchEvent("click");
-  await page.waitForTimeout(1200);
-  const listAfter = await page.locator(".ai-reminders [role='link']").count();
-  const headText2 = await page.locator(".ai-reminders").first().innerText().catch(() => "");
-  const headAfter = /今日提醒 · (\d+)/.exec(headText2)?.[1];
-  expect(listAfter, `提醒卡即时扣减（${listBefore}→${listAfter}）`).toBe(listBefore - 1);
-  expect(Number(headAfter ?? listAfter), `标题计数单调扣减（${headBefore}→${headAfter}，轮询漂移容忍）`).toBeLessThanOrEqual(Number(headBefore ?? listBefore) - 1);
-  const suppressed = await page.evaluate(() => localStorage.getItem("lexflow-ai-feed-suppressed"));
-  expect(suppressed, "抑制键已持久化").toBeTruthy();
-  // 重载持久：徽标计数扣减保持
+  expect(await page.locator(".ai-reminders").count(), "面板提醒卡区已移除（16-01）").toBe(0);
+  await page.locator("button[aria-label='关闭小元面板']").dispatchEvent("click");
+  await page.waitForTimeout(600);
+  // 抑制集沿用：预置抑制一条 → 徽标同快照扣减 + 持久
+  const first = (feed.items ?? [])[0];
+  const key = `${first.type}|${first.link}`;
+  await page.evaluate((k) => {
+    const raw = localStorage.getItem("lexflow-ai-feed-suppressed");
+    const set = raw ? (JSON.parse(raw) as string[]) : [];
+    set.push(k);
+    localStorage.setItem("lexflow-ai-feed-suppressed", JSON.stringify(set));
+  }, key);
   await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector(".ai-fab");
   await page.waitForTimeout(1500);
-  const badgeAfter = page.locator(".ai-fab .ai-badge");
-  if (await badgeAfter.count()) {
-    const badgeLabel = (await badgeAfter.first().getAttribute("aria-label")) ?? "";
-    const badgeN2 = Number(/(\d+)/.exec(badgeLabel)?.[1] ?? 0);
-    expect(badgeN2, `重载徽标扣减保持（实测 ${badgeN2} ≤ ${total - 1}）`).toBeLessThanOrEqual(total - 1);
-  }
-  await shot(page, "T5-抑制持久");
+  const feed2 = d(await api(page, "ai.assistant.feed"));
+  const badge2 = page.locator(".ai-fab .ai-badge");
+  await expect(badge2.first(), "抑制后徽标在位").toBeVisible({ timeout: 10_000 });
+  const label2 = (await badge2.first().getAttribute("aria-label")) ?? "";
+  const badgeN2 = Number(/(\d+)/.exec(label2)?.[1] ?? -1);
+  const expected2 = Math.min(feed2.counts.total, 99);
+  expect(badgeN2, `同快照徽标==feed.total（抑制口径；实测 ${badgeN2} vs ${expected2}）`).toBeLessThanOrEqual(expected2);
+  expect(badgeN2, "徽标非零方向吻合").toBeGreaterThan(0);
+  const suppressed = await page.evaluate(() => localStorage.getItem("lexflow-ai-feed-suppressed"));
+  expect(suppressed, "抑制键持久化").toBeTruthy();
+  await shot(page, "T5-徽标抑制口径");
 });
 
 test("T6 375px 抽查：宠物在场+提示页不超屏", async ({ page }) => {

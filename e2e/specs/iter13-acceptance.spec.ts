@@ -100,7 +100,12 @@ test("T2 用量：Mock 调用 myUsage 记账+保存后计数增长勾稽+全局�
   const u0 = d(await api(page, "ai.myUsage"));
   const calls0 = (u0?.days ?? u0?.items ?? []).reduce((s: number, x: any) => s + (x.calls ?? x.count ?? 0), 0);
   shared.usageBefore = calls0;
-  const chat = d(await api(page, "ai.chat", { messages: [{ role: "user", content: "用量勾稽探针：帮我看看本周安排" }] }));
+  let chatResp = await api(page, "ai.chat", { messages: [{ role: "user", content: "用量勾稽探针：帮我看看本周安排" }] });
+  if (chatResp.status === 429) {
+    await page.waitForTimeout(65_000); // 限流滑动窗口冷却（批内累积环境性——iter16 第三轮复现）
+    chatResp = await api(page, "ai.chat", { messages: [{ role: "user", content: "用量勾稽探针：帮我看看本周安排" }] });
+  }
+  const chat = d(chatResp);
   expect(chat?.provider, "mock provider").toBe("mock");
   expect(chat?.usage?.tokensOut ?? chat?.usageOut, "响应 usage 记账（Mock chars/4 估算）").toBeGreaterThan(0);
   const u1 = d(await api(page, "ai.myUsage"));
