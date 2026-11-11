@@ -33,6 +33,7 @@ export interface DomainIconDef {
 export const DOMAIN_ICONS = {
   home: { label: "驾驶舱/首页", icon: Home, color: "blue" },
   ai: { label: "AI 助手", icon: Sparkles, color: "purple" },
+  pet: { label: "AI 宠物/小元", icon: Sparkles, color: "purple" },
   approval: { label: "审批", icon: CheckSquare, color: "blue" },
   meeting: { label: "会议", icon: Calendar, color: "green" },
   travel: { label: "出差", icon: Briefcase, color: "orange" },

@@ -18,9 +18,10 @@ import {
 } from "./ai-actions";
 
 /**
- * AI 宠物「小元」（arch/12 §17.1/17.2）：右下悬浮入口（呼吸微动效）→ 380px 侧边对话面板
- * （对话流 + 页签式「本次将发送的上下文」预览）；375 全屏抽屉；动作只产草稿/预填由用户确认；
- * 首次使用数据出域告知一次（MockProvider 不弹）。
+ * AI 宠物「小元」（arch/12 §19.1 修订 §17.1/17.2/18.2）：圆球状俏皮宠物
+ * （大眼表情随场景切换：眨眼常态/开心开面板/思考生成中/忙碌拖拽中）；
+ * 点击宠物**直进对话面板**（无中间气泡层；招呼气泡仅闲置巡检出现，点气泡=开面板）；
+ * 悬浮可拖拽/贴边停靠/位置记忆沿用；375 仅悬浮钮；动作只产草稿/预填由用户确认。
  */
 
 interface ChatItem extends AiChatMessage {
@@ -28,6 +29,9 @@ interface ChatItem extends AiChatMessage {
   capability?: string;
   provider?: string;
 }
+
+type Mood = "normal" | "happy" | "thinking" | "busy";
+type AiChatMutation = ReturnType<typeof useAiChat>;
 
 const CAP_LABEL: Record<string, string> = {
   form_prefill: "A1 表单预填",
@@ -37,35 +41,72 @@ const CAP_LABEL: Record<string, string> = {
   answer: "A5 只读问答",
 };
 
-function PetSvg() {
+/** §19.1 圆球小宠物：圆润生物体+大眼；四态表情（normal/happy/thinking/busy）CSS 过渡切换 */
+function PetSvg({ mood }: { mood: Mood }) {
   return (
-    <svg viewBox="0 0 48 48" width="30" height="30" aria-hidden="true">
-      <ellipse cx="24" cy="27" rx="15" ry="13" fill="#7c3aed" />
-      <ellipse cx="24" cy="30" rx="9" ry="7" fill="#a78bfa" opacity=".55" />
-      <g className="ai-eyes">
-        <circle cx="19" cy="25" r="2.2" fill="#fff" />
-        <circle cx="29" cy="25" r="2.2" fill="#fff" />
-        <circle cx="19.5" cy="25.4" r="1" fill="#1f2937" />
-        <circle cx="29.5" cy="25.4" r="1" fill="#1f2937" />
+    <svg className={`ai-pet-svg ai-mood-${mood}`} viewBox="0 0 48 48" width="34" height="34" aria-hidden="true">
+      <defs>
+        <radialGradient id="ai-ball-grad" cx="38%" cy="30%" r="80%">
+          <stop offset="0%" stopColor="#a78bfa" />
+          <stop offset="100%" stopColor="#6d28d9" />
+        </radialGradient>
+      </defs>
+      {/* 圆润生物体 */}
+      <circle cx="24" cy="26" r="16" fill="url(#ai-ball-grad)" />
+      <ellipse cx="24" cy="31" rx="9.5" ry="6.5" fill="#c4b5fd" opacity=".45" />
+      <ellipse cx="15.5" cy="28.5" rx="2.6" ry="1.6" fill="#f0abfc" opacity=".55" />
+      <ellipse cx="32.5" cy="28.5" rx="2.6" ry="1.6" fill="#f0abfc" opacity=".55" />
+
+      {/* 常态：大眼+眨眼 */}
+      <g className="ai-face ai-face-normal">
+        <g className="ai-eyes">
+          <circle cx="19" cy="24.5" r="4.6" fill="#fff" />
+          <circle cx="29" cy="24.5" r="4.6" fill="#fff" />
+          <circle cx="19.6" cy="25" r="2.1" fill="#1f2937" />
+          <circle cx="29.6" cy="25" r="2.1" fill="#1f2937" />
+          <circle cx="18.6" cy="23.6" r=".8" fill="#fff" />
+          <circle cx="28.6" cy="23.6" r=".8" fill="#fff" />
+        </g>
+        <path d="M21.2 31.2 q2.8 2.4 5.6 0" stroke="#fff" strokeWidth="1.7" fill="none" strokeLinecap="round" />
       </g>
-      <path d="M20 31 Q24 34 28 31" stroke="#fff" strokeWidth="1.6" fill="none" strokeLinecap="round" />
-      <path className="ai-wave-star" d="M35 12 l1.8 4 4 1.8 -4 1.8 -1.8 4 -1.8 -4 -4 -1.8 4 -1.8 z" fill="#c4b5fd" />
-      <circle cx="12" cy="15" r="2" fill="#c4b5fd" opacity=".8" />
+
+      {/* 开心：笑眯眯+张嘴（开面板） */}
+      <g className="ai-face ai-face-happy">
+        <path d="M15.4 25.2 q3.4 -3.8 6.8 0" stroke="#fff" strokeWidth="1.9" fill="none" strokeLinecap="round" />
+        <path d="M25.8 25.2 q3.4 -3.8 6.8 0" stroke="#fff" strokeWidth="1.9" fill="none" strokeLinecap="round" />
+        <path d="M20.6 30.6 q3.4 3.8 6.8 0 q-1 3.4 -3.4 3.4 q-2.4 0 -3.4 -3.4 z" fill="#fff" />
+      </g>
+
+      {/* 思考：眼珠上瞟+挑眉（生成中） */}
+      <g className="ai-face ai-face-thinking">
+        <circle cx="19" cy="24.5" r="4.6" fill="#fff" />
+        <circle cx="29" cy="24.5" r="4.6" fill="#fff" />
+        <circle cx="20" cy="22.6" r="2.1" fill="#1f2937" />
+        <circle cx="30" cy="22.6" r="2.1" fill="#1f2937" />
+        <path d="M26 18.4 q3 -1.6 6 .4" stroke="#f5d0fe" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+        <path d="M21.5 31.6 h5" stroke="#fff" strokeWidth="1.7" fill="none" strokeLinecap="round" />
+      </g>
+
+      {/* 忙碌：>< 眼+咬唇（拖拽中） */}
+      <g className="ai-face ai-face-busy">
+        <path d="M15.6 21.8 l5.6 5.4 M21.2 21.8 l-5.6 5.4" stroke="#fff" strokeWidth="1.9" fill="none" strokeLinecap="round" />
+        <path d="M25.8 21.8 l5.6 5.4 M31.4 21.8 l-5.6 5.4" stroke="#fff" strokeWidth="1.9" fill="none" strokeLinecap="round" />
+        <path d="M20.4 31.4 q1.5 -1.8 3 0 q1.5 1.8 3 0 q1.5 -1.8 3 0" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      </g>
+
+      {/* 俏皮点缀：星星魔法棒闪动 */}
+      <path className="ai-wave-star" d="M38.5 10.5 l1.6 3.6 3.6 1.6 -3.6 1.6 -1.6 3.6 -1.6 -3.6 -3.6 -1.6 3.6 -1.6 z" fill="#e9d5ff" />
+      <circle className="ai-spark" cx="9.5" cy="13" r="1.7" fill="#e9d5ff" opacity=".85" />
     </svg>
   );
 }
 
 const POS_KEY = "lexflow-ai-pet-pos";
-const GREETS = [
-  "在呢！需要我做什么？✨",
-  "我可以帮你预填表单、记工时、写纪要、画审批流～",
-  "点下方「打开对话」，直接对我说需求就行。",
-  "又是忙碌的一天，喝口水再继续吧。",
-];
 const IDLE_TIPS = [
   "闲置好一会儿了——有表单要填/工时要记吗？我帮你起草。",
   "试试对我说「帮我填去杭州出差两天的高铁申请」。",
   "我在右下角待命：预填 / 工时 / 纪要 / 审批流都能起草。",
+  "又是忙碌的一天，喝口水再继续吧。",
 ];
 
 interface PetPos { x: number; y: number }
@@ -76,10 +117,12 @@ function isMobileView(): boolean {
   return mobileCache;
 }
 
-/** §18.2 桌面宠物化：可拖拽（位置记忆）+贴边停靠+待机眨眼/挥手+点击打招呼气泡+闲置提示；375 仅悬浮钮 */
+/** §19.1/§18.2 桌面宠物：圆球形象四态表情；点击直进面板；可拖拽（位置记忆）+贴边停靠；闲置巡检气泡；375 仅悬浮钮 */
 export function AiPet() {
+  const chat = useAiChat();
   const [open, setOpen] = useState(false);
-  const [bubble, setBubble] = useState<{ kind: "greet" | "tip"; text: string } | null>(null);
+  const [bubble, setBubble] = useState<{ kind: "tip"; text: string } | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [pos, setPos] = useState<PetPos | null>(() => {
     try {
       const raw = localStorage.getItem(POS_KEY);
@@ -98,7 +141,10 @@ export function AiPet() {
     lastActive.current = Date.now();
   }, []);
 
-  // 闲置提示：≥3 分钟无互动且未开面板/气泡时弹一次（30s 巡检）
+  // §19.1 表情随场景：拖拽=忙碌 / 生成中=思考 / 面板开=开心 / 常态眨眼
+  const mood: Mood = dragging ? "busy" : chat.isPending ? "thinking" : open ? "happy" : "normal";
+
+  // 闲置提示：≥3 分钟无互动且未开面板/气泡时弹一次（30s 巡检）——招呼气泡仅此处出现
   useEffect(() => {
     const t = window.setInterval(() => {
       if (!open && !bubble && Date.now() - lastActive.current >= 3 * 60_000) {
@@ -118,13 +164,17 @@ export function AiPet() {
   };
   const onPointerMove = (e: ReactPointerEvent<HTMLButtonElement>) => {
     if (!drag.current) return;
-    if (Math.abs(e.movementX) + Math.abs(e.movementY) > 2) drag.current.moved = true;
+    if (Math.abs(e.movementX) + Math.abs(e.movementY) > 2) {
+      drag.current.moved = true;
+      setDragging(true);
+    }
     const x = Math.min(window.innerWidth - 64, Math.max(8, e.clientX - drag.current.dx));
     const y = Math.min(window.innerHeight - 78, Math.max(8, e.clientY - drag.current.dy));
     setPos({ x, y });
   };
   const onPointerUp = () => {
     if (!drag.current) return;
+    setDragging(false);
     // 贴边停靠：距左/右缘 <48px 吸附（避让内容居中漂移）
     setPos((p) => {
       if (!p) return p;
@@ -138,14 +188,12 @@ export function AiPet() {
     }, 0);
   };
 
+  /** §19.1 直进：点击宠物直接开/关对话面板（无中间气泡层） */
   const onClick = () => {
     poke();
     if (drag.current?.moved) return;
-    if (open) {
-      setOpen(false);
-      return;
-    }
-    setBubble((b) => (b && b.kind === "greet" ? null : { kind: "greet", text: GREETS[Math.floor(Math.random() * GREETS.length)] }));
+    setBubble(null);
+    setOpen((v) => !v);
   };
 
   const style: CSSProperties | undefined = pos
@@ -156,7 +204,7 @@ export function AiPet() {
     <>
       <button
         type="button"
-        className={`ai-fab ${open ? "active" : ""} ${pos ? "docked" : ""}`}
+        className={`ai-fab ${open ? "active" : ""} ${pos ? "docked" : ""} ${dragging ? "dragging" : ""}`}
         style={style}
         aria-label={open ? "收起小元" : "小元 AI 助手"}
         aria-expanded={open}
@@ -165,32 +213,32 @@ export function AiPet() {
         onPointerUp={onPointerUp}
         onClick={onClick}
       >
-        <PetSvg />
+        <span className="ai-ball"><PetSvg mood={mood} /></span>
         <span className="ai-fab-name">小元</span>
       </button>
       {bubble && !open ? (
-        <div className="ai-bubble-pop" style={pos ? { left: Math.max(8, Math.min(window.innerWidth - 260, pos.x - 190)), top: Math.max(8, pos.y - 108) } : undefined} role="status">
+        <div
+          className="ai-bubble-pop"
+          style={pos ? { left: Math.max(8, Math.min(window.innerWidth - 260, pos.x - 190)), top: Math.max(8, pos.y - 108) } : undefined}
+          role="button"
+          tabIndex={0}
+          aria-label="打开小元对话"
+          onClick={() => { poke(); setBubble(null); setOpen(true); }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); poke(); setBubble(null); setOpen(true); } }}
+        >
           <p>{bubble.text}</p>
-          <div className="row-ops">
-            <button type="button" className="primary-action" onClick={() => { poke(); setBubble(null); setOpen(true); }}>
-              打开对话
-            </button>
-            <button type="button" className="text-action" onClick={() => setBubble(null)}>
-              知道了
-            </button>
-          </div>
+          <small className="bubble-hint">点击直接对话 →</small>
         </div>
       ) : null}
-      {open ? <AiPanel onClose={() => setOpen(false)} /> : null}
+      {open ? <AiPanel chat={chat} onClose={() => setOpen(false)} /> : null}
     </>
   );
 }
 
 
-function AiPanel({ onClose }: { onClose: () => void }) {
+function AiPanel({ chat, onClose }: { chat: AiChatMutation; onClose: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const chat = useAiChat();
   const [tab, setTab] = useState<"chat" | "context">("chat");
   const [input, setInput] = useState("");
   const [items, setItems] = useState<ChatItem[]>([
@@ -261,7 +309,7 @@ function AiPanel({ onClose }: { onClose: () => void }) {
   return (
     <aside className="ai-panel" role="dialog" aria-modal="false" aria-label="小元 AI 助手面板">
       <div className="ai-panel-head">
-        <span className="ai-panel-avatar"><PetSvg /></span>
+        <span className="ai-panel-avatar"><PetSvg mood={chat.isPending ? "thinking" : "happy"} /></span>
         <div>
           <strong>小元</strong>
           <small>{lastProvider ? (lastProvider === "mock" ? "MockProvider · 演示模式" : "AI 端点 · 生产模式") : "AI 助手"}</small>

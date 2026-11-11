@@ -33,7 +33,7 @@ export class AccessErrorBoundary extends Component<BoundaryProps, BoundaryState>
       if (isAccessDeniedOrGone(error)) {
         return (
           <Suspense fallback={null}>
-            <NotFoundPage fixedCode="404" />
+            <NotFoundPage fixedCode="404" variant="gone" />
           </Suspense>
         );
       }

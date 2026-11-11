@@ -2,12 +2,17 @@ import { Link, useNavigate } from "react-router";
 import { ArrowLeft, ArrowRight, ShieldCheck } from "lucide-react";
 
 /**
- * 403/404 统一页面（arch/03 §5）：两种代码同形，不泄露对象是否存在。
- * fixedCode 用于独立路由 /403、/404；详情页无权限时也以 404 形态呈现。
+ * 404 提示页（arch/12 §19.2 三类区分）：
+ * - variant="missing"（缺省）：真 404——路由不存在，「页面不存在」；
+ * - variant="gone"：业务数据对象同形 404（ACCESS_DENIED_OR_GONE 边界渲染）——
+ *   维持 arch/03 无泄露中性表述「不存在或无权访问」+ 同形说明，**不破**。
+ * fixedCode="403"：独立 /403 路由沿用「无权访问」同形态。
  */
-export default function NotFoundPage({ fixedCode }: { fixedCode?: "403" | "404" }) {
+export default function NotFoundPage({ fixedCode, variant }: { fixedCode?: "403" | "404"; variant?: "missing" | "gone" }) {
   const navigate = useNavigate();
   const code = fixedCode ?? "404";
+  const kind = variant ?? (code === "403" ? "gone" : "missing");
+  const gone = kind === "gone";
   return (
     <div className="notfound-screen">
       <div className="brand-mark" aria-hidden="true">
@@ -16,11 +21,21 @@ export default function NotFoundPage({ fixedCode }: { fixedCode?: "403" | "404" 
         <span />
       </div>
       <span className="nc-label">ERROR · {code}</span>
-      <h1>{code === "403" ? "无权访问" : "页面不存在"}</h1>
+      <h1>{gone ? (code === "403" ? "无权访问" : "不存在或无权访问") : "页面不存在"}</h1>
       <p>
-        你访问的内容不存在，或你没有访问权限。
-        <br />
-        如需访问，请联系项目负责人或系统管理员授权。
+        {gone ? (
+          <>
+            你访问的内容不存在，或你没有访问权限。
+            <br />
+            如需访问，请联系项目负责人或系统管理员授权。
+          </>
+        ) : (
+          <>
+            你访问的页面不存在或已被移除。
+            <br />
+            请检查链接是否正确，或从导航重新进入。
+          </>
+        )}
       </p>
       <div className="notfound-actions">
         <button className="secondary-action" onClick={() => navigate(-1)}>
@@ -32,10 +47,12 @@ export default function NotFoundPage({ fixedCode }: { fixedCode?: "403" | "404" 
           <ArrowRight size={15} />
         </Link>
       </div>
-      <div className="login-note muted">
-        <ShieldCheck size={15} />
-        <span>为保密需要，无权访问与不存在的内容在系统内呈现相同形态。</span>
-      </div>
+      {gone ? (
+        <div className="login-note muted">
+          <ShieldCheck size={15} />
+          <span>为保密需要，无权访问与不存在的内容在系统内呈现相同形态。</span>
+        </div>
+      ) : null}
     </div>
   );
 }

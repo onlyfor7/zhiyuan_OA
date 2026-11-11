@@ -1,9 +1,14 @@
-import { lazy } from "react";
+import { lazy, type ReactNode } from "react";
 import { Navigate, Route, Routes, useParams } from "react-router";
+
+import { useMe } from "../../api/auth";
+import { canAccessMenuPath } from "../topnav-config";
 
 /**
  * 壳内路由表（iter10-02：从 App.tsx 抽出，支持 location 覆盖——
  * 多页签 keep-alive 下每个页签以各自冻结的 location 渲染本表）。
+ * §19.2：系统级功能页按菜单 roles 本地判定，无权限渲染 NoAccessPage
+ * 「没有访问权限」（存在性不敏感）；业务数据对象路由不包守卫，维持服务端同形 404。
  */
 
 const ArchivePage = lazy(() => import("../../pages/ArchivePage"));
@@ -15,6 +20,7 @@ const MeetingDetailPage = lazy(() => import("../../pages/MeetingDetailPage"));
 const MeetingNewPage = lazy(() => import("../../pages/MeetingNewPage"));
 const MeetingsPage = lazy(() => import("../../pages/MeetingsPage"));
 const NotFoundPage = lazy(() => import("../../pages/NotFoundPage"));
+const NoAccessPage = lazy(() => import("../../pages/NoAccessPage"));
 const NotificationsPage = lazy(() => import("../../pages/NotificationsPage"));
 const ComingSoonPage = lazy(() => import("../../pages/ComingSoonPage"));
 const OrgCompanyPage = lazy(() => import("../../pages/org/OrgCompanyPage"));
@@ -83,6 +89,14 @@ function ProjectOverviewRedirect() {
   return <Navigate to={`/projects/${projectId}/overview`} replace />;
 }
 
+/** §19.2 系统级功能页守卫：菜单 roles 本地判定（与 CascadeNav 可见性同语义），无权限→NoAccessPage */
+function MenuGuard({ menu, children }: { menu: string; children: ReactNode }) {
+  const me = useMe();
+  if (me.isPending || me.isError) return null;
+  if (!canAccessMenuPath(menu, me.data.globalRoles)) return <NoAccessPage />;
+  return <>{children}</>;
+}
+
 export function AppRoutes({ location }: { location?: RoutesLocation }) {
   return (
     <Routes location={location}>
@@ -90,26 +104,26 @@ export function AppRoutes({ location }: { location?: RoutesLocation }) {
       <Route path="/cockpit" element={<CockpitPage />} />
       <Route path="/workbench" element={<WorkbenchPage />} />
       <Route path="/approvals" element={<ApprovalsPage />} />
-      <Route path="/admin" element={<AdminCenterPage />} />
-      <Route path="/admin/flows/:flowId" element={<FlowDesignerPage />} />
+      <Route path="/admin" element={<MenuGuard menu="/admin"><AdminCenterPage /></MenuGuard>} />
+      <Route path="/admin/flows/:flowId" element={<MenuGuard menu="/admin"><FlowDesignerPage /></MenuGuard>} />
       <Route path="/requests" element={<RequestsPage />} />
       <Route path="/requests/:requestId" element={<RequestDetailPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/notifications" element={<NotificationsPage />} />
-      <Route path="/admin/org/company" element={<OrgCompanyPage />} />
-      <Route path="/admin/org/units" element={<OrgUnitsPage />} />
-      <Route path="/admin/org/members" element={<OrgMembersPage />} />
-      <Route path="/crm/leads" element={<CrmLeadsPage />} />
-      <Route path="/crm/opportunities" element={<CrmOpportunitiesPage />} />
-      <Route path="/crm/customers" element={<CrmCustomersPage />} />
+      <Route path="/admin/org/company" element={<MenuGuard menu="/admin/org/company"><OrgCompanyPage /></MenuGuard>} />
+      <Route path="/admin/org/units" element={<MenuGuard menu="/admin/org/units"><OrgUnitsPage /></MenuGuard>} />
+      <Route path="/admin/org/members" element={<MenuGuard menu="/admin/org/members"><OrgMembersPage /></MenuGuard>} />
+      <Route path="/crm/leads" element={<MenuGuard menu="/crm/leads"><CrmLeadsPage /></MenuGuard>} />
+      <Route path="/crm/opportunities" element={<MenuGuard menu="/crm/opportunities"><CrmOpportunitiesPage /></MenuGuard>} />
+      <Route path="/crm/customers" element={<MenuGuard menu="/crm/customers"><CrmCustomersPage /></MenuGuard>} />
       <Route path="/crm/customers/:customerId" element={<CrmCustomerDetailPage />} />
-      <Route path="/crm/contracts" element={<CrmContractsPage />} />
-      <Route path="/crm/followups" element={<CrmFollowupsPage />} />
+      <Route path="/crm/contracts" element={<MenuGuard menu="/crm/contracts"><CrmContractsPage /></MenuGuard>} />
+      <Route path="/crm/followups" element={<MenuGuard menu="/crm/followups"><CrmFollowupsPage /></MenuGuard>} />
       <Route path="/admin/users" element={<Navigate to="/admin/org/members" replace />} />
-      <Route path="/operations/receipts" element={<ReceiptsPage />} />
-      <Route path="/fin/receivables" element={<FinReceivablesPage />} />
-      <Route path="/fin/invoices" element={<FinInvoicesPage />} />
-      <Route path="/fin/project-costing" element={<FinProjectCostingPage />} />
+      <Route path="/operations/receipts" element={<MenuGuard menu="/operations/receipts"><ReceiptsPage /></MenuGuard>} />
+      <Route path="/fin/receivables" element={<MenuGuard menu="/fin/receivables"><FinReceivablesPage /></MenuGuard>} />
+      <Route path="/fin/invoices" element={<MenuGuard menu="/fin/invoices"><FinInvoicesPage /></MenuGuard>} />
+      <Route path="/fin/project-costing" element={<MenuGuard menu="/fin/project-costing"><FinProjectCostingPage /></MenuGuard>} />
       <Route path="/reports" element={<ReportsWorkbenchPage />} />
       <Route path="/reports/:key" element={<ReportPage />} />
       <Route path="/projects" element={<ProjectsPage />} />
@@ -150,7 +164,7 @@ export function AppRoutes({ location }: { location?: RoutesLocation }) {
       <Route path="/decisions" element={<DecisionsPage />} />
       <Route path="/decisions/new" element={<DecisionNewPage />} />
       <Route path="/archive" element={<ArchivePage />} />
-      <Route path="/audit" element={<AuditPage />} />
+      <Route path="/audit" element={<MenuGuard menu="/audit"><AuditPage /></MenuGuard>} />
       <Route path="/coming-soon" element={<ComingSoonPage />} />
       <Route path="*" element={<NotFoundPage fixedCode="404" />} />
     </Routes>

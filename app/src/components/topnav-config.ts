@@ -145,3 +145,21 @@ export function activeGroupKey(pathname: string): string | null {
   if (pathname.startsWith("/coming-soon")) return "reports";
   return null;
 }
+
+/**
+ * §19.2 系统级功能页本地角色判定：菜单叶子（to 精确匹配，静态传入）的可见性语义
+ * 与 CascadeNav 过滤一致——组/分段/叶子各级有 roles 时须至少命中其一；无 roles 级不限制。
+ * 返回 true=可访问；false=无权限（路由层渲染 NoAccessPage「没有访问权限」）。
+ */
+export function canAccessMenuPath(to: string, globalRoles: string[]): boolean {
+  for (const g of NAV_TREE) {
+    for (const s of g.sections) {
+      for (const i of s.items) {
+        if (i.to !== to || i.to.startsWith("/coming-soon")) continue;
+        const levels: (string[] | undefined)[] = [g.roles, s.roles, i.roles];
+        return levels.every((rs) => !rs || rs.some((r) => globalRoles.includes(r)));
+      }
+    }
+  }
+  return true; // 菜单外路径不做本地判定（业务对象由服务端同形 404 把关）
+}
