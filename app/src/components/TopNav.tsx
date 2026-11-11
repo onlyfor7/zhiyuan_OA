@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { ChevronDown } from "lucide-react";
 
 import { FormDialog } from "./FormDialog";
 import { DensitySwitch } from "./density";
 import { useTableDensity } from "../lib/tableDensity";
+import { useLogout } from "../api/auth";
 
 /**
  * 迭代 7 新 IA 顶栏（arch/10 §1.1）：五组下拉 + 头像菜单收口系统级功能。
@@ -94,6 +95,8 @@ export function AvatarMenu({ name, email }: { name: string; email: string }) {
   const [open, setOpen] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
   const { density, setDensity } = useTableDensity();
+  const navigate = useNavigate();
+  const logout = useLogout();
   return (
     <>
       <Dropdown
@@ -120,6 +123,26 @@ export function AvatarMenu({ name, email }: { name: string; email: string }) {
               }}
             >
               界面自定义
+            </button>
+            <div className="ux-menu-divider" role="separator" />
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                logout.mutate(undefined, { onSuccess: () => navigate("/login", { replace: true }) });
+              }}
+            >
+              切换账号
+            </button>
+            <button
+              role="menuitem"
+              className="ux-menu-danger"
+              onClick={() => {
+                setOpen(false);
+                logout.mutate(undefined, { onSuccess: () => navigate("/login", { replace: true }) });
+              }}
+            >
+              退出登录
             </button>
           </>
         )}

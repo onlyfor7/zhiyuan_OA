@@ -1,4 +1,8 @@
 import { useState } from "react";
+
+import { useAiMyUsage } from "../api/ai";
+import { MyUsageView } from "../components/ai/AiUsage";
+import { DomainIconBlock } from "../lib/DomainIconBlock";
 import { useNavigate } from "react-router";
 import { KeyRound, LogOut} from "lucide-react";
 
@@ -11,6 +15,7 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const me = useMe();
   const change = useChangePassword();
+  const myUsage = useAiMyUsage();
   const logout = useLogout();
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -84,6 +89,20 @@ export default function SettingsPage() {
           <LogOut size={15} />
           {logout.isPending ? "正在退出…" : "退出登录"}
         </button>
+      </section>
+      <section className="settings-form ai-my-usage">
+        <span className="section-label">MY AI USAGE</span>
+        <h2 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <DomainIconBlock domain="ai" size={24} iconSize={14} />
+          我的 AI 用量
+        </h2>
+        {myUsage.isPending ? (
+          <p className="list-note">正在加载用量…</p>
+        ) : myUsage.isError ? (
+          <p className="list-note">用量加载失败。</p>
+        ) : (
+          <MyUsageView items={myUsage.data.items as never} />
+        )}
       </section>
     </div>
   );

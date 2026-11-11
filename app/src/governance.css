@@ -2356,3 +2356,13 @@ h2, .context-heading h2, .section-heading h2 { font-size: var(--fs-h2); }
 }
 /* 面板打开时输入区让位悬浮钮（fab 固定右下与面板重叠区） */
 .ai-panel .ai-input-row { padding-right: 84px; }
+
+/* —— 迭代13-02 AI 配置页/用量/头像菜单退出 —— */
+.ai-config-tab { display: grid; gap: 4px; align-content: start; max-width: 760px; }
+.ai-config-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ai-cap-groups { display: flex; gap: 6px; flex-wrap: wrap; }
+.ai-my-usage { margin-top: 22px; display: grid; gap: 10px; align-content: start; }
+.ai-usage-bars { height: 120px; }
+.ux-menu-divider { height: 1px; background: #eef0f3; margin: 6px 4px; }
+.ux-menu-danger { color: #dc2626; font-weight: 600; }
+.ux-menu-danger:hover { background: #fef2f2 !important; }

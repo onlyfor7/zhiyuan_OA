@@ -102,7 +102,7 @@
 |---|---|---|---|---|---|
 | 13-00 总览 | — | 已发布 | 架构 | 2026-11-10 | AI 配置统筹+用量+退出入口 |
 | 13-01 AI 配置统筹与用量 | 后端 | **通过** | 后端会话 | 2026-11-11 | 架构验收：根 302 全绿+prod 实弹（配置读/联通/member 404/调用即记账 myUsage 见行） |
-| 13-02 配置页+用量视图+退出入口 | 前端 | 待认领 | — | 2026-11-11 | 依赖 01（已过）：AI 配置页+两用量视图+头像菜单回提 |
+| 13-02 配置页+用量视图+退出入口 | 前端 | **待验收** | 前端会话 | 2026-11-11 | §17.6 全落地（AI 配置页三态：空配/Mock 联通延迟/note/key 后 4 位+清除还原；用量两视图：设置页我的用量卡+配置页全局 Top/趋势；头像菜单切换账号/退出登录回提）；四道门 302 全绿+走查 19/19（D:\tmp\shots-iter13\） |
 | 13-03 验收+手册 v2.1 | 测试 | 未解锁 | — | — | 依赖 02；含 prod 发布窗口 |
 
 ## 迭代 12 工单状态（arch/12 v2.1）
@@ -329,6 +329,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-11｜前端｜迭代13-02｜**工单 13-02（AI 配置页+用量视图+退出入口，arch/12 §17.6）完成，转「待验收」。** 分支 `iter13/frontend-ai-config`（基于 12-03 线）。**①AI 配置页**（治理→系统配置→「AI 配置」页签，AdminCenter 第 6 页签，sysadmin 门内）：`pages/admin/AiConfigTab.tsx`——provider_url/model/**api_key 密文输入（type=password+autocomplete=off）+现值仅后 4 位提示（apiKeyMasked，服务段脱敏）**/**清除 Key 按钮（set apiKey:null 回落 env）**/启用开关（关闭=ai.chat 403 不计量的服务端拦截说明随开关文案）+「测试联通」（结果显示 ok/失败+延迟 ms+错误+mock note）；来源徽标（system_config 优先 env / env 缺省）；**保存 disabled 修一处逻辑缺陷**（`(!dirty && enabled===c.enabled) || isPending`——原表达式优先级致空 key 时无法点保存）；配置区/开关区分区组（.form-section 弱分隔）。**三态走查实证**：空配（MockProvider 提示+未配置 key）→ 测试联通（✅ 延迟 0ms+「内置 MockProvider 可用」note）→ 保存 sk-test-…7d6c 后显示 ****7d6c（后 4 位）→ 清除 Key 还原空配（dev 库无残留明文）。**②用量两视图**（components/ai/AiUsage.tsx）：**本人**=设置页「我的 AI 用量」卡（近 30 天按日柱条+按能力分组计数徽标+Mock token 估算口径注明）；**全局**=配置页内（按人 Top 横条+按日趋势柱+人×日×能力明细表 15 行）。**③头像菜单回提**（迭代 8 埋设修复）：AvatarMenu 分隔线下「切换账号」+「退出登录」（ux-menu-danger 红字醒目，**非高危无 DangerConfirm** 按工单）——auth.logout→/login；设置页改密保留、界面自定义不动；退出实证回登录页。**④规范沿用**：ai/设置域图标（§4.4 注册表 ai 域 12-03 已入）、密度/表单壳/聚焦环沿用。**质量门**（F3 合规）：根四道门逐条真实执行全绿两遍（typecheck/build/db:migrate/test **302=server 279+app 23**，与 13-01 后端线一致零回归）。**走查 19/19 PASS**（7 截图 D:\tmp\shots-iter13\）：配置三态逐态断言/member 不见 AI 配置页签/我的用量卡（共 N 次+只读问答分组+柱条）/全局用量（按人 TOP——innerText 经 text-transform 大写坑断言用 /i）/头像菜单四入口齐+退出回登录页/H1 三档×2 页/375 二页零越界。**遗留**：无功能遗留；生产模型接入=用户裁定后填 .env.production 三键或本页保存。
 
 - 2026-11-11｜架构｜迭代13-01通过｜**工单 01（AI 配置统筹与用量）验收通过，解锁 13-02（前端会话）。** 实测：根测试 302/302（279+23）全绿；prod 实弹——config.get 默认 mock 态/testConnection ok+未配提供方提示/member 404 同形/管晨 ai.chat 后 myUsage 即见 1 行（3+14 tokens）。采信：key 脱敏后 4 位+审计零明文、读序 config 优先 env+30s 缓存即刻失效、enabled=false 拦截不计量、PG 聚合别名 ORDER BY 列位修复。其 E2E-09 探测窗修稳与「e2e-on-prod 自增殖需定期重置」运维建议采信——重置节奏归 13-03/运维手册。
 

@@ -9,6 +9,7 @@ import { useProjectTemplates } from "../../api/project";
 import { useFlowList } from "../../api/flow";
 import { HelpIcon } from "../../components/HelpIcon";
 import { FormDialog } from "../../components/FormDialog";
+import AiConfigTab from "./AiConfigTab";
 import { rootErrorMessage } from "../../lib/form";
 import { CONFIDENTIALITY_LABEL } from "../../lib/labels";
 import { CONFIG_KEY } from "@lexflow/shared";
@@ -19,6 +20,7 @@ const TABS = [
   ["flows", "审批流"],
   ["params", "系统参数"],
   ["codes", "编号规则"],
+  ["ai-config", "AI 配置"],
 ] as const;
 
 /** 白名单参数键（CONFIG_KEY 全量展示；编辑逐个 get/set） */
@@ -75,6 +77,7 @@ export default function AdminCenterPage() {
       {tab === "flows" ? <FlowsTab /> : null}
       {tab === "params" ? <ParamsTab /> : null}
       {tab === "codes" ? <CodesTab /> : null}
+      {tab === "ai-config" ? <AiConfigTab /> : null}
     </div>
   );
 }
