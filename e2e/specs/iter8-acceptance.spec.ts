@@ -64,8 +64,18 @@ async function ensureProjectA(page: Page) {
 
 test("G1 名单替换（API/DB 断言）", async ({ page }) => {
   await login(page, "zhaokai@lexflow.demo");
-  const users = await api(page, "user.list?input=" + encodeURIComponent(JSON.stringify({ limit: 50 })));
-  const emails = (users.json as any).result.data.items.map((u: any) => u.email);
+  // 14-04 修稳：dev 历轮回归 9b 造号残留（i9b* 前缀）累积挤占首页——翻页聚齐全量邮箱再断言（≤5 页）
+  const emails: string[] = [];
+  let uCursor: string | null = null;
+  for (let i = 0; i < 5; i++) {
+    const input: Record<string, unknown> = { limit: 100 };
+    if (uCursor) input.cursor = uCursor;
+    const users = await api(page, "user.list?input=" + encodeURIComponent(JSON.stringify(input)));
+    const data = (users.json as any).result.data;
+    emails.push(...(data.items ?? []).map((u: any) => u.email));
+    uCursor = data.nextCursor ?? null;
+    if (!uCursor) break;
+  }
   expect(emails.length, `名单≥22（dev 允许验收测试残留，实际 ${emails.length}）`).toBeGreaterThanOrEqual(22);
   for (const e of ["liangqifeng", "wangbaozhuo", "wangjiayu", "sunhaoxiang", "liaoyimin", "huoda", "maozhenyu", "lijie", "guanchen", "zhangchen", "lijianwei", "zhaofengxue", "chenyue", "tianyiming", "niuchenchen", "caojiani", "lishuo", "liumingle", "guojingwen", "wangying", "zhaokai", "hejing"]) {
     expect(emails).toContain(`${e}@lexflow.demo`);

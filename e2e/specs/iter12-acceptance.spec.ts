@@ -38,9 +38,7 @@ const d = (r: any) => r.json?.result?.data?.json ?? r.json?.result?.data;
 
 /** 开面板并发一句（dispatchEvent 绕呼吸动画）；返回 assistant 气泡数增量 */
 async function askXiaoYuan(page: Page, text: string) {
-  const fab = page.locator(".ai-fab");
-  if (!(await page.locator(".ai-panel").isVisible().catch(() => false))) await fab.dispatchEvent("click");
-  await page.waitForSelector(".ai-panel", { timeout: 8_000 });
+  await openAiPanel(page);
   // 确保在对话页签（可能停留在上下文预览页签）
   await page.evaluate(() => {
     const b = [...document.querySelectorAll(".ai-panel-tabs button")].find((x) => (x.textContent ?? "").includes("对话"));
@@ -91,6 +89,34 @@ async function runLatestAction(page: Page, label?: RegExp) {
 }
 
 test.describe.configure({ mode: "serial" });
+/** 开小元面板（iter14 宠物化后首点击弹招呼气泡——经气泡「打开对话」入口；崩页则刷新重试一轮） */
+async function openAiPanel(page: Page) {
+  console.log("OAP: enter");
+  for (let round = 0; round < 2; round++) {
+    console.log("OAP: round", round);
+    for (let i = 0; i < 4; i++) {
+      const vis = await page.locator(".ai-panel").isVisible().catch(() => false);
+      console.log("OAP: iter", i, "vis=", vis);
+      if (vis) return;
+      const openBtn = page.locator(".ai-bubble-pop button", { hasText: "打开对话" });
+      if (await openBtn.count().catch(() => 0)) {
+        await openBtn.first().dispatchEvent("click").catch(() => {});
+      } else {
+        await page.locator(".ai-fab").dispatchEvent("click").catch(() => {});
+      }
+      await page.waitForTimeout(800);
+    }
+    const vis = await page.locator(".ai-panel").isVisible().catch(() => false);
+    if (vis) return;
+    await page.reload({ waitUntil: "networkidle" }).catch(() => {});
+    await page.waitForSelector(".ai-fab", { timeout: 15_000 }).catch(() => {});
+    await page.waitForTimeout(800);
+  }
+  console.log("OAP: final wait");
+  await page.waitForSelector(".ai-panel", { timeout: 8_000 });
+  console.log("OAP: done");
+}
+
 /** 开「经费申请」弹窗：nav 叶项事件通道（CascadeNav 经费申请叶同机制，绕开级联 hover 崩溃坑） */
 async function openFundingDialog(page: Page) {
   await page.evaluate(() => window.dispatchEvent(new CustomEvent("lexflow:nav-dialog", { detail: "funding-new" })));
@@ -189,8 +215,7 @@ test("T3 小元 A1/A2 全链：经费回填复核提交落地+工时草稿步进
   const projectName = (projs.items ?? [])[0]?.name;
   expect(projectName, "member 可见项目").toBeTruthy();
   // —— 上下文预览 + 密级不采断言 ——
-  await page.locator(".ai-fab").dispatchEvent("click");
-  await page.waitForSelector(".ai-panel");
+  await openAiPanel(page);
   await page.locator(".ai-panel-tabs button", { hasText: "上下文" }).dispatchEvent("click");
   await page.waitForTimeout(400);
   const ctxText = await page.locator(".ai-context-card").innerText();

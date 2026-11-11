@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { AI_FLOW_DRAFT_KEY, consumeAiDraft } from "../../components/ai/ai-actions";
+import { AI_FLOW_DRAFT_KEY } from "../../components/ai/ai-actions";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   Background,
@@ -185,24 +185,32 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
   const navigate = useNavigate();
   const mutations = useFlowMutations();
   const validate = useFlowValidate();
-  // §17.2 A4：小元 DSL 草稿优先于默认骨架（用户校验后发布）；__fromAi 随 state 携带（refs 渲染期禁触）
-  const [initial] = useState(() => {
-    const ai = consumeAiDraft<{ definitionJson: { nodes: unknown[]; edges: unknown[] }; description: string }>(AI_FLOW_DRAFT_KEY);
-    if (ai && Array.isArray(ai.definitionJson?.nodes) && ai.definitionJson.nodes.length > 0) {
-      return { ...toFlowState(toDesigner(ai.definitionJson)), __fromAi: true };
-    }
-    return { ...initialCanvas(isNew, flow), __fromAi: false };
-  });
+  // §17.2 A4：小元 DSL 草稿优先于默认骨架（用户校验后发布）。
+  // D-14-4-1 验收即修：草稿消费从 useState initializer 移至 mount effect——React 19 StrictMode
+  // 双挂载下 initializer 首跑消费+移除后，重跑读到空存储回落默认骨架致预填丢失（dev 形态实证）。
+  const [initial] = useState(() => ({ ...initialCanvas(isNew, flow), __fromAi: false }));
   const [nodes, setNodes] = useState<FlowNode[]>(initial.nodes);
   const [edges, setEdges] = useState<Edge[]>(initial.edges);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [serverErrors, setServerErrors] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect -- 一次性挂载提示（草稿已预填） */
-    if (initial.__fromAi) setNotice("小元 DSL 草稿已预填画布——请校验后保存/发布。");
+    /* eslint-disable react-hooks/set-state-in-effect -- 小元草稿一次性消费：effect 应用+移除（StrictMode 双 setup 二次空转） */
+    const raw = sessionStorage.getItem(AI_FLOW_DRAFT_KEY);
+    if (raw) {
+      try {
+        const ai = JSON.parse(raw) as { definitionJson?: { nodes?: unknown[]; edges?: unknown[] } } | null;
+        if (ai && Array.isArray(ai.definitionJson?.nodes) && ai.definitionJson.nodes.length > 0) {
+          const st = toFlowState(toDesigner(ai.definitionJson));
+          setNodes(st.nodes);
+          setEdges(st.edges);
+          setNotice("小元 DSL 草稿已预填画布——请校验后保存/发布。");
+        }
+      } catch { /* 草稿形态损坏则忽略，回落默认骨架 */ }
+      sessionStorage.removeItem(AI_FLOW_DRAFT_KEY);
+    }
     /* eslint-enable react-hooks/set-state-in-effect */
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载提示一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载消费一次
   }, []);
   const [error, setError] = useState<string | null>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
