@@ -384,3 +384,25 @@ export const FLOW_BIZ_BINDINGS = [
   ["access_grant", "档案授权"],
   ["timesheet", "工时周期"],
 ] as const;
+
+/* —— 迭代 14 CRM 明细抽屉标签（arch/12 §18.4） —— */
+
+export const LEAD_STATUS_LABEL: Record<string, string> = {
+  new: "新线索",
+  contacted: "已联系",
+  qualified: "已评估",
+  converted: "已转化",
+  disqualified: "已作废",
+};
+
+export const OPPORTUNITY_STAGES = [
+  ["initial", "初步接触"],
+  ["needs", "需求确认"],
+  ["proposal", "方案报价"],
+  ["negotiation", "商务谈判"],
+] as const;
+export const OPPORTUNITY_STAGE_LABEL: Record<string, string> = Object.fromEntries(
+  [...OPPORTUNITY_STAGES, ["won", "赢单"], ["lost", "输单"]] as const as Array<[string, string]>,
+);
+
+export const CRM_CONTRACT_STATUS_LABEL: Record<string, string> = { draft: "草稿", active: "履约中", completed: "已完成", terminated: "已终止" };

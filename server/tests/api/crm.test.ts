@@ -202,6 +202,41 @@ describe("9c-02 CRM 服务端", () => {
     expect(dragWon.status).toBe(400);
   });
 
+  it("商机 update：名称/金额/赢率/负责人落库 + rowVersion 冲突 + 审计（14-03 随棒：update 增 ownerId，对齐 leads/customers.update 家族）", async () => {
+    const customers = await trpc(app, "crm.customers.list", { cookie: pmCookie, method: "GET", input: { keyword: "比博思特" } });
+    const customerId = (customers.json as { result: { data: { items: Array<{ id: string }> } } }).result.data.items[0].id;
+    const partnerUserId = (await query<{ id: string }>(`SELECT id FROM users WHERE email='liangqifeng@lexflow.demo'`))[0].id;
+    const opp = await trpc(app, "crm.opportunities.create", {
+      cookie: pmCookie,
+      input: { customerId, name: "14-03更新商机", expectedAmountCents: 100000, winRate: 10 },
+    });
+    expect(opp.status).toBe(200);
+    const data = (opp.json as { result: { data: { id: string; rowVersion: number } } }).result.data;
+
+    const updated = await trpc(app, "crm.opportunities.update", {
+      cookie: pmCookie,
+      input: { id: data.id, rowVersion: data.rowVersion, name: "14-03更新商机·改", expectedAmountCents: 200000, winRate: 40, ownerId: partnerUserId },
+    });
+    expect(updated.status).toBe(200);
+    const row = await query<{ name: string; expected_amount_cents: number; win_rate: number; owner_id: string; row_version: number }>(
+      `SELECT name, expected_amount_cents::int, win_rate, owner_id, row_version FROM crm_opportunities WHERE id=$1`,
+      [data.id],
+    );
+    expect(row[0].name).toBe("14-03更新商机·改");
+    expect(row[0].expected_amount_cents).toBe(200000);
+    expect(row[0].win_rate).toBe(40);
+    expect(row[0].owner_id).toBe(partnerUserId);
+    expect(row[0].row_version).toBe(data.rowVersion + 1);
+    const audit = await query<{ n: number }>(`SELECT count(*)::int AS n FROM audit_events WHERE action='crm.opportunities.update' AND target_id=$1`, [data.id]);
+    expect(audit[0].n).toBe(1);
+
+    // 旧 rowVersion 再改 → 冲突（409）
+    const stale = await trpc(app, "crm.opportunities.update", { cookie: pmCookie, input: { id: data.id, rowVersion: data.rowVersion, name: "不应生效" } });
+    expect(stale.status).toBe(409);
+    const nameAfter = await query<{ name: string }>(`SELECT name FROM crm_opportunities WHERE id=$1`, [data.id]);
+    expect(nameAfter[0].name).toBe("14-03更新商机·改");
+  });
+
   it("回款勾稽：挂计划行 paid/partial 状态写回、重复挂 409、作废冲正回写、累计回款 registered-only、不挂合同兼容存量", async () => {
     // 种子合同 CTR-00001（GD）：两行计划各 400000 unpaid
     const contracts = await trpc(app, "crm.contracts.list", { cookie: financeCookie, method: "GET", input: {} });

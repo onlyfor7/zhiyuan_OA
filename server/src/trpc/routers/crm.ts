@@ -144,6 +144,7 @@ export const crmRouter = router({
           name: z.string().trim().min(1).max(200).optional(),
           expectedAmountCents: z.number().int().min(1).nullable().optional(),
           winRate: z.number().int().min(0).max(100).nullable().optional(),
+          ownerId: z.uuid().nullable().optional(),
         }),
       )
       .mutation(({ ctx, input }) => service.updateOpportunity(ctx.db, ctx.user, input, ctx.ip, ctx.session.id)),

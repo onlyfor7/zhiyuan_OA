@@ -1,28 +1,25 @@
 import { useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 import { useCrmMutations, useOpportunityList } from "../../api/crm";
 import { useUserNameMap } from "./shared";
+import { OPPORTUNITY_STAGE_LABEL, OPPORTUNITY_STAGES } from "../../lib/labels";
+import { OpportunityDrawer } from "./opportunity-drawer";
 import { FormDialog } from "../../components/FormDialog";
 import { DomainIconBlock } from "../../lib/DomainIconBlock";
 import { ListSkeleton } from "../../components/feedback";
 import { formatYuan } from "../../api/reference";
 import { rootErrorMessage } from "../../lib/form";
 
-const STAGES = [
-  ["initial", "初步接触"],
-  ["needs", "需求确认"],
-  ["proposal", "方案报价"],
-  ["negotiation", "商务谈判"],
-] as const;
-const STAGE_LABEL = Object.fromEntries([...STAGES, ["won", "赢单"], ["lost", "输单"]] as const as Array<[string, string]>);
-
-/** 客户组·商机管理（arch/12 §6.4：T-A 表格/看板切换；看板五列，拖拽改阶段=setStage 落库+审计） */
+/** 客户组·商机管理（arch/12 §6.4 + §18.4：T-A 表格/看板切换；表格行点击开详情抽屉（?opp= 深链）；看板拖拽改阶段=setStage 落库+审计） */
 export default function OpportunitiesPage() {
   const [view, setView] = useState<"table" | "board">("table");
   const list = useOpportunityList({});
   const m = useCrmMutations();
   const nameOf = useUserNameMap();
+  const [sp, setSp] = useSearchParams();
+  const openOppId = sp.get("opp");
   const [wonTarget, setWonTarget] = useState<{ id: string; rowVersion: number; name: string } | null>(null);
   const [lostTarget, setLostTarget] = useState<{ id: string; rowVersion: number; name: string } | null>(null);
   const [lostReason, setLostReason] = useState("");
@@ -32,13 +29,14 @@ export default function OpportunitiesPage() {
   if (list.isPending) return <ListSkeleton rows={6} />;
   if (list.isError) throw list.error;
   const items = list.data.items;
+  const openOpp = openOppId ? items.find((o) => o.id === openOppId) ?? null : null;
 
   const doSetStage = (opp: { id: string; rowVersion: number; name: string }, stage: string) => {
     setError(null);
     m.setStage.mutate(
       { id: opp.id, rowVersion: opp.rowVersion, stage: stage as never },
       {
-        onSuccess: () => toast.success(`「${opp.name}」已移动到${STAGE_LABEL[stage]}`),
+        onSuccess: () => toast.success(`「${opp.name}」已移动到${OPPORTUNITY_STAGE_LABEL[stage]}`),
         onError: (err) => setError(rootErrorMessage(err)),
       },
     );
@@ -50,7 +48,7 @@ export default function OpportunitiesPage() {
         <div>
           <span className="eyebrow">CRM · OPPORTUNITIES</span>
           <h1>商机管理</h1>
-          <p>阶段机 initial→needs→proposal→negotiation→won/lost；看板拖拽改阶段（审计留痕）。</p>
+          <p>阶段机 initial→needs→proposal→negotiation→won/lost；表格行点击开详情抽屉（查看+编辑+合同+跟进），看板拖拽改阶段（审计留痕）。</p>
         </div>
         <div className="p9a-mini-tabs" role="tablist">
           <button role="tab" aria-selected={view === "table"} className={view === "table" ? "active" : ""} onClick={() => setView("table")}>
@@ -71,21 +69,27 @@ export default function OpportunitiesPage() {
             </div>
             <div className="p9a-ta-body">
               {items.map((o) => (
-                <div className="p9a-ta-row" key={o.id} style={{ gridTemplateColumns: "110px 1.4fr 100px 110px 80px 90px 100px 130px" }}>
+                <div
+                  className="p9a-ta-row is-clickable"
+                  key={o.id}
+                  style={{ gridTemplateColumns: "110px 1.4fr 100px 110px 80px 90px 100px 130px" }}
+                  title="点击打开详情抽屉"
+                  onClick={() => setSp({ opp: o.id })}
+                >
                   <span className="mono">{o.code}</span>
                   <strong>{o.name}</strong>
                   <span>
                     <i className={`p9a-dot ${o.stage === "won" ? "ok" : o.stage === "lost" ? "" : "warn"}`} style={o.stage === "lost" ? { background: "#9ca5b3" } : undefined} />
-                    {STAGE_LABEL[o.stage] ?? o.stage}
+                    {OPPORTUNITY_STAGE_LABEL[o.stage] ?? o.stage}
                   </span>
                   <span className="mono">{"expectedAmountCents" in o && o.expectedAmountCents != null ? `${formatYuan(o.expectedAmountCents as number)} 元` : "—"}</span>
                   <span className="mono">{o.winRate ?? "—"}%</span>
                   <span>{nameOf(o.ownerId)}</span>
                   <span className="mono" style={{ fontSize: 10 }}>{o.updatedAt.slice(5, 16).replace("T", " ")}</span>
-                  <span className="p9a-row-actions">
+                  <span className="p9a-row-actions" onClick={(e) => e.stopPropagation()}>
                     {(["initial", "needs", "proposal", "negotiation"] as const).filter((s) => s !== o.stage).slice(0, 2).map((s) => (
                       <button key={s} className="text-action" onClick={() => doSetStage(o, s)}>
-                        →{STAGE_LABEL[s]}
+                        →{OPPORTUNITY_STAGE_LABEL[s]}
                       </button>
                     ))}
                     {o.stage === "negotiation" ? (
@@ -102,7 +106,7 @@ export default function OpportunitiesPage() {
         </>
       ) : (
         <div className="crm-board">
-          {[...STAGES.map(([s, l]) => [s, l] as const), ["won", "赢单"] as const, ["lost", "输单"] as const].map(([stage, label]) => {
+          {[...OPPORTUNITY_STAGES.map(([s, l]) => [s, l] as const), ["won", "赢单"] as const, ["lost", "输单"] as const].map(([stage, label]) => {
             const col = items.filter((o) => o.stage === stage);
             const readonly = stage === "won" || stage === "lost";
             return (
@@ -147,6 +151,15 @@ export default function OpportunitiesPage() {
         </div>
       )}
 
+      {openOppId && openOpp ? <OpportunityDrawer key={openOpp.id} opp={openOpp} onClose={() => setSp({})} /> : null}
+      {openOppId && !openOpp ? (
+        <FormDialog title="商机详情" eyebrow="CRM · OPPORTUNITIES" onClose={() => setSp({})}>
+          <p className="context-note">未在当前列表找到该商机（可能不在此筛选范围内）。请调整筛选后重试。</p>
+          <div className="drawer-actions">
+            <button className="secondary-action" onClick={() => setSp({})}>关闭</button>
+          </div>
+        </FormDialog>
+      ) : null}
       {wonTarget ? (
         <FormDialog title={`赢单 · ${wonTarget.name}`} eyebrow="CRM · 赢单挂合同（同事务）" onClose={() => setWonTarget(null)}>
           <p className="context-note">赢单必须挂合同：提交后同事务建合同草稿（可勾选直接激活）并置商机为 won。</p>

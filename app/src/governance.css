@@ -2098,6 +2098,8 @@ a.text-action:focus-visible::after, button.text-action:focus-visible::after { ri
 .p9a-ta-body { display: grid; align-content: start; min-height: 0; }
 .p9a-ta-body .p9a-ta-row { border-top: 1px solid #eef0f3; }
 .p9a-ta-body .p9a-ta-row:hover { background: #f8fafc; }
+.p9a-ta-body .p9a-ta-row.is-clickable { cursor: pointer; }
+.p9a-ta-body .p9a-ta-row.is-clickable > strong { color: #2563eb; }
 .p9a-ta-row > span, .p9a-ta-row > strong { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p9a-ta-pager { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; color: var(--muted); font-size: 11px; }
 .p9a-ta-filter { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

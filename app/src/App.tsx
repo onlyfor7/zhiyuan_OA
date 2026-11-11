@@ -23,7 +23,7 @@ function DelayedBrandFallback() {
   return (
     <div className="page-loader brand-pulse" role="status" aria-label="正在加载">
       <span className="brand-mark" aria-hidden="true"><span /><span /><span /></span>
-      <span>LEXFLOW · 加载中</span>
+      <span>因诺智元 · 加载中</span>
     </div>
   );
 }

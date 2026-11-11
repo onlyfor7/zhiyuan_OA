@@ -1,20 +1,15 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { useCrmMutations, useLeadList } from "../../api/crm";
 import { useUserNameMap } from "./shared";
+import { LEAD_STATUS_LABEL } from "../../lib/labels";
+import { LeadConvertDialog, LeadDrawer } from "./lead-drawer";
 import { FormDialog } from "../../components/FormDialog";
 import { ListSkeleton } from "../../components/feedback";
 import { rootErrorMessage } from "../../lib/form";
-
-const LEAD_STATUS_LABEL: Record<string, string> = {
-  new: "新线索",
-  contacted: "已联系",
-  qualified: "已评估",
-  converted: "已转化",
-  disqualified: "已作废",
-};
 
 function LeadCreateDialog({ onClose }: { onClose: () => void }) {
   const m = useCrmMutations();
@@ -59,97 +54,6 @@ function LeadCreateDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** F4 转化 Stepper：确认客户 → 商机信息 → 跟进计划（一步事务 convertLead） */
-function ConvertDialog({ lead, onClose }: { lead: { id: string; rowVersion: number; name: string; contactName: string | null }; onClose: () => void }) {
-  const m = useCrmMutations();
-  const [step, setStep] = useState(0);
-  const [custName, setCustName] = useState(lead.name);
-  const [level, setLevel] = useState("internal");
-  const [oppName, setOppName] = useState(`${lead.name} 合作商机`);
-  const [amountYuan, setAmountYuan] = useState("");
-  const [winRate, setWinRate] = useState(30);
-  const [plan, setPlan] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const steps = ["确认客户", "商机信息", "跟进计划"];
-  const canNext = step === 0 ? custName.trim().length > 0 : step === 1 ? oppName.trim().length > 0 : true;
-
-  return (
-    <FormDialog title={`转化线索 · ${lead.name}`} eyebrow="CRM · F4 分步 Stepper（同事务）" onClose={onClose} wide>
-      <div className="p9a-stepper">
-        {steps.map((s, i) => (
-          <div key={s} className={`p9a-step ${i === step ? "current" : i < step ? "done" : ""}`}>
-            <span>{i < step ? "✓" : i + 1}</span>{s}
-          </div>
-        ))}
-      </div>
-      <div className="p9a-wizard-body">
-        {step === 0 ? (
-          <>
-            <label className="form-field"><span>客户名称 *（自动带出可改）</span>
-              <input value={custName} onChange={(e) => setCustName(e.target.value)} /></label>
-            <label className="form-field"><span>客户级别</span>
-              <select value={level} onChange={(e) => setLevel(e.target.value)}>
-                <option value="public">公开</option>
-                <option value="internal">内部</option>
-                <option value="confidential">保密</option>
-                <option value="secret">秘密</option>
-              </select></label>
-          </>
-        ) : null}
-        {step === 1 ? (
-          <>
-            <label className="form-field"><span>商机名称 *</span>
-              <input value={oppName} onChange={(e) => setOppName(e.target.value)} /></label>
-            <div className="owner-line">
-              <label className="form-field"><span>预计金额（元，选填）</span>
-                <input type="number" min="0" step="0.01" value={amountYuan} onChange={(e) => setAmountYuan(e.target.value)} /></label>
-              <label className="form-field"><span>赢率（%）</span>
-                <input type="number" min="0" max="100" value={winRate} onChange={(e) => setWinRate(Number(e.target.value))} /></label>
-            </div>
-          </>
-        ) : null}
-        {step === 2 ? (
-          <label className="form-field"><span>跟进计划（选填，转化后首条跟进）</span>
-            <textarea rows={3} value={plan} onChange={(e) => setPlan(e.target.value)} placeholder="下一步行动…" /></label>
-        ) : null}
-      </div>
-      {error ? <p className="form-error" role="alert">{error}</p> : null}
-      <div className="drawer-actions">
-        <button className="secondary-action" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>上一步</button>
-        {step < 2 ? (
-          <button className="primary-action" disabled={!canNext} onClick={() => setStep((s) => s + 1)}>下一步</button>
-        ) : (
-          <button
-            className="primary-action"
-            disabled={m.convertLead.isPending}
-            onClick={() => {
-              setError(null);
-              m.convertLead.mutate(
-                {
-                  id: lead.id,
-                  rowVersion: lead.rowVersion,
-                  customer: { name: custName.trim(), level },
-                  opportunity: {
-                    name: oppName.trim(),
-                    expectedAmountCents: amountYuan ? Math.round(Number(amountYuan) * 100) : null,
-                    winRate,
-                  },
-                },
-                {
-                  onSuccess: () => { toast.success("线索已转化：客户+商机已创建（同事务）"); onClose(); },
-                  onError: (err) => setError(rootErrorMessage(err)),
-                },
-              );
-            }}
-          >
-            确认转化
-          </button>
-        )}
-      </div>
-    </FormDialog>
-  );
-}
-
 function FollowDialog({ leadId, onClose }: { leadId: string; onClose: () => void }) {
   const m = useCrmMutations();
   const [content, setContent] = useState("");
@@ -176,7 +80,7 @@ function FollowDialog({ leadId, onClose }: { leadId: string; onClose: () => void
   );
 }
 
-/** 客户组·线索池（arch/12 §6.4：T-A + 新建 F1 + 转化 F4 Stepper + 作废 DangerConfirm） */
+/** 客户组·线索池（arch/12 §6.4 + §18.4：T-A + 新建 F1 + 行点击开详情抽屉（?lead= 深链）+ 转化 F4 + 作废 DangerConfirm） */
 export default function LeadsPage() {
   const [status, setStatus] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -184,6 +88,8 @@ export default function LeadsPage() {
   const list = useLeadList({ status: status || undefined, keyword: keyword || undefined, cursor });
   const m = useCrmMutations();
   const nameOf = useUserNameMap();
+  const [sp, setSp] = useSearchParams();
+  const openLeadId = sp.get("lead");
   const [createOpen, setCreateOpen] = useState(false);
   const [convertTarget, setConvertTarget] = useState<{ id: string; rowVersion: number; name: string; contactName: string | null } | null>(null);
   const [disqualifyTarget, setDisqualifyTarget] = useState<{ id: string; rowVersion: number; name: string } | null>(null);
@@ -194,13 +100,15 @@ export default function LeadsPage() {
   if (list.isPending) return <ListSkeleton rows={6} />;
   if (list.isError) throw list.error;
 
+  const openLead = openLeadId ? list.data.items.find((l) => l.id === openLeadId) ?? null : null;
+
   return (
     <div className="screen crm-leads-screen">
       <div className="screen-heading">
         <div>
           <span className="eyebrow">CRM · LEADS</span>
           <h1>线索池</h1>
-          <p>状态机 new→contacted→qualified→converted/disqualified；转化=同事务建客户+商机。</p>
+          <p>状态机 new→contacted→qualified→converted/disqualified；点击行开详情抽屉（查看全字段+编辑+跟进/备注+转化）。</p>
         </div>
         <button className="primary-action" onClick={() => setCreateOpen(true)}>
           <Plus size={15} />
@@ -223,7 +131,13 @@ export default function LeadsPage() {
         </div>
         <div className="p9a-ta-body">
           {list.data.items.map((l) => (
-            <div className="p9a-ta-row" key={l.id} style={{ gridTemplateColumns: "110px 1.3fr 1fr 90px 100px 90px 90px 140px" }}>
+            <div
+              className="p9a-ta-row is-clickable"
+              key={l.id}
+              style={{ gridTemplateColumns: "110px 1.3fr 1fr 90px 100px 90px 90px 140px" }}
+              title="点击打开详情抽屉"
+              onClick={() => setSp({ lead: l.id })}
+            >
               <span className="mono">{l.code}</span>
               <strong>{l.name}</strong>
               <span>{l.contactName ?? "—"}{l.contactPhone ? ` · ${l.contactPhone}` : ""}</span>
@@ -234,7 +148,7 @@ export default function LeadsPage() {
                 {LEAD_STATUS_LABEL[l.status] ?? l.status}
               </span>
               <span className="mono" style={{ fontSize: 10 }}>{(l as { lastFollowAt?: string }).lastFollowAt?.slice(5, 16).replace("T", " ") ?? "—"}</span>
-              <span className="p9a-row-actions">
+              <span className="p9a-row-actions" onClick={(e) => e.stopPropagation()}>
                 {["new", "contacted", "qualified"].includes(l.status) ? (
                   <>
                     <button className="text-action" onClick={() => setFollowTarget(l.id)}>跟进</button>
@@ -256,7 +170,16 @@ export default function LeadsPage() {
       </div>
       {error ? <p className="form-error" role="alert">{error}</p> : null}
       {createOpen ? <LeadCreateDialog onClose={() => setCreateOpen(false)} /> : null}
-      {convertTarget ? <ConvertDialog lead={convertTarget} onClose={() => setConvertTarget(null)} /> : null}
+      {openLeadId && openLead ? <LeadDrawer key={openLead.id} lead={openLead} onClose={() => setSp({})} /> : null}
+      {openLeadId && !openLead ? (
+        <FormDialog title="线索详情" eyebrow="CRM · LEADS" onClose={() => setSp({})}>
+          <p className="context-note">未在当前列表页找到该线索（可能不在此筛选/分页内）。请调整筛选或翻页后重试。</p>
+          <div className="drawer-actions">
+            <button className="secondary-action" onClick={() => setSp({})}>关闭</button>
+          </div>
+        </FormDialog>
+      ) : null}
+      {convertTarget ? <LeadConvertDialog lead={convertTarget} onClose={() => setConvertTarget(null)} /> : null}
       {followTarget ? <FollowDialog leadId={followTarget} onClose={() => setFollowTarget(null)} /> : null}
       {disqualifyTarget ? (
         <FormDialog title={`作废线索 · ${disqualifyTarget.name}`} eyebrow="CRM · 高危确认" onClose={() => setDisqualifyTarget(null)}>

@@ -614,7 +614,7 @@ export async function createOpportunity(
 export async function updateOpportunity(
   db: DbOrTx,
   user: SessionUser,
-  input: { id: string; rowVersion: number; name?: string; expectedAmountCents?: number | null; winRate?: number | null },
+  input: { id: string; rowVersion: number; name?: string; expectedAmountCents?: number | null; winRate?: number | null; ownerId?: string | null },
   ip: string | null,
   sessionId: string | null,
 ) {
@@ -627,6 +627,7 @@ export async function updateOpportunity(
       ...(input.name !== undefined ? { name: input.name.trim() } : {}),
       ...(input.expectedAmountCents !== undefined ? { expectedAmountCents: input.expectedAmountCents } : {}),
       ...(input.winRate !== undefined ? { winRate: input.winRate } : {}),
+      ...(input.ownerId !== undefined ? { ownerId: input.ownerId } : {}),
       updatedBy: user.id,
       updatedAt: new Date().toISOString(),
       rowVersion: sql`${crmOpportunities.rowVersion} + 1`,
@@ -634,7 +635,7 @@ export async function updateOpportunity(
     .where(and(eq(crmOpportunities.id, input.id), eq(crmOpportunities.rowVersion, input.rowVersion)))
     .returning();
   if (!updated) throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "商机已被他人修改，请刷新后重试");
-  await recordAudit(db, { actorId: user.id, sessionId, action: "crm.opportunities.update", targetType: "crm_opportunity", targetId: input.id, result: "success", afterJson: { name: updated.name }, ip });
+  await recordAudit(db, { actorId: user.id, sessionId, action: "crm.opportunities.update", targetType: "crm_opportunity", targetId: input.id, result: "success", afterJson: { name: updated.name, ownerId: updated.ownerId }, ip });
   return stripAmounts(updated, user, ["expectedAmountCents"]);
 }
 
