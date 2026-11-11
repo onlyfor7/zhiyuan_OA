@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import { Send, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { useAiChat } from "../../api/ai";
+import { useAiChat, useAssistantFeed } from "../../api/ai";
 import type { AiChatAction, AiChatMessage } from "../../api/ai";
 import { collectAiContext, contextPreviewLines } from "./ai-context";
 import {
@@ -16,12 +16,15 @@ import {
   stageTimeDraft,
   type AiTimeDraftEntry,
 } from "./ai-actions";
+import { DomainIconBlock } from "../../lib/DomainIconBlock";
 
 /**
  * AI 宠物「小元」（arch/12 §19.1 修订 §17.1/17.2/18.2）：圆球状俏皮宠物
  * （大眼表情随场景切换：眨眼常态/开心开面板/思考生成中/忙碌拖拽中）；
  * 点击宠物**直进对话面板**（无中间气泡层；招呼气泡仅闲置巡检出现，点气泡=开面板）；
  * 悬浮可拖拽/贴边停靠/位置记忆沿用；375 仅悬浮钮；动作只产草稿/预填由用户确认。
+ * §19.3 主动提醒：有提醒条目时头顶红点计数（localStorage 抑制后即时扣减），
+ * 面板首屏「今日提醒」卡列表直跳处理页。
  */
 
 interface ChatItem extends AiChatMessage {
@@ -32,6 +35,7 @@ interface ChatItem extends AiChatMessage {
 
 type Mood = "normal" | "happy" | "thinking" | "busy";
 type AiChatMutation = ReturnType<typeof useAiChat>;
+type FeedItem = NonNullable<ReturnType<typeof useAssistantFeed>["data"]>["items"][number];
 
 const CAP_LABEL: Record<string, string> = {
   form_prefill: "A1 表单预填",
@@ -102,6 +106,20 @@ function PetSvg({ mood }: { mood: Mood }) {
 }
 
 const POS_KEY = "lexflow-ai-pet-pos";
+/** §19.3 「不再提醒本条」抑制集：type|link 稳定键（link 内含对象 id），localStorage 持久 */
+const FEED_SUPPRESS_KEY = "lexflow-ai-feed-suppressed";
+const feedKey = (it: Pick<FeedItem, "type" | "link">) => `${it.type}|${it.link}`;
+
+function readSuppressed(): string[] {
+  try {
+    const raw = localStorage.getItem(FEED_SUPPRESS_KEY);
+    const v = raw ? JSON.parse(raw) : [];
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 const IDLE_TIPS = [
   "闲置好一会儿了——有表单要填/工时要记吗？我帮你起草。",
   "试试对我说「帮我填去杭州出差两天的高铁申请」。",
@@ -120,9 +138,11 @@ function isMobileView(): boolean {
 /** §19.1/§18.2 桌面宠物：圆球形象四态表情；点击直进面板；可拖拽（位置记忆）+贴边停靠；闲置巡检气泡；375 仅悬浮钮 */
 export function AiPet() {
   const chat = useAiChat();
+  const feed = useAssistantFeed();
   const [open, setOpen] = useState(false);
   const [bubble, setBubble] = useState<{ kind: "tip"; text: string } | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [suppressed, setSuppressed] = useState<string[]>(() => readSuppressed());
   const [pos, setPos] = useState<PetPos | null>(() => {
     try {
       const raw = localStorage.getItem(POS_KEY);
@@ -143,6 +163,23 @@ export function AiPet() {
 
   // §19.1 表情随场景：拖拽=忙碌 / 生成中=思考 / 面板开=开心 / 常态眨眼
   const mood: Mood = dragging ? "busy" : chat.isPending ? "thinking" : open ? "happy" : "normal";
+
+  // §19.3 抑制后的可见提醒（红点计数与列表共用口径）
+  const feedItems = feed.data?.items ?? [];
+  const visibleItems = feedItems.filter((it) => !suppressed.includes(feedKey(it)));
+  const visibleCount = visibleItems.length;
+
+  const suppressItem = useCallback((it: FeedItem) => {
+    setSuppressed((prev) => {
+      const next = prev.includes(feedKey(it)) ? prev : [...prev, feedKey(it)];
+      try {
+        localStorage.setItem(FEED_SUPPRESS_KEY, JSON.stringify(next));
+      } catch {
+        /* 存储不可用时仅本次会话生效 */
+      }
+      return next;
+    });
+  }, []);
 
   // 闲置提示：≥3 分钟无互动且未开面板/气泡时弹一次（30s 巡检）——招呼气泡仅此处出现
   useEffect(() => {
@@ -215,6 +252,9 @@ export function AiPet() {
       >
         <span className="ai-ball"><PetSvg mood={mood} /></span>
         <span className="ai-fab-name">小元</span>
+        {!open && visibleCount > 0 ? (
+          <span className="ai-badge" aria-label={`${visibleCount} 条待提醒`}>{visibleCount > 99 ? "99+" : visibleCount}</span>
+        ) : null}
       </button>
       {bubble && !open ? (
         <div
@@ -230,13 +270,33 @@ export function AiPet() {
           <small className="bubble-hint">点击直接对话 →</small>
         </div>
       ) : null}
-      {open ? <AiPanel chat={chat} onClose={() => setOpen(false)} /> : null}
+      {open ? (
+        <AiPanel
+          chat={chat}
+          feedItems={visibleItems}
+          feedPending={feed.isPending}
+          onSuppress={suppressItem}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
     </>
   );
 }
 
 
-function AiPanel({ chat, onClose }: { chat: AiChatMutation; onClose: () => void }) {
+function AiPanel({
+  chat,
+  feedItems,
+  feedPending,
+  onSuppress,
+  onClose,
+}: {
+  chat: AiChatMutation;
+  feedItems: FeedItem[];
+  feedPending: boolean;
+  onSuppress: (it: FeedItem) => void;
+  onClose: () => void;
+}) {
   const location = useLocation();
   const navigate = useNavigate();
   const [tab, setTab] = useState<"chat" | "context">("chat");
@@ -318,6 +378,55 @@ function AiPanel({ chat, onClose }: { chat: AiChatMutation; onClose: () => void 
           <X size={16} />
         </button>
       </div>
+
+      {/** §19.3 今日提醒卡（置顶）：类型图标+标题+来源+紧急度色；点击直跳处理页；×=不再提醒本条 */}
+      <div className="ai-reminders">
+        <div className="ai-reminders-head">
+          <span className="section-label">今日提醒 · {feedItems.length}</span>
+          {feedPending ? <small className="list-note">提醒加载中…</small> : null}
+        </div>
+        {!feedPending && feedItems.length === 0 ? <p className="ai-remind-empty">今日无待办，喝口水吧</p> : null}
+        <div className="ai-remind-list">
+          {feedItems.map((it) => (
+            <div
+              key={feedKey(it)}
+              className={`ai-remind-row urgency-${it.urgency}`}
+              role="link"
+              tabIndex={0}
+              title="点击直达处理页"
+              onClick={() => {
+                onClose();
+                navigate(it.link);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onClose();
+                  navigate(it.link);
+                }
+              }}
+            >
+              <DomainIconBlock domain={it.icon} size={22} iconSize={13} />
+              <div className="p9a-queue-main">
+                <strong>{it.title}</strong>
+                <small>{it.sourceLabel}</small>
+              </div>
+              <button
+                type="button"
+                className="icon-button ai-remind-dismiss"
+                aria-label="不再提醒本条"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSuppress(it);
+                }}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="p9a-wizard-tabs ai-panel-tabs" role="tablist" aria-label="面板页签">
         <button role="tab" aria-selected={tab === "chat"} className={tab === "chat" ? "active" : ""} onClick={() => setTab("chat")}>对话</button>
         <button role="tab" aria-selected={tab === "context"} className={tab === "context" ? "active" : ""} onClick={() => setTab("context")}>本次将发送的上下文</button>

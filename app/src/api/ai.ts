@@ -65,6 +65,21 @@ export function useAiMyUsage(enabled = true) {
   return useQuery(trpc.ai.myUsage.queryOptions({}, { enabled }));
 }
 
+/**
+ * 小元主动提醒（arch/12 §19.3）：ai.assistant.feed 六类聚合（只读不审计）。
+ * 随壳常驻以支撑宠物红点计数：60s 静默轮询，页面不可见时暂停（refetchIntervalInBackground=false）。
+ */
+export function useAssistantFeed(enabled = true) {
+  const trpc = useTRPC();
+  return useQuery(
+    trpc.ai.assistant.feed.queryOptions(undefined, {
+      enabled,
+      refetchInterval: 60_000,
+      refetchIntervalInBackground: false,
+    }),
+  );
+}
+
 export function useAiUsageAdmin(enabled = true) {
   const trpc = useTRPC();
   return useQuery(trpc.ai.usageAdmin.queryOptions({ limit: 50 }, { enabled }));

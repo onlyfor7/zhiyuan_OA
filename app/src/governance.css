@@ -2403,3 +2403,21 @@ h2, .context-heading h2, .section-heading h2 { font-size: var(--fs-h2); }
 @media (max-width: 820px) {
   .ai-bubble-pop { right: 14px; bottom: 86px; left: 14px; width: auto; }
 }
+
+/* —— 迭代15-03 §19.3 主动提醒：红点计数徽标+今日提醒卡 —— */
+.ai-badge { position: absolute; top: -5px; right: -3px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #dc2626; color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; box-shadow: 0 0 0 2px #fff; animation: ai-badge-pop 200ms var(--ease); }
+@keyframes ai-badge-pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.ai-reminders { flex: 0 0 auto; max-height: 42%; display: flex; flex-direction: column; border-bottom: 1px solid #eef0f3; padding: 8px 14px 10px; }
+.ai-reminders-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.ai-remind-empty { margin: 4px 0 2px; color: var(--muted); font-size: 12px; text-align: center; padding: 8px 0; background: #f8fafc; border-radius: 8px; }
+.ai-remind-list { overflow-y: auto; min-height: 0; display: grid; gap: 6px; padding-right: 2px; }
+.ai-remind-row { position: relative; display: flex; align-items: center; gap: 8px; border: 1px solid #edf0f4; border-left-width: 3px; border-radius: 8px; padding: 7px 9px; cursor: pointer; transition: background 120ms ease-out, border-color 120ms ease-out; }
+.ai-remind-row:hover { background: #f8fafc; }
+.ai-remind-row.urgency-danger { border-left-color: #dc2626; }
+.ai-remind-row.urgency-warn { border-left-color: #f59e0b; }
+.ai-remind-row .p9a-queue-main { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.ai-remind-row .p9a-queue-main strong { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ai-remind-row .p9a-queue-main small { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ai-remind-dismiss { margin-left: auto; flex: 0 0 auto; width: 20px; height: 20px; opacity: 0; transition: opacity 120ms ease-out; }
+.ai-remind-row:hover .ai-remind-dismiss, .ai-remind-row:focus-within .ai-remind-dismiss { opacity: .75; }
+.ai-remind-dismiss:hover { opacity: 1 !important; background: #fee2e2; color: #dc2626; }
