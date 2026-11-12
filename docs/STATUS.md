@@ -117,8 +117,8 @@
 | 工单 | 会话 | 状态 | 认领人 | 日期 | 备注 |
 |---|---|---|---|---|---|
 | 17-00 总览 | — | 已发布 | 架构 | 2026-11-12 | 用户选定五项 |
-| 17-01 e2e 创建物自清 | 测试 | **通过** | 测试会话 | 2026-11-12 | prod 两轮 e2e 全量 16/16+12 域计数三轮一致零增长——自清根治达成 |
-| 17-02 项目流编辑端点+SSE 底座+参照端点 | 后端 | 未解锁 | — | — | §20.2/20.3/20.4 部分 |
+| 17-01 e2e 创建物自清 | 测试 | **通过** | 测试会话 | 2026-11-12 | 架构验收：根 305 全绿+两轮零增长证据采信（12 域三轮快照全一致）——prod 自增殖机制性根治 |
+| 17-02 项目流编辑端点+SSE 底座+参照端点 | 后端 | 待认领 | — | 2026-11-12 | 依赖 01（已过）：§20.2/20.3/20.4 部分 |
 | 17-03 设计器复用+SSE 接入+观察项清零 | 前端 | 未解锁 | — | — | 依赖 02 |
 | 17-04 移动端专项 | 前端 | 未解锁 | — | — | D5 落地三档 redesign |
 | 17-05 验收+手册 v2.5 | 测试 | 未解锁 | — | — | 依赖 04；含发布窗口 |
@@ -384,6 +384,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-12｜架构｜迭代17-01通过｜**工单 01（e2e 创建物自清）验收通过，解锁 17-02（后端会话）。** 实测：根测试 305/305 全绿；自清机制采信——统一 sweeper（多角色会话创建窗口双过滤+各域语义闭环+多级审批 reject 消化）+尾部钩子挂 21 spec（finally 失败也清）、prod 两轮 e2e 全量 16/16 后 12 域未结计数三轮快照全一致（零增长口径达成，历史基线残留如实冻结注明）。**prod 不再需要定期重置兜底。**
 
 - 2026-11-12｜测试｜迭代17-01｜**工单 17-01（e2e 创建物自清根治，arch/12 §20.1）完成，转待验收。** ① **统一 sweeper**（`e2e/specs/e2e-cleanup.ts`）：多角色 HTTP 会话按创建窗口（spec 加载时刻±6min 固定窗）+命名 stamp 双过滤，各域既有语义闭环——待审批按当前步审批人 reject（5 轮消化多级流+角色映射）/费用·出差·申请单·经费 withdraw（member 口径）/会议取消/线索作废/商机 markLost（partner）/收款作废冲正+发票红冲（finance）；应收 generate 幂等零新增；**审计 append-only 不动**。② **尾部钩子** `installE2eSelfClean()`（test.afterAll=失败也清 finally 语义）挂 **21 个 spec**（e2e-01~16+iter7–16 各验收+9d-375+历史一次性）。③ **冒烟自测**（e2e-selfclean-selftest）：造线索+费用→清扫→断言闭环 PASS（expense.withdraw×1|lead.disqualify×1）。④ **回归**：根 **305/305**；十五 spec 批 dev **83 passed 零失败**（钩子批内日志实证 lead.disqualify/travel.withdraw/opp.markLost 等）；e2e dev **16/16**（钩子激活）。⑤ **验收口径实证**：prod 连跑两轮 e2e 全量 **均 16/16**（r1=0/r2=0），**12 域未结计数三轮快照逐域完全一致**（approval.pending 8/expense.open 8/receipt.registered 2/receivable.open 2/invoice.active 1/lead.open 3/opp.open 1/travel.open 1/request.open 0/funding.open 0/meeting.planned 1/project.total 5）=**零增长达成**，prod 不再需要定期重置兜底。⑥ **口径记录**：费用 draft=私有工作副本无删除端点不入未决口径（未决=待审/被退回/在途）；travel/funding/request 在途=submitted/pending；基线含机制上线前历史残留（冻结为基线，机制保证此后零新增）。报告：`docs/测试报告/迭代17-01-e2e自清报告.md`。
 
