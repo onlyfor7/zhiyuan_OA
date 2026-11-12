@@ -1,3 +1,7 @@
+/**
+ * 治理周报域路由（arch/12 §20.4 命名分层裁定）：单数 `report.*` = 项目治理周报（arch/04 §8），
+ * 与复数 `reports.*`（报表中心九报表，arch/12 §8）是两套并存的分层命名——裁定：注释注明分层，不迁代码防破。
+ */
 import { z } from "zod";
 
 import { authedMutation, authedProcedure, router } from "../trpc";

@@ -3,6 +3,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import type { NotificationEventType } from "@lexflow/shared";
 
 import { notifications } from "../db/schema";
+import { emitEvent } from "../lib/events";
 import type { DbOrTx } from "../trpc/context";
 
 /**
@@ -41,6 +42,14 @@ export async function notify(db: DbOrTx, input: NotifyInput): Promise<void> {
       aggregateKey,
     })
     .onConflictDoNothing();
+  // SSE 实时化（arch/12 §20.3）：新通知事件（防重冲突未插入也发——事件为「提醒级」，前端以轮询兜底校准）
+  emitEvent({
+    type: "notification.created",
+    userId: input.recipientId,
+    eventType: input.eventType,
+    sourceType: input.sourceType,
+    sourceId: input.sourceId,
+  });
 }
 
 /** 业务动作完成后同步 handled（不靠用户手动已读替代处理，arch/04 §6） */

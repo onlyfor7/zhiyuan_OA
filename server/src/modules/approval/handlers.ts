@@ -35,6 +35,7 @@ import { BusinessError } from "../../lib/errors";
 import type { DbOrTx } from "../../trpc/context";
 import { registerHandler, type ApprovalInstanceRow } from "../../services/approval/engine";
 import { notify } from "../../modules/notify";
+import { emitEvent } from "../../lib/events";
 
 /**
  * 审批引擎业务处理器（arch/04 §4 registerHandler 契约）：
@@ -596,6 +597,8 @@ export function registerFinanceHandlers(): void {
         .update(expenseReports)
         .set({ status: "rejected", updatedAt: new Date().toISOString() })
         .where(and(eq(expenseReports.id, instance.bizId), eq(expenseReports.status, "pending_approval")));
+      // 小元提醒实时化（§20.3）：申请人 feed 出现「被退回」danger 条目
+      emitEvent({ type: "assistant.feed", userId: instance.applicantId, reason: "expense_rejected" });
     },
     async onWithdrawn(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
       await tx
@@ -724,6 +727,8 @@ export function registerTimesheetHandler(): void {
           rowVersion: sql`${timesheetPeriods.rowVersion} + 1`,
         })
         .where(and(eq(timesheetPeriods.id, instance.bizId), eq(timesheetPeriods.status, "pending_approval")));
+      // 小元提醒实时化（§20.3）：填报人 feed 出现「被退回待重报」danger 条目
+      emitEvent({ type: "assistant.feed", userId: instance.applicantId, reason: "timesheet_returned" });
     },
     async onWithdrawn(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
       await tx

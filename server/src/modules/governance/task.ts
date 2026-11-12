@@ -5,6 +5,7 @@ import { ERROR_CODE } from "@lexflow/shared";
 import { milestones, projectMembers, stages, tasks, users } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
+import { emitEvent } from "../../lib/events";
 import { requireProjectMember, requireProjectRead } from "../../services/access";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
@@ -144,6 +145,14 @@ export async function createTask(
     })
     .returning({ id: tasks.id, code: tasks.code });
   if (!task) throw new Error("任务插入失败");
+  // 小元提醒实时化（§20.3）：临期任务（截止不晚于明天）——指派人 feed 出现「任务临期」条目
+  if (input.assigneeId) {
+    const tomorrow = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    if (new Date(`${input.plannedEnd}T00:00:00Z`).getTime() <= tomorrow.getTime()) {
+      emitEvent({ type: "assistant.feed", userId: input.assigneeId, reason: "task_near" });
+    }
+  }
   return task;
 }
 

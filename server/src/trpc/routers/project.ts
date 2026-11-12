@@ -255,10 +255,24 @@ export const projectRouter = router({
     publish: authedMutation
       .input(z.object({ projectId: z.uuid(), id: z.uuid(), idempotencyKey: z.uuid() }))
       .mutation(({ ctx, input }) => projectFlows.publishProjectFlow(ctx.db, ctx.user, input)),
+    updateDraft: authedMutation
+      .input(
+        z.object({
+          projectId: z.uuid(),
+          id: z.uuid(),
+          rowVersion: z.number().int().min(0),
+          name: z.string().trim().min(1, "流程名称必填").max(200).optional(),
+          definitionJson: z.record(z.string(), z.unknown()).optional(),
+        }),
+      )
+      .mutation(({ ctx, input }) => projectFlows.updateProjectFlowDraft(ctx.db, ctx.user, input)),
     disable: authedMutation
       .input(z.object({ projectId: z.uuid(), id: z.uuid(), rowVersion: z.number().int().min(0) }))
       .mutation(({ ctx, input }) => projectFlows.disableProjectFlow(ctx.db, ctx.user, input)),
   }),
+
+  /** 财务域项目参照清单（arch/12 §20.4：finance/partner 可见清单，其他角色同形 404） */
+  financeOptions: authedProcedure.query(({ ctx }) => service.financeOptions(ctx.db, ctx.user)),
 
   close: authedMutation
     .input(z.object({ projectId: z.uuid(), rowVersion: z.number().int().min(0) }))

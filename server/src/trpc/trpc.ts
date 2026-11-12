@@ -4,6 +4,7 @@ import { initTRPC } from "@trpc/server";
 import { db } from "../db/client";
 import { BusinessError, formatTrpcError } from "../lib/errors";
 import { recordAudit } from "../services/audit";
+import { flushEvents, runWithEventBuffer } from "../lib/events";
 
 import type { Context } from "./context";
 
@@ -49,18 +50,23 @@ const sessionMiddleware = t.middleware(async ({ ctx, next }) => {
 });
 
 /** mutation 全程在单事务内执行；ctx.db 由连接池换成事务句柄（arch/00 §3.11）。
- *  tRPC v11 中间件 next() 以 {ok} 结果对象传递错误（不抛出），失败须显式抛错回滚。 */
+ *  tRPC v11 中间件 next() 以 {ok} 结果对象传递错误（不抛出），失败须显式抛错回滚。
+ *  事件总线（arch/12 §20.3）：事务提交成功后 flush 请求缓冲的 SSE 事件，回滚则整批丢弃。 */
 const transactionMiddleware = t.middleware(async ({ ctx, next }) => {
   if (ctx.db !== db) {
     return next(); // 已在事务中（嵌套调用防重）
   }
-  return db.transaction(async (tx) => {
-    const result = await next({ ctx: { ...ctx, db: tx } });
-    if (!result.ok) {
-      throw result.error; // 使事务回滚；调用方按原样收到该错误
-    }
-    return result;
-  });
+  const { result, events } = await runWithEventBuffer(() =>
+    db.transaction(async (tx) => {
+      const result = await next({ ctx: { ...ctx, db: tx } });
+      if (!result.ok) {
+        throw result.error; // 使事务回滚；调用方按原样收到该错误
+      }
+      return result;
+    }),
+  );
+  flushEvents(events); // 仅事务 COMMIT 成功后到达此处
+  return result;
 });
 
 /** 变更类 mutation 自动写 audit_events（arch/02 §7）；actor/ip/session_id 取自 ctx。

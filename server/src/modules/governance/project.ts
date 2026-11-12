@@ -652,3 +652,17 @@ export async function listTemplates(db: DbOrTx) {
     .where(eq(projectTemplates.enabled, true))
     .orderBy(projectTemplates.name);
 }
+
+/**
+ * 财务域项目参照清单（arch/12 §20.4）：finance/partner 项目下拉数据源（最小字段，无业务内容）；
+ * 与 receipts.projectOptions 同口径双胞胎（收款登记下拉）——其他角色同形 404。
+ */
+export async function financeOptions(db: DbOrTx, user: SessionUser) {
+  if (!(user.globalRoles.includes("finance") || user.globalRoles.includes("partner"))) {
+    throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "财务项目清单不存在或无权访问");
+  }
+  return db
+    .select({ id: projects.id, code: projects.code, name: projects.name })
+    .from(projects)
+    .orderBy(projects.code);
+}

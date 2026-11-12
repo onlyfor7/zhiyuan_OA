@@ -14,6 +14,7 @@ import {
 } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
+import { emitEvent } from "../../lib/events";
 import { requireProjectMember, requireProjectRead } from "../../services/access";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
@@ -282,6 +283,12 @@ export async function createMeeting(
     .returning({ id: meetings.id, code: meetings.code });
   if (!meeting) throw new Error("会议插入失败");
   await insertParticipants(db, meeting.id, input.participants, user.id);
+  // 小元提醒实时化（§20.3）：30 分钟内开始的会议——参会人 feed 出现「会议临近」条目
+  if (new Date(input.startAt).getTime() <= Date.now() + 30 * 60_000) {
+    for (const p of input.participants) {
+      if (p.userId) emitEvent({ type: "assistant.feed", userId: p.userId, reason: "meeting_near" });
+    }
+  }
   return meeting;
 }
 

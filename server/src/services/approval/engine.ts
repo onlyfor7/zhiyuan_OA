@@ -7,6 +7,7 @@ import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
 import type { DbOrTx } from "../../trpc/context";
 import { notify } from "../../modules/notify";
+import { emitEvent } from "../../lib/events";
 import { compileFlow, findEnabledFlow, resolveConfigValue } from "./flow";
 
 /**
@@ -353,7 +354,7 @@ export async function submit(db: DbOrTx, input: SubmitInput): Promise<ApprovalIn
     });
   }
 
-  // 通知当前步骤审批人（arch/04 §6 approval_pending）
+  // 通知当前步骤审批人（arch/04 §6 approval_pending）；SSE 待办+小元提醒事件（arch/12 §20.3）
   const firstGroup = groupKey(steps[0].seq);
   for (const step of steps.filter((s) => groupKey(s.seq) === firstGroup)) {
     await notify(db, {
@@ -363,6 +364,8 @@ export async function submit(db: DbOrTx, input: SubmitInput): Promise<ApprovalIn
       sourceId: input.bizId,
       payload: { approvalInstanceId: instance.id, code: instance.code },
     });
+    emitEvent({ type: "approval.todo", userId: step.candidates[0], instanceId: instance.id, code: instance.code, bizType: input.bizType });
+    emitEvent({ type: "assistant.feed", userId: step.candidates[0], reason: "approval_pending" });
   }
 
   return instance as ApprovalInstanceRow;
@@ -478,6 +481,7 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
     await finalize(db, instance, "rejected");
     const handler = handlers.get(instance.bizType);
     if (handler) await handler.onRejected(db, instance);
+    emitEvent({ type: "assistant.feed", userId: instance.applicantId, reason: "approval_result" });
     return { instance: await loadInstance(db, instance.id), applied: true };
   }
 
@@ -534,6 +538,8 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
           sourceId: instance.bizId,
           payload: { approvalInstanceId: instance.id, code: instance.code },
         });
+        emitEvent({ type: "approval.todo", userId: s.approverId, instanceId: instance.id, code: instance.code, bizType: instance.bizType });
+        emitEvent({ type: "assistant.feed", userId: s.approverId, reason: "approval_pending" });
       }
     }
     return { instance: await loadInstance(db, instance.id), applied: true };
@@ -553,6 +559,7 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
       payload: { approvalInstanceId: instance.id, result: "approved" },
     });
   }
+  emitEvent({ type: "assistant.feed", userId: instance.applicantId, reason: "approval_result" });
   return { instance: await loadInstance(db, instance.id), applied: true };
 }
 

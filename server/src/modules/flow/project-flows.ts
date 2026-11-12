@@ -1,10 +1,11 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 import { ERROR_CODE } from "@lexflow/shared";
 
 import { flowDefinitions } from "../../db/schema";
 import { BusinessError } from "../../lib/errors";
 import { disableFlowRow, insertFlowDraftRow, publishFlowRow } from "./designer";
+import { validateFlowStructure } from "../../services/approval/flow";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
 
@@ -80,6 +81,40 @@ export async function publishProjectFlow(
   await requireProjectFlowAdmin(user, input.projectId);
   const row = await loadProjectFlow(db, input.projectId, input.id);
   return publishFlowRow(db, user.id, row, input.idempotencyKey);
+}
+
+/** 项目流草稿编辑（arch/12 §20.2）：负责人门+行属本项目+仅草稿可改（已发布须先停用产新版本）；
+ *  definitionJson 保存即服务端校验（同系统级 FLOW_INVALID）；乐观锁 rowVersion；审计随 authedMutation 同事务。 */
+export async function updateProjectFlowDraft(
+  db: DbOrTx,
+  user: SessionUser,
+  input: {
+    projectId: string;
+    id: string;
+    rowVersion: number;
+    name?: string;
+    definitionJson?: Record<string, unknown>;
+  },
+) {
+  await requireProjectFlowAdmin(user, input.projectId);
+  const row = await loadProjectFlow(db, input.projectId, input.id);
+  if (row.enabled) {
+    throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "已发布流程不可修改（须先停用再产新版本）");
+  }
+  if (input.definitionJson) validateFlowStructure(input.definitionJson);
+  const [updated] = await db
+    .update(flowDefinitions)
+    .set({
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.definitionJson !== undefined ? { definitionJson: input.definitionJson } : {}),
+      updatedBy: user.id,
+      updatedAt: new Date().toISOString(),
+      rowVersion: sql`${flowDefinitions.rowVersion} + 1`,
+    })
+    .where(and(eq(flowDefinitions.id, row.id), eq(flowDefinitions.rowVersion, input.rowVersion)))
+    .returning();
+  if (!updated) throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "数据已被他人修改，请刷新后重试");
+  return updated;
 }
 
 export async function disableProjectFlow(

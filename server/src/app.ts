@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 
 import { Hono } from "hono";
+import { getCookie } from "hono/cookie";
+import { streamSSE } from "hono/streaming";
 import { trpcServer } from "@hono/trpc-server";
 
 import { db, requestContext } from "./db/client";
@@ -9,6 +11,8 @@ import { filesRoute } from "./routes/files";
 import { createContext } from "./trpc/context";
 import { appRouter } from "./trpc/routers";
 import { registerApprovalHandlers } from "./modules/approval/handlers";
+import { SESSION_COOKIE, resolveSession } from "./modules/auth/session";
+import { subscribeEvents } from "./lib/events";
 
 /**
  * Hono app 装配（arch/00 §2）：/health、/trpc/*（tRPC）、/files/*（原生文件路由）。
@@ -38,6 +42,48 @@ export function buildApp(): Hono<{ Variables: { requestId: string } }> {
   });
 
   app.get("/health", (c) => c.json({ ok: true }));
+
+  /**
+   * SSE 实时事件流（arch/12 §20.3）：会话 cookie 鉴权（同 tRPC 会话解析），
+   * 进程内事件总线按用户扇出（notification.created / approval.todo / assistant.feed）；
+   * 心跳 25s 防代理静默断链。单进程形态——多实例换 PG LISTEN/NOTIFY（见 lib/events.ts 留坑注释）。
+   */
+  app.get("/events", async (c) => {
+    const resolved = await resolveSession(db, getCookie(c, SESSION_COOKIE));
+    if (!resolved) {
+      return c.json(
+        {
+          error: {
+            message: "未登录或会话已失效",
+            code: -32001,
+            data: { businessCode: ERROR_CODE.AUTH_REQUIRED, requestId: c.get("requestId") ?? "unknown" },
+          },
+        },
+        401,
+      );
+    }
+    const userId = resolved.user.id;
+    return streamSSE(c, async (stream) => {
+      const unsubscribe = subscribeEvents(userId, (event) => {
+        void stream.writeSSE({ event: event.type, data: JSON.stringify(event) }).catch(() => {});
+      });
+      // 心跳 25s（SSE 注释行 ": ping"——客户端 EventSource 自动忽略，防中间代理断链）
+      const heartbeat = setInterval(() => {
+        void stream.write(": ping\n\n").catch(() => {});
+      }, 25_000);
+      if (typeof heartbeat.unref === "function") heartbeat.unref();
+      const cleanup = () => {
+        clearInterval(heartbeat);
+        unsubscribe();
+      };
+      c.req.raw.signal.addEventListener("abort", cleanup, { once: true });
+      // 保持连接直到客户端断开（真实 HTTP 断开触发 abort；单进程形态无跨实例广播）
+      while (!c.req.raw.signal.aborted) {
+        await stream.sleep(1_000);
+      }
+      cleanup();
+    });
+  });
 
   // R5 修复：方法不匹配在过程执行前发生（logging 中间件挂载在过程级），此处统一前置拦截：
   // query 仅 GET / mutation 仅 POST（batch 请求放行由适配器自理），405 + 带 requestId 的落日志

@@ -15,6 +15,7 @@ import {
 } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
+import { emitEvent } from "../../lib/events";
 import { can } from "../../services/access";
 import { recordAudit } from "../../services/audit";
 import type { DbOrTx } from "../../trpc/context";
@@ -180,6 +181,18 @@ export async function generateReceivables(db: DbOrTx, user: SessionUser, ip: str
     }
   }
   await recordAudit(db, { actorId: user.id, sessionId, action: "fin.receivables.generate", targetType: "fin_receivable", targetId: null, result: "success", afterJson: { created }, ip });
+  // 小元提醒实时化（§20.3）：新应收→fin.read 口径用户（finance/partner/项目负责人）feed 出现回款提醒
+  if (created > 0) {
+    const { resolveRoleCandidates } = await import("../../services/approval/engine");
+    const seen = new Set<string>();
+    for (const role of ["finance", "partner", "project_manager"]) {
+      for (const uid of await resolveRoleCandidates(db, role, null)) {
+        if (seen.has(uid)) continue;
+        seen.add(uid);
+        emitEvent({ type: "assistant.feed", userId: uid, reason: "receivable_created" });
+      }
+    }
+  }
   return { created };
 }
 
