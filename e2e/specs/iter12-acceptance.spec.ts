@@ -4,6 +4,8 @@
  * 注意：小元悬浮钮有呼吸无限动画（ai-breathe）——一律 dispatchEvent 点击绕开动作性等待。 */
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
+import { installE2eSelfClean } from "./e2e-cleanup";
+installE2eSelfClean();
 
 const B = process.env.LX_BASE ?? "http://localhost:8080";
 const SHOTS = "D:/tmp/shots-iter12-test";

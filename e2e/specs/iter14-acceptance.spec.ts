@@ -3,6 +3,8 @@
  * F3 合规：开跑前确认无其他测试会话在跑。截图 D:/tmp/shots-iter14-test/。 */
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
+import { installE2eSelfClean } from "./e2e-cleanup";
+installE2eSelfClean();
 
 const B = process.env.LX_BASE ?? "http://localhost:8080";
 const SHOTS = "D:/tmp/shots-iter14-test";

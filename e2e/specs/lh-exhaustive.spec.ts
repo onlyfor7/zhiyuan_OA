@@ -2,6 +2,8 @@
  * S0–S16 时序剧本；截图 D:/tmp/shots-lh/；步骤日志 step-log.json 供报告生成。 */
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { installE2eSelfClean } from "./e2e-cleanup";
+installE2eSelfClean();
 
 const SHOTS = "D:/tmp/shots-lh";
 const B = "http://localhost:8080";

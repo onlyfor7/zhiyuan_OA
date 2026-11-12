@@ -2,6 +2,8 @@
  * 截图续存 D:/tmp/shots-jlq/（R- 前缀）。 */
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
+import { installE2eSelfClean } from "./e2e-cleanup";
+installE2eSelfClean();
 
 const SHOTS = "D:/tmp/shots-jlq";
 const B = process.env.JLQ_BASE ?? "http://localhost:8080";

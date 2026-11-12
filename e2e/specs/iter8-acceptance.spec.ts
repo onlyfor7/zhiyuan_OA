@@ -2,6 +2,8 @@
  * 截图 D:/tmp/shots-iter8-accept/。回归：根 253 + e2e-01-16（已迁移名单）+ 375px。 */
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
+import { installE2eSelfClean } from "./e2e-cleanup";
+installE2eSelfClean();
 
 const B = process.env.LX_BASE ?? "http://localhost:3000"; // 9b-04 起默认 dev（prod 形态已演进，历史验收以 dev 现行为准）
 const SHOTS = "D:/tmp/shots-iter8-accept";

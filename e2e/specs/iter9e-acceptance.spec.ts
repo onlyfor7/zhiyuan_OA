@@ -3,6 +3,8 @@
  * 留意：T6 为 polish 核认（漏斗「（分）」标签与元值矛盾）——断言当前问题态；修复后翻转断言。 */
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync, readFileSync } from "node:fs";
+import { installE2eSelfClean } from "./e2e-cleanup";
+installE2eSelfClean();
 
 const B = process.env.LX_BASE ?? "http://localhost:8080";
 const SHOTS = "D:/tmp/shots-iter9e-test";

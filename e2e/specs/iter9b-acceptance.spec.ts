@@ -3,6 +3,8 @@
  * 截图 D:/tmp/shots-iter9b/。 */
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
+import { installE2eSelfClean } from "./e2e-cleanup";
+installE2eSelfClean();
 
 const B = process.env.LX_BASE ?? "http://localhost:3000";
 const SHOTS = "D:/tmp/shots-iter9b";
