@@ -172,7 +172,7 @@ function sqlForUsage(scope: "user" | "admin", userId: string | null, limit = 200
              count(*)::int AS calls, sum(tokens_in)::int AS tokens_in, sum(tokens_out)::int AS tokens_out
       FROM ai_usage_events
       WHERE user_id = ${userId} AND created_at >= now() - interval '30 days'
-      GROUP BY 1, 2 ORDER BY 1 DESC, 4 + 5 DESC
+      GROUP BY 1, 2 ORDER BY 1 DESC, (sum(tokens_in) + sum(tokens_out)) DESC
       LIMIT ${limit}
     `;
   }
@@ -181,7 +181,7 @@ function sqlForUsage(scope: "user" | "admin", userId: string | null, limit = 200
            count(*)::int AS calls, sum(e.tokens_in)::int AS tokens_in, sum(e.tokens_out)::int AS tokens_out
     FROM ai_usage_events e JOIN users u ON u.id = e.user_id
     WHERE e.created_at >= now() - interval '30 days'
-    GROUP BY 1, 2, 3 ORDER BY 5 + 6 DESC
+    GROUP BY 1, 2, 3 ORDER BY (sum(e.tokens_in) + sum(e.tokens_out)) DESC
     LIMIT ${limit}
   `;
 }
