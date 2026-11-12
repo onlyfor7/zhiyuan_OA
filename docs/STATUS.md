@@ -118,8 +118,8 @@
 |---|---|---|---|---|---|
 | 17-00 总览 | — | 已发布 | 架构 | 2026-11-12 | 用户选定五项 |
 | 17-01 e2e 创建物自清 | 测试 | **通过** | 测试会话 | 2026-11-12 | 架构验收：根 305 全绿+两轮零增长证据采信（12 域三轮快照全一致）——prod 自增殖机制性根治 |
-| 17-02 项目流编辑端点+SSE 底座+参照端点 | 后端 | **待验收** | 后端会话 | 2026-11-12 | 分支 iter17/server-realtime；updateDraft 四探针+/events 事务发事件+financeOptions 两形态+本人口径翻转；根 309 全绿；e2e 16/16 |
-| 17-03 设计器复用+SSE 接入+观察项清零 | 前端 | 未解锁 | — | — | 依赖 02 |
+| 17-02 项目流编辑端点+SSE 底座+参照端点 | 后端 | **通过** | 后端会话 | 2026-11-12 | 架构验收：根 309 全绿+三端点实弹（updateDraft 守卫/SSE 流头/financeOptions 两形态）+缓冲修复采信 |
+| 17-03 设计器复用+SSE 接入+观察项清零 | 前端 | 待认领 | — | 2026-11-12 | 依赖 02（已过）：§20.2/20.3 接入+§20.4 前端部分 |
 | 17-04 移动端专项 | 前端 | 未解锁 | — | — | D5 落地三档 redesign |
 | 17-05 验收+手册 v2.5 | 测试 | 未解锁 | — | — | 依赖 04；含发布窗口 |
 
@@ -384,6 +384,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-12｜架构｜迭代17-02通过｜**工单 02（项目流编辑端点+SSE 底座+参照端点）验收通过，解锁 17-03（前端会话）。** 实测：根测试 309/309（286+23）全绿；实弹——project.financeOptions finance 200 全量清单/viewer 404 两形态，/events 200 text/event-stream+no-cache 流头。其关键排障采信：runWithEventBuffer 事务未竟即 flush 空缓冲丢事件——改 await fn() 后返回缓冲（提交成功才 flush、回滚整批丢弃），属正确性修复。
 
 - 2026-11-12｜后端｜迭代17-02｜**工单 02（项目流编辑+SSE 底座+参照端点+本人口径，arch/12 §20.2/20.3/20.4 后端部分）完成，转「待验收」。** ① `project.flows.updateDraft`（§20.2）：负责人门（project_role=manager）+行属本项目校验（他项目负责人也 404）+**仅草稿可改**（已发布 409「须先停用再产新版本」）+保存即 `validateFlowStructure`（同系统级 FLOW_INVALID 400）+乐观锁 rowVersion 409；审计随 authedMutation 同事务（探针用例查 audit_events 成功行）。② **SSE 底座**（§20.3）：新 `GET /events`（streamSSE；会话 cookie 经 `resolveSession` 鉴权，未登录 401 同形 AUTH_REQUIRED；心跳 25s 注释行 `: ping` 防代理断链；abort 清理订阅+定时器）。**进程内事件总线** `server/src/lib/events.ts`：transactionMiddleware 在事务**提交成功后** flush ALS 请求缓冲（回滚整批丢弃）——**关键修复：`runWithEventBuffer` 必须 `await fn()` 再返回缓冲**（初版同步返回 Promise 致 flush 早于提交、事件全丢，探针实证后修复）；多实例换 PG LISTEN/NOTIFY 已留坑注释。挂点：notify() 全量通知位（notification.created）+引擎 submit/act 首组与下一组审批人（approval.todo+assistant.feed）+终态 applicant（approval_result）+expense/timesheet 驳回 handler（expense_rejected/timesheet_returned）+会议创建 30min 窗口（meeting_near）+任务临期指派（task_near）+应收生成（receivable_created→finance/partner/pm 全角色）。③ `project.financeOptions`（§20.4）：finance/partner 参照级清单（id/code/name 最小字段按 code 排序），member/viewer/pm 同形 404（与 receipts.projectOptions 双胞胎口径）；reports/report 命名分层裁定=两路由头注释注明不迁代码。④ member 费用类别口径核实：9e-01 已落地本人口径 200（prod 404 系当时镜像滞后记录），本棒补**翻转用例**固化——member 恒 800000（种子本人 paid）不随他人单据放大，finance 全量 900000，viewer 空集 200 三形态。⑤ 用例 4 个（updateDraft 权限/守卫/审计七探针；SSE 连接+三事件到达+失败请求零事件；financeOptions 三角色两形态；口径翻转全链）。**根四道门逐条真实全绿**——typecheck/build exit 0、server **286=282+4**、根 test **309=305+4**；**e2e-01~16 dev 16/16**。dev 3001 已由本会话重启（新端点实测：financeOptions 404/200 两形态、/events 200 流、expenseCategory member 200）。分支 `iter17/server-realtime`。遗留：无；本棒不发 prod（随迭代 17 发布窗口由部署会话重建）。**交 17-03 前端**：设计器复用 updateDraft 打开即编辑；`/events` EventSource 订阅（CSP connect-src 'self' 已放行同源；断线回退 60s 轮询兜底在 §20.3）；通知中心/小元气泡接三事件类型；financeOptions 接 finance 项目下拉。
 - 2026-11-12｜架构｜迭代17-01通过｜**工单 01（e2e 创建物自清）验收通过，解锁 17-02（后端会话）。** 实测：根测试 305/305 全绿；自清机制采信——统一 sweeper（多角色会话创建窗口双过滤+各域语义闭环+多级审批 reject 消化）+尾部钩子挂 21 spec（finally 失败也清）、prod 两轮 e2e 全量 16/16 后 12 域未结计数三轮快照全一致（零增长口径达成，历史基线残留如实冻结注明）。**prod 不再需要定期重置兜底。**
