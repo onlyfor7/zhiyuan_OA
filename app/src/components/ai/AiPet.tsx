@@ -44,21 +44,21 @@ const CAP_LABEL: Record<string, string> = {
   answer: "A5 只读问答",
 };
 
-/** §19.1 圆球小宠物：圆润生物体+大眼；四态表情（normal/happy/thinking/busy）CSS 过渡切换 */
+/** §16-03 圆球小宠物（主蓝系 #2563eb：浅蓝高光→主蓝渐变，浅蓝腮红/肚皮）；四态表情（normal/happy/thinking/busy）CSS 过渡切换；尺寸由 CSS 控（桌面 52/375 40） */
 function PetSvg({ mood }: { mood: Mood }) {
   return (
-    <svg className={`ai-pet-svg ai-mood-${mood}`} viewBox="0 0 48 48" width="34" height="34" aria-hidden="true">
+    <svg className={`ai-pet-svg ai-mood-${mood}`} viewBox="0 0 48 48" aria-hidden="true">
       <defs>
         <radialGradient id="ai-ball-grad" cx="38%" cy="30%" r="80%">
-          <stop offset="0%" stopColor="#a78bfa" />
-          <stop offset="100%" stopColor="#6d28d9" />
+          <stop offset="0%" stopColor="#60a5fa" />
+          <stop offset="100%" stopColor="#2563eb" />
         </radialGradient>
       </defs>
       {/* 圆润生物体 */}
       <circle cx="24" cy="26" r="16" fill="url(#ai-ball-grad)" />
-      <ellipse cx="24" cy="31" rx="9.5" ry="6.5" fill="#c4b5fd" opacity=".45" />
-      <ellipse cx="15.5" cy="28.5" rx="2.6" ry="1.6" fill="#f0abfc" opacity=".55" />
-      <ellipse cx="32.5" cy="28.5" rx="2.6" ry="1.6" fill="#f0abfc" opacity=".55" />
+      <ellipse cx="24" cy="31" rx="9.5" ry="6.5" fill="#bfdbfe" opacity=".5" />
+      <ellipse cx="15.5" cy="28.5" rx="2.6" ry="1.6" fill="#bae6fd" opacity=".6" />
+      <ellipse cx="32.5" cy="28.5" rx="2.6" ry="1.6" fill="#bae6fd" opacity=".6" />
 
       {/* 常态：大眼+眨眼 */}
       <g className="ai-face ai-face-normal">
@@ -86,7 +86,7 @@ function PetSvg({ mood }: { mood: Mood }) {
         <circle cx="29" cy="24.5" r="4.6" fill="#fff" />
         <circle cx="20" cy="22.6" r="2.1" fill="#1f2937" />
         <circle cx="30" cy="22.6" r="2.1" fill="#1f2937" />
-        <path d="M26 18.4 q3 -1.6 6 .4" stroke="#f5d0fe" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+        <path d="M26 18.4 q3 -1.6 6 .4" stroke="#dbeafe" strokeWidth="1.4" fill="none" strokeLinecap="round" />
         <path d="M21.5 31.6 h5" stroke="#fff" strokeWidth="1.7" fill="none" strokeLinecap="round" />
       </g>
 
@@ -98,8 +98,8 @@ function PetSvg({ mood }: { mood: Mood }) {
       </g>
 
       {/* 俏皮点缀：星星魔法棒闪动 */}
-      <path className="ai-wave-star" d="M38.5 10.5 l1.6 3.6 3.6 1.6 -3.6 1.6 -1.6 3.6 -1.6 -3.6 -3.6 -1.6 3.6 -1.6 z" fill="#e9d5ff" />
-      <circle className="ai-spark" cx="9.5" cy="13" r="1.7" fill="#e9d5ff" opacity=".85" />
+      <path className="ai-wave-star" d="M38.5 10.5 l1.6 3.6 3.6 1.6 -3.6 1.6 -1.6 3.6 -1.6 -3.6 -3.6 -1.6 3.6 -1.6 z" fill="#dbeafe" />
+      <circle className="ai-spark" cx="9.5" cy="13" r="1.7" fill="#dbeafe" opacity=".85" />
     </svg>
   );
 }
@@ -211,18 +211,18 @@ export function AiPet() {
       drag.current.moved = true;
       setDragging(true);
     }
-    const x = Math.min(window.innerWidth - 64, Math.max(8, e.clientX - drag.current.dx));
-    const y = Math.min(window.innerHeight - 78, Math.max(8, e.clientY - drag.current.dy));
+    const x = Math.min(window.innerWidth - 76, Math.max(8, e.clientX - drag.current.dx));
+    const y = Math.min(window.innerHeight - 100, Math.max(8, e.clientY - drag.current.dy));
     setPos({ x, y });
   };
   const onPointerUp = () => {
     if (!drag.current) return;
     setDragging(false);
-    // 贴边停靠：距左/右缘 <48px 吸附（避让内容居中漂移）
+    // 贴边停靠：距左/右缘 <56px 吸附（宠物本体 52+热区=68，右停靠右缘贴 22px 与默认位一致）
     setPos((p) => {
       if (!p) return p;
       const snapped: PetPos =
-        p.x < 48 ? { ...p, x: 12 } : p.x > window.innerWidth - 112 ? { ...p, x: window.innerWidth - 68 } : p;
+        p.x < 56 ? { ...p, x: 12 } : p.x > window.innerWidth - 124 ? { ...p, x: window.innerWidth - 90 } : p;
       localStorage.setItem(POS_KEY, JSON.stringify(snapped));
       return snapped;
     });
@@ -267,8 +267,10 @@ export function AiPet() {
         <div
           className={`ai-remind-pop urgency-${queueItem.urgency}`}
           style={pos ? {
-            left: Math.max(8, Math.min(window.innerWidth - 276, pos.x - 284)),
+            left: Math.max(8, Math.min(window.innerWidth - 276, pos.x - 280)),
             top: Math.max(8, Math.min(window.innerHeight - 168, pos.y - 40)),
+            right: "auto",
+            bottom: "auto",
           } : undefined}
           role="dialog"
           aria-label={`提醒：${queueItem.title}`}
@@ -303,7 +305,7 @@ export function AiPet() {
       {bubble && !open && !queueItem ? (
         <div
           className="ai-bubble-pop"
-          style={pos ? { left: Math.max(8, Math.min(window.innerWidth - 260, pos.x - 190)), top: Math.max(8, pos.y - 108) } : undefined}
+          style={pos ? { left: Math.max(8, Math.min(window.innerWidth - 260, pos.x - 190)), top: Math.max(8, pos.y - 108), right: "auto", bottom: "auto" } : undefined}
           role="button"
           tabIndex={0}
           aria-label="打开小元对话"
