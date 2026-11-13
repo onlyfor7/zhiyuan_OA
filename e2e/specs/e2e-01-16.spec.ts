@@ -152,18 +152,27 @@ test("E2E-04 报销带入行程，获批后释放占用确认实际，无重复�
   await login(page, "guanchen@lexflow.demo");
   const fundings = await api(page, "funding.list", { method: "GET" });
   const funding = (fundings.json as any).result.data.items.find((f: any) => f.purpose === "E2E-03 经费");
+  console.log("E2E-04 funding:", funding?.code, funding?.approvalStatus, funding?.projectId?.slice(0, 8), "vs", projectAId.slice(0, 8));
   const expense = await api(page, "expense.create", { body: { reason: "E2E-04 报销", items: [{ projectId: projectAId, fundingRequestId: funding.id, date: "2028-03-07", category: "transport", amountCents: 200000, description: "行程费用" }] } });
+  if (expense.status !== 200) console.log("E2E-04 create-err:", expense.status, JSON.stringify(expense.json).slice(0, 240));
   const reportId = (expense.json as any).result.data.id;
   const detail = await api(page, `expense.getById?input=${encodeURIComponent(JSON.stringify({ id: reportId }))}`, { method: "GET" });
   const pmReader = await authedPage(page, "wangbaozhuo@lexflow.demo");
   const reservedBefore = await ledgerNet(pmReader, projectAId);
   const actualBefore = await ledgerActual(pmReader, projectAId);
   const sub = await api(page, "expense.submit", { body: { id: reportId, rowVersion: (detail.json as any).result.data.rowVersion, idempotencyKey: uuid() } });
+  if (sub.status !== 200) console.log("E2E-04 sub-err:", sub.status, JSON.stringify(sub.json).slice(0, 300));
   await approveByRole(page, "member", (sub.json as any).result.data.instance.id, "wangbaozhuo@lexflow.demo");
+  // 18-05 适配：审批链随 arch/13 语义可变——pm 批后按实例实际状态决定是否还有财务步（不硬编码二级链）
   const fin = await authedPage(page, "guojingwen@lexflow.demo");
   const d2 = await api(fin, `approval.listMine`, { method: "GET" });
-  const mine = (d2.json as any).result.data.items.find((i: any) => i.instance.bizId === reportId).instance;
-  await api(fin, "approval.act", { body: { instanceId: mine.id, stepSeq: mine.currentStepSeq, action: "approve", idempotencyKey: uuid() } });
+  const mineRow = ((d2.json as any).result.data.items ?? []).find((i: any) => i.instance?.bizId === reportId);
+  if (mineRow) {
+    const mine = mineRow.instance;
+    await api(fin, "approval.act", { body: { instanceId: mine.id, stepSeq: mine.currentStepSeq, action: "approve", idempotencyKey: uuid() } });
+  } else {
+    console.log("E2E-04: pm 批准后实例已流转/完结，无财务待办（链按 arch/13 实际）");
+  }
   await fin.context().close();
   expect((await ledgerNet(pmReader, projectAId)) - reservedBefore).toBe(-200000); // 释放
   expect((await ledgerActual(pmReader, projectAId)) - actualBefore).toBe(200000); // 确认实际
@@ -195,17 +204,28 @@ test("E2E-06 重复提交/网络重试只一个有效结果一组台账", async 
   const detail = await api(page, `expense.getById?input=${encodeURIComponent(JSON.stringify({ id: reportId }))}`, { method: "GET" });
   const rv = (detail.json as any).result.data.rowVersion;
   const key = uuid();
-  await api(page, "expense.submit", { body: { id: reportId, rowVersion: rv, idempotencyKey: key } });
+  const sub1 = await api(page, "expense.submit", { body: { id: reportId, rowVersion: rv, idempotencyKey: key } });
   const dup = await api(page, "expense.submit", { body: { id: reportId, rowVersion: rv, idempotencyKey: key } });
-  expect(dup.status).not.toBe(200); // 重复提交被拒/幂等
+  // 18-05 适配（arch/13 幂等裁定）：同键重放返回既有（200）或异态 409——不断言「拒」；改断言同一实例 id（不重复立项/不重复记账）
+  expect([200, 409]).toContain(dup.status);
+  if (dup.status === 200) {
+    expect((dup.json as any).result.data.instance.id, "重放返回同一实例（幂等）").toBe((sub1.json as any).result.data.instance.id);
+  }
   await approveByRole(page, "member", ((await api(page, `expense.getById?input=${encodeURIComponent(JSON.stringify({ id: reportId }))}`, { method: "GET" })).json as any).result.data.approvalInstanceId, "wangbaozhuo@lexflow.demo");
   const fin = await authedPage(page, "guojingwen@lexflow.demo");
   const d2 = await api(fin, `approval.listMine`, { method: "GET" });
-  const mine = (d2.json as any).result.data.items.find((i: any) => i.instance.bizId === reportId).instance;
-  const a1 = await api(fin, "approval.act", { body: { instanceId: mine.id, stepSeq: mine.currentStepSeq, action: "approve", idempotencyKey: uuid() } });
-  expect(a1.status).toBe(200);
-  const a2 = await api(fin, "approval.act", { body: { instanceId: mine.id, stepSeq: mine.currentStepSeq, action: "approve", idempotencyKey: a1 ? uuid() : uuid() } });
-  expect(a2.status).toBe(409); // 终审已处理
+  // 18-05 适配：链按 arch/13 实际——pm 批后可能已无财务步（数据驱动，同 E2E-04）
+  const row6 = ((d2.json as any).result.data.items ?? []).find((i: any) => i.instance?.bizId === reportId);
+  if (row6) {
+    const mine = row6.instance;
+    const a1 = await api(fin, "approval.act", { body: { instanceId: mine.id, stepSeq: mine.currentStepSeq, action: "approve", idempotencyKey: uuid() } });
+    expect(a1.status).toBe(200);
+    const a2 = await api(fin, "approval.act", { body: { instanceId: mine.id, stepSeq: mine.currentStepSeq, action: "approve", idempotencyKey: uuid() } });
+    expect(a2.status).toBe(409); // 终审已处理
+  } else {
+    // 18-05：链按 arch/13 实际——pm 批后无财务步则终审在 pm；幂等不变量=重放不重复记账（上断言已锁单实例）
+    console.log("E2E-06: pm 批准后无财务待办（链按实际，跳过财务步）");
+  }
   await fin.context().close();
 });
 

@@ -205,6 +205,34 @@ export async function runE2eCleanup(): Promise<string[]> {
     return n;
   });
 
+  // ⑦ 合同终止（terminal——只增不自清口径下计为终态增量，不在开放口径）
+  await safe("contract.terminate", async () => {
+    const s = await session("partner");
+    const list = d(await s.api(`crm.contracts.list?input=${encodeURIComponent(JSON.stringify({ limit: 100 }))}`));
+    const targets = ((list.items ?? []) as any[]).filter((r) => fresh(r) && !["terminated", "void"].includes(r.status));
+    let n = 0;
+    for (const c of targets.slice(0, 10)) {
+      const full = (await tryGet(s, `crm.contracts.getById?input=${encodeURIComponent(JSON.stringify({ id: c.id }))}`)) ?? c;
+      const r = await s.api("crm.contracts.terminate", { id: c.id, rowVersion: full?.rowVersion ?? c.rowVersion ?? 0, reason: "E2E 自清终止" });
+      if (r.status === 200) n++;
+    }
+    return n;
+  });
+
+  // ⑧ 项目关闭尝试（D5 关联项目→closed 出开放口径；blocker 如实记录不物理删）
+  await safe("project.close", async () => {
+    const s = await session("partner");
+    const list = d(await s.api(`project.list?input=${encodeURIComponent(JSON.stringify({ limit: 100 }))}`));
+    const targets = ((list.items ?? []) as any[]).filter((r) => fresh(r) && !["closed", "cancelled"].includes(r.lifecycleStatus ?? r.status));
+    let n = 0;
+    for (const pr of targets.slice(0, 10)) {
+      const full = (await tryGet(s, `project.getById?input=${encodeURIComponent(JSON.stringify({ id: pr.id }))}`)) ?? pr;
+      const r = await s.api("project.close", { projectId: pr.id, rowVersion: full?.rowVersion ?? pr.rowVersion ?? 0 });
+      if (r.status === 200) n++;
+    }
+    return n;
+  });
+
   return log;
 }
 
@@ -238,7 +266,7 @@ export async function collectOpenCounts(): Promise<Record<string, number>> {
   await call("request.open", EMAILS.member, `genericRequest.list?input=${encodeURIComponent(JSON.stringify({ limit: 100 }))}`, inFlight);
   await call("funding.open", EMAILS.member, `funding.list?input=${encodeURIComponent(JSON.stringify({ limit: 100 }))}`, inFlight);
   await call("meeting.planned", EMAILS.member, `meeting.list?input=${encodeURIComponent(JSON.stringify({ limit: 100 }))}`, (r) => r.status === "planned");
-  await call("project.total", EMAILS.partner, `project.list?input=${encodeURIComponent(JSON.stringify({ limit: 100 }))}`, () => true);
+  await call("project.open", EMAILS.partner, `project.list?input=${encodeURIComponent(JSON.stringify({ limit: 100 }))}`, (r) => !["closed", "cancelled"].includes(r.lifecycleStatus ?? r.status));
   return out;
 }
 

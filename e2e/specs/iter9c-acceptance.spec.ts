@@ -61,9 +61,15 @@ test("T1 线索全链：新建→跟进→转化 Stepper（客户+商机落地+c
   const ful = await api(page, `crm.followups.list?input=${encodeURIComponent(JSON.stringify({ targetType: "lead", targetId: leadId }))}`);
   expect(JSON.stringify(ful.json)).toContain("首次电话沟通");
   // 转化 Stepper 后端：客户+商机同事务落地
+  // 18-05 签名适配（arch/13 D5）：转化新建商机必填 projectManagerId+幂等键
+  const pmUser = (await api(page, `user.list?input=${encodeURIComponent(JSON.stringify({ keyword: "wangbaozhuo", limit: 3 }))}`));
+  const pmId = pmUser.json?.result?.data?.items?.[0]?.id;
+  expect(pmId, "PM id 可解析").toBeTruthy();
   const conv = await api(page, "crm.leads.convert", {
     id: leadId, rowVersion,
     customer: { name: `验收客户-${stamp}`, level: "A", industry: "智能装备", address: "苏州" },
+    projectManagerId: pmId,
+    idempotencyKey: crypto.randomUUID(),
     opportunity: { name: `验收商机-${stamp}`, expectedAmountCents: 50000000 },
   });
   expect(conv.status, JSON.stringify(conv.json).slice(0, 260)).toBe(200);
@@ -90,7 +96,9 @@ test("T2 商机：看板改阶段→markWon 挂合同同事务→激活含付款
   const custs = await api(page, `crm.customers.list?input=${encodeURIComponent(JSON.stringify({ limit: 20 }))}`);
   const cust = (custs.json as any).result.data.items.find((c: any) => c.name.includes(`验收客户-${stamp}`));
   expect(cust, "T1 客户在场").toBeTruthy();
-  const opp = await api(page, "crm.opportunities.create", { customerId: cust.id, name: `赢单商机-${stamp}`, expectedAmountCents: 80000000, stage: "proposal", winRate: 60 });
+  const pmU2 = await api(page, `user.list?input=${encodeURIComponent(JSON.stringify({ keyword: "wangbaozhuo", limit: 3 }))}`);
+  const pmIdT2 = pmU2.json?.result?.data?.items?.[0]?.id;
+  const opp = await api(page, "crm.opportunities.create", { customerId: cust.id, name: `赢单商机-${stamp}`, expectedAmountCents: 80000000, stage: "proposal", winRate: 60, projectManagerId: pmIdT2, idempotencyKey: crypto.randomUUID() });
   expect(opp.status, JSON.stringify(opp.json).slice(0, 200)).toBe(200);
   const oppId = (opp.json as any).result.data.id;
   // 看板 UI：打开商机看板→拖拽改阶段（UI 行为）→API 断言阶段
@@ -143,25 +151,31 @@ test("T3 回款勾稽：挂合同+计划行写回→作废冲正回写；不挂�
   const contract = (cts.json as any).result.data.items.find((c: any) => c.title?.includes(`验收合同-${stamp}`)) ?? (cts.json as any).result.data.items[0];
   expect(contract, "合同在场").toBeTruthy();
   if (!shared.contractId) shared.contractId = contract.id;
-  const pl = await (await page.request.fetch(`${B}/trpc/project.list?input=` + encodeURIComponent(JSON.stringify({ limit: 5 })), { headers: { "content-type": "application/json" } })).json();
-  const projectId = pl.result?.data?.items?.[0]?.id;
-  expect(projectId).toBeTruthy();
+  // 18-05：receipt.projectId 须为合同关联项目（markWon 同事务带出）；project.list 首条是 D5 最新项目（146 涟漪），与本合同错位
+  const oppD = await api(page, `crm.opportunities.getById?input=${encodeURIComponent(JSON.stringify({ id: contract.opportunityId }))}`);
+  const projectId = (oppD.json as any).result?.data?.project?.id ?? (oppD.json as any).result?.data?.projectId;
+  expect(projectId, "合同关联项目在场").toBeTruthy();
   // finance 登记挂合同+计划行
   await login(page, "guojingwen@lexflow.demo");
   const rc = await api(page, "receipts.create", { projectId, amountCents: 50000000, receivedOn: "2028-07-02", referenceNo: `HT-${stamp}-1`, payerName: `验收客户-${stamp}`, idempotencyKey: crypto.randomUUID(), contractId: contract.id, planId: shared.plan1Id });
   expect(rc.status, JSON.stringify(rc.json).slice(0, 240)).toBe(200);
   const receiptId = (rc.json as any).result.data.id;
-  // 写回断言：合同详情页计划行状态置为已回款（UI 读回——CRM 无计划行读端点）
+  // 写回断言（18-05：客户详情六页签改版后合同页签仅摘要卡、不渲染计划行——写回证据改 contracts.getById 累计口径；finance+active 按 arch/13 D4 可见金额）
+  const contractCum = async () => {
+    const r = await api(page, `crm.contracts.getById?input=${encodeURIComponent(JSON.stringify({ id: contract.id }))}`);
+    return (r.json as any).result?.data?.cumulativeReceivedCents;
+  };
+  expect(await contractCum(), "登记后合同累计已回款写回=500000.00").toBe(50000000);
   let planText = await readContractTab(page, cust.id);
-  expect(planText, "登记后计划行已回款写回").toMatch(/已回款|已收|paid|部分回款/);
-  await shot(page, "T3-计划行已回款");
+  expect(planText, "合同页签可见验收合同标题").toContain("验收合同");
+  await shot(page, "T3-登记后合同页签写回");
   // 作废冲正回写
   const rv = (rc.json as any).result.data.rowVersion;
   const voided = await api(page, "receipts.void", { id: receiptId, rowVersion: rv ?? 0, reason: "验收冲正" });
   expect(voided.status).toBe(200);
+  expect(await contractCum(), "作废冲正后合同累计归零（冲正回写不变量）").toBe(0);
   planText = await readContractTab(page, cust.id);
-  expect(planText, "作废冲正后累计回款复位 0.00").toMatch(/已回款[\s]*0\.00/);
-  await shot(page, "T3-冲正后累计回款复位");
+  await shot(page, "T3-冲正后计划行回滚");
   // 不挂合同兼容：普通登记仍通
   const plain = await api(page, "receipts.create", { projectId, amountCents: 10000, receivedOn: "2028-07-03", referenceNo: `PT-${stamp}`, idempotencyKey: crypto.randomUUID() });
   expect(plain.status).toBe(200);

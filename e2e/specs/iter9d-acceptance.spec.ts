@@ -87,7 +87,10 @@ test("T1 应收：生成幂等+账龄分桶+逾期红条+收款勾稽写回", as
   const pl = await api(page, `project.list?input=${encodeURIComponent(JSON.stringify({ limit: 5 }))}`);
   const projectId = (pl.json as any).result.data.items[0]?.id;
   shared.projectId = projectId;
-  const opp2 = await api(page, "crm.opportunities.create", { customerId: shared.customerId, name: `应收勾稽商机-${stamp}`, expectedAmountCents: 20000000, stage: "proposal" });
+  // 18-05 签名适配（arch/13 D5）：必填 projectManagerId+幂等键
+  const pmU = await api(page, `user.list?input=${encodeURIComponent(JSON.stringify({ keyword: "wangbaozhuo", limit: 3 }))}`);
+  const pmId2 = pmU.json?.result?.data?.items?.[0]?.id;
+  const opp2 = await api(page, "crm.opportunities.create", { customerId: shared.customerId, name: `应收勾稽商机-${stamp}`, expectedAmountCents: 20000000, stage: "proposal", projectManagerId: pmId2, idempotencyKey: crypto.randomUUID() });
   const opp2Id = (opp2.json as any).result.data.id;
   const opps = await api(page, `crm.opportunities.list?input=${encodeURIComponent(JSON.stringify({ keyword: `应收勾稽商机-${stamp}`, limit: 3 }))}`);
   const won = await api(page, "crm.opportunities.markWon", { id: opp2Id, rowVersion: (opps.json as any).result.data.items[0].rowVersion ?? 0, contract: { title: `应收勾稽合同-${stamp}`, amountCents: 20000000, activate: true } });

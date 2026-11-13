@@ -68,7 +68,8 @@ test("T1 表单视口约束 1280×800 逐弹窗不超屏+出差 F3 拆分", asyn
   await shot(page, "T1-快速填报-1280x800");
   await page.keyboard.press("Escape");
   await page.waitForTimeout(400);
-  // ④ 新建线索 F1
+  // ④ 新建线索 F1（18-05：finance 无 CRM 明细权限 arch/13 D4——改运营视角）
+  await login(page, "xuwenjing@lexflow.demo");
   await page.goto(`${B}/crm/leads`, { waitUntil: "networkidle" });
   await page.waitForTimeout(600);
   await page.getByRole("button", { name: "新建线索" }).first().click();

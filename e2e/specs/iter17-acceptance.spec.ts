@@ -167,17 +167,24 @@ test("T3 SSE 实时：通知/审批/小元气泡秒级到达（总线按 userId 
 
 test("T4 观察项五项逐项关闭", async ({ page }) => {
   await login(page, "guojingwen@lexflow.demo");
-  // ① 漏斗「（分）」→「（元）」
+  // ① 漏斗「（分）」→「（元）」——18-05：finance D4 金额列整体缺席，取证改运营
+  await login(page, "xuwenjing@lexflow.demo");
   await page.goto(`${B}/reports/opportunity_funnel`, { waitUntil: "networkidle" });
   await page.waitForTimeout(800);
   const funnelText = await page.evaluate(() => document.querySelector(".main-workspace")?.textContent ?? "");
   expect(funnelText.includes("（分）"), "漏斗无（分）标签").toBeFalsy();
   expect(funnelText.includes("（元）"), "漏斗（元）标签在位").toBeTruthy();
-  // ② finance 项目下拉接 financeOptions（≥10 选项）
+  // ② 项目下拉接 financeOptions——18-05 勘误：finance∈money 角色（canReadMoney=finance/partner/pm），下拉取证**恢复迭代17原角色 finance**（operations 无 financeOptions 权→404→仅 1 选项，不可用）
+  await login(page, "guojingwen@lexflow.demo");
   await page.goto(`${B}/reports/monthly_cashflow`, { waitUntil: "networkidle" });
   await page.waitForTimeout(800);
   const projOpts = await page.locator("select").last().evaluate((e) => (e as HTMLSelectElement).options.length);
   expect(projOpts, `finance 项目下拉选项（prod=全部+5 项目实测 ${projOpts}，dev 数据态曾 21）`).toBeGreaterThanOrEqual(6);
+  // 「无财务可见权」note 卡实证：canReadMoney 之外的角色（member）收空态口径卡（finance 为 money 角色见全表——上一步已实证，权限语义不松）
+  await login(page, "guanchen@lexflow.demo");
+  await page.goto(`${B}/reports/monthly_cashflow`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(700);
+  expect(await page.evaluate(() => document.body.innerText)).toContain("无财务可见权");
   // ③ reports/report 命名分层共存（pm 视角：project.list 有项目矩阵）
   await login(page, "wangbaozhuo@lexflow.demo");
   const projId2 = (await api(page, "project.list?input=" + encodeURIComponent(JSON.stringify({ limit: 1 })))).json.result.data.items[0].id;

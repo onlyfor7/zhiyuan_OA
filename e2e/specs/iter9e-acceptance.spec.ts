@@ -1,6 +1,6 @@
 /** 工单 9e-04：迭代 9e 验收（报表中心：目录树/十报表页/筛选/口径勾稽/导出审计/权限，prod :8080）。
  * F3 合规：开跑前确认无其他测试会话在跑。截图 D:/tmp/shots-iter9e-test/。
- * 留意：T6 为 polish 核认（漏斗「（分）」标签与元值矛盾）——断言当前问题态；修复后翻转断言。 */
+ */
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync, readFileSync } from "node:fs";
 import { installE2eSelfClean } from "./e2e-cleanup";
@@ -82,7 +82,8 @@ test("T1 工作台目录树：四类十项逐字+树卡联动+打开跳转", asy
 });
 
 test("T2 十报表页逐页打开+筛选生效", async ({ page }) => {
-  await login(page, "guojingwen@lexflow.demo");
+  // 18-05 适配：finance D4（arch/13 §4）——财务合同前报表明细=note 卡；十页全可见角色=partner（CRM+fin+time 全域）
+  await login(page, "liangqifeng@lexflow.demo");
   const all = CATALOG.flatMap((c) => c.items);
   for (const it of all) {
     await page.goto(`${B}/reports/${it.key}`, { waitUntil: "networkidle" });
@@ -112,9 +113,14 @@ test("T2 十报表页逐页打开+筛选生效", async ({ page }) => {
   expect(narrowRows, "筛选后应少于默认").toBeLessThan(shared.cashRowsDefault!);
   await shot(page, "T2-cashflow-筛选后");
   // 筛选生效 B：漏斗按客户过滤——UI 六阶段重算且赢单数==API
-  const custs = d(await api(page, `crm.customers.list?input=${encodeURIComponent(JSON.stringify({ keyword: "GD", limit: 5 }))}`));
-  const gd = (custs.items ?? custs).find((c: any) => /GD/.test(c.name));
-  expect(gd, "GD 客户").toBeTruthy();
+  // 18-05：dev 客户 130>报表下拉 50 截断（GD 老客户不在下拉内）——从下拉同源 50 清单动态挑有赢单行的客户
+  const custs50 = d(await api(page, `crm.customers.list?input=${encodeURIComponent(JSON.stringify({ limit: 50 }))}`));
+  let gd: any;
+  for (const c of custs50.items ?? custs50) {
+    const f = d(await api(page, `reports.opportunityFunnel?input=${encodeURIComponent(JSON.stringify({ customerId: c.id }))}`));
+    if ((f.rows ?? []).some((r: any) => r.stage === "赢单" && Number(r.count) > 0)) { gd = c; break; }
+  }
+  expect(gd, "下拉 50 清单内存在有赢单行的客户").toBeTruthy();
   shared.customerGdId = gd.id;
   await page.goto(`${B}/reports/opportunity_funnel`, { waitUntil: "networkidle" });
   await page.waitForTimeout(700);
@@ -122,8 +128,8 @@ test("T2 十报表页逐页打开+筛选生效", async ({ page }) => {
   await page.waitForTimeout(900);
   const fTxt = await page.evaluate(() => document.body.innerText);
   const apiF = d(await api(page, `reports.opportunityFunnel?input=${encodeURIComponent(JSON.stringify({ customerId: gd.id }))}`));
-  const won = apiF.rows.find((r: any) => r.stage === "赢单");
-  expect(won, "GD 赢单行").toBeTruthy();
+  const won = (apiF.rows ?? []).find((r: any) => r.stage === "赢单");
+  expect(won, `${gd.name} 赢单行`).toBeTruthy();
   expect(fTxt, "UI 赢单数==API").toContain(`赢单\n${won.count}`);
   // 筛选生效 C：工时汇总三视角页签切换
   await page.goto(`${B}/reports/time_summary`, { waitUntil: "networkidle" });
@@ -179,10 +185,20 @@ test("T3 口径抽样勾稽：核算表/月度收支/工时/漏斗 ≥3 张重�
   const tsFin = d(await api(page, `reports.timeSummary?input=${encodeURIComponent(JSON.stringify({ view: "person", from: "2025-01-01", to: "2026-12-31" }))}`));
   const sumFin = (tsFin.rows as any[]).reduce((s: number, r: any) => s + r.minutes, 0);
   expect(sumFin, "finance 报表域全量==partner 全量").toBe(sumTs);
-  // ④ 漏斗赢单金额 == CRM 商机 won 期望额合计
+  // ④ 漏斗赢单金额 == CRM 商机 won 期望额合计——18-05：CRM 明细端点 finance 无 D4 权（404）改 partner；dev 商机 232>100 截断改游标全扫
+  await login(page, "liangqifeng@lexflow.demo");
   const fun = d(await api(page, `reports.opportunityFunnel?input=${encodeURIComponent(JSON.stringify({}))}`));
-  const ops = d(await api(page, `crm.opportunities.list?input=${encodeURIComponent(JSON.stringify({ limit: 100 }))}`));
-  const wonSum = (ops.items ?? []).filter((o: any) => o.stage === "won").reduce((s: number, o: any) => s + (o.expectedAmountCents ?? 0), 0);
+  const allOpps: any[] = [];
+  let oCursor: string | null = null;
+  for (let i = 0; i < 6; i++) {
+    const input: Record<string, unknown> = { limit: 100 };
+    if (oCursor) input.cursor = oCursor;
+    const ops = d(await api(page, `crm.opportunities.list?input=${encodeURIComponent(JSON.stringify(input))}`));
+    allOpps.push(...(ops.items ?? []));
+    oCursor = ops.nextCursor ?? null;
+    if (!oCursor) break;
+  }
+  const wonSum = allOpps.filter((o: any) => o.stage === "won").reduce((s: number, o: any) => s + (o.expectedAmountCents ?? 0), 0);
   const wonRow = (fun.rows as any[]).find((r: any) => r.stage === "赢单");
   expect(wonRow.amount, "漏斗赢单金额==CRM 重算").toBe(wonSum);
 });
@@ -244,16 +260,17 @@ test("T5 权限：member 行级过滤/partner 全量", async ({ page }) => {
 });
 
 test("T6 polish 核认：漏斗「（分）」标签与元值矛盾（登记项）", async ({ page }) => {
-  await login(page, "guojingwen@lexflow.demo");
+  // 18-05：arch/13 D4——finance 无 CRM 读权（漏斗返回「无 CRM 可见权」空态卡），列头翻转断言取证改 partner（CRM 全域+金额可见）
+  await login(page, "liangqifeng@lexflow.demo");
   await page.goto(`${B}/reports/opportunity_funnel`, { waitUntil: "networkidle" });
   await page.waitForTimeout(800);
   const txt = await page.evaluate(() => document.body.innerText);
   // 问题态（9e-02 登记，prod 实测仍在）：标签标「（分）」，值以「元」格式化渲染
-  expect(txt, "列头仍标（分）").toContain("预计金额（分）");
-  expect(txt, "指标卡仍标（分）").toContain("进行中金额（分）");
-  expect(/进行中金额（分）\n[\d,]+\.\d{2} 元/.test(txt), "标签（分）vs 值（元）矛盾实证").toBeTruthy();
+  // 18-05 翻转：arch/13 §20.4 观察项①已关闭（18-03）——列头/指标卡为「（元）」、无（分）残留
+  expect(txt, "列头（元）在位").toContain("预计金额（元）");
+  expect(txt, "无（分）标签残留").not.toContain("（分）");
   await shot(page, "T6-分标签矛盾");
-  // 修复后翻转：expect(txt).not.toContain("（分）");
+  // （原「修复后翻转」备注行——已执行翻转）
 });
 
 async function projId(page: Page, code: string): Promise<string> {
