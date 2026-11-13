@@ -84,7 +84,7 @@ export async function requireCrmManage(db: DbOrTx, user: SessionUser, ownerId: s
   if (allowed) return;
   // tree 形态：管辖范围内 owner 可 manage（sales 本人/主管/VP）
   const scope = await resolveCrmScope(db, user);
-  if (!(scope.kind === "tree" && ownerId !== null && scope.treeIds.includes(ownerId))) throw notFound();
+  if (!(scope.kinds.includes("tree") && ownerId !== null && scope.treeIds.includes(ownerId))) throw notFound();
 }
 
 /** 金额列可见：范围内角色（global/tree/presales） */
@@ -245,17 +245,27 @@ export async function createOpportunityWithProject(
   ip: string | null,
   sessionId: string | null,
 ): Promise<{ opportunity: typeof crmOpportunities.$inferSelect; project: { id: string; code: string }; replayed: boolean }> {
+  // 幂等（D-18-2-3）：事务级 advisory lock 先串行化同键并发——持锁后查重必见已提交行，
+  // 从根上杜绝「已中止事务内重查」500；xact 锁随提交/回滚自动释放
+  if (input.idempotencyKey) {
+    await db.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${input.idempotencyKey}))`);
+  }
   // 幂等重放：同键返回既有（异载荷 409）
   if (input.idempotencyKey) {
     const [dup] = await db.select().from(crmOpportunities).where(eq(crmOpportunities.idempotencyKey, input.idempotencyKey)).limit(1);
     if (dup) {
+      // D-18-2-2：载荷一致性必须覆盖项目负责人（经关联项目 manager_id 判定）及所有影响立项结果的字段
+      const [dupProj] = dup.projectId
+        ? await db.select({ managerId: projects.managerId }).from(projects).where(eq(projects.id, dup.projectId)).limit(1)
+        : [];
       const same =
         dup.customerId === input.customerId &&
         dup.name === input.name.trim() &&
         (dup.expectedAmountCents ?? null) === (input.expectedAmountCents ?? null) &&
         (dup.winRate ?? null) === (input.winRate ?? null) &&
         (dup.presalesId ?? null) === (input.presalesId ?? null) &&
-        (dup.sourceLeadId ?? null) === (input.sourceLeadId ?? null);
+        (dup.sourceLeadId ?? null) === (input.sourceLeadId ?? null) &&
+        (dupProj?.managerId ?? null) === input.projectManagerId;
       if (!same) throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "同幂等键已用于不同商机（载荷不一致）");
       const [proj] = dup.projectId
         ? await db.select({ id: projects.id, code: projects.code }).from(projects).where(eq(projects.id, dup.projectId)).limit(1)
@@ -332,15 +342,9 @@ export async function createOpportunityWithProject(
       .returning();
     opp = created;
   } catch (e) {
-    // 并发同键撞唯一索引：重查返回既有（不 500、不重复立项）
+    // D-18-2-3：advisory lock 已串行化同键，理论上不可达；万一撞唯一索引语义化 409（事务可能已中止，禁止在内重查）
     if (String(e).includes("crm_opportunities_idempotency_key_unique")) {
-      const [dup] = await db.select().from(crmOpportunities).where(eq(crmOpportunities.idempotencyKey, input.idempotencyKey)).limit(1);
-      if (dup) {
-        const [proj] = dup.projectId
-          ? await db.select({ id: projects.id, code: projects.code }).from(projects).where(eq(projects.id, dup.projectId)).limit(1)
-          : [];
-        return { opportunity: dup, project: proj ?? { id: "", code: "" }, replayed: true };
-      }
+      throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "同幂等键正在并发提交，请重试");
     }
     throw e;
   }
@@ -419,7 +423,7 @@ export async function convertLead(
 
   if (input.opportunityId) {
     // 路径 A：关联既有商机（不新建项目）
-    const [opp] = await db.select().from(crmOpportunities).where(eq(crmOpportunities.id, input.id)).limit(1);
+    const [opp] = await db.select().from(crmOpportunities).where(eq(crmOpportunities.id, input.opportunityId)).limit(1);
     if (!opp) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "关联商机不存在", { opportunityId: ["关联商机不存在"] });
     if (opp.sourceLeadId && opp.sourceLeadId !== input.id) {
       throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "该商机已关联其他来源线索");
@@ -648,7 +652,7 @@ export async function getCustomerById(db: DbOrTx, user: SessionUser, id: string)
   });
   // 项目子表：按项目范围（project 形态仅本人负责项目；其余形态按客户链全量可见）
   const customerProjects =
-    scope.kind === "project"
+    scope.kinds.includes("project")
       ? await db
           .select({ id: projects.id, code: projects.code, name: projects.name, lifecycleStatus: projects.lifecycleStatus })
           .from(projects)
@@ -1056,7 +1060,7 @@ export async function listContracts(db: DbOrTx, user: SessionUser, input: { curs
   for (const c of page) {
     const withCum = await contractWithCumulative(db, c);
     // finance 按 D4 记录级放行：active 合同链可见明细金额，其余剥离
-    const see = scope.kind === "finance" ? c.status === "active" : scopeCanSeeAmounts(scope);
+    const see = scopeCanSeeAmounts(scope) || (scope.kinds.includes("finance") && c.status === "active");
     items.push(stripAmounts(withCum, see, ["amountCents", "cumulativeReceivedCents"]));
   }
   return {
@@ -1070,7 +1074,7 @@ export async function getContractById(db: DbOrTx, user: SessionUser, id: string)
   const scope = await resolveCrmScope(db, user);
   await assertRowVisible(db, crmContracts, id, contractScopeSql(scope));
   const contract = await loadContract(db, id);
-  const see = scope.kind === "finance" ? contract.status === "active" : scopeCanSeeAmounts(scope);
+  const see = scopeCanSeeAmounts(scope) || (scope.kinds.includes("finance") && contract.status === "active");
   return stripAmounts(await contractWithCumulative(db, contract), see, ["amountCents", "cumulativeReceivedCents"]);
 }
 
@@ -1390,7 +1394,8 @@ export async function ensureOpportunityProjectPlan(
  */
 export async function crmSummary(db: DbOrTx, user: SessionUser) {
   const scope = await resolveCrmScope(db, user);
-  const scoped = scope.kind === "tree" || scope.kind === "presales";
+  const scoped =
+    (scope.kinds.includes("tree") || scope.kinds.includes("presales")) && !scope.kinds.includes("global");
   const leadCond = scoped ? leadScopeSql(scope) : sql`true`;
   const oppCond = scoped ? opportunityScopeSql(scope) : sql`true`;
   const ctrCond = scoped ? contractScopeSql(scope) : sql`true`;

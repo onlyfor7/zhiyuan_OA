@@ -457,4 +457,119 @@ describe("18-02 可见性与商机即立项服务端", () => {
     expect(oppRef?.id).toBe(oppAId);
     expect(oppRef?.code).toMatch(new RegExp(`^OPP-${YEAR}-`));
   });
+
+  it("打回修复 D-18-2-1~4：关联既有商机/异载荷含负责人/并发双 200/组合角色并集", async () => {
+    // ===== D-18-2-1：线索关联既有商机（不新建项目；sourceLeadId/converted_*/projectId 勾稽）=====
+    const customers = await trpc(app, "crm.customers.list", { cookie: salesACookie, method: "GET", input: {} });
+    const anyCustomer = (customers.json as { result: { data: { items: Array<{ id: string }> } } }).result.data.items[0];
+    const existing = await trpc(app, "crm.opportunities.create", {
+      cookie: salesACookie,
+      input: { customerId: anyCustomer.id, name: "18-02-关联靶商机", projectManagerId: pmUserId, idempotencyKey: uuid() },
+    });
+    expect(existing.status).toBe(200);
+    const existingData = (existing.json as { result: { data: { id: string; projectId: string } } }).result.data;
+    const existingOpp = await query<{ project_id: string | null }>(`SELECT project_id FROM crm_opportunities WHERE id=$1`, [existingData.id]);
+    const existingProjectId = existingOpp[0].project_id;
+    expect(existingProjectId).toBeTruthy(); // 既有商机本身已立项
+    const projCountBefore = (await query<{ n: number }>(`SELECT count(*)::int AS n FROM projects`))[0].n;
+
+    const linkLead = await trpc(app, "crm.leads.create", { cookie: salesACookie, input: { name: "18-02 待关联线索" } });
+    const linkLeadData = (linkLead.json as { result: { data: { id: string; rowVersion: number } } }).result.data;
+    const linked = await trpc(app, "crm.leads.convert", {
+      cookie: salesACookie,
+      input: { id: linkLeadData.id, rowVersion: linkLeadData.rowVersion, opportunityId: existingData.id },
+    });
+    expect(linked.status, JSON.stringify(linked.json).slice(0, 200)).toBe(200);
+    const linkedData = (linked.json as { result: { data: { opportunityId: string; customerId: string; projectId: string | null; replayed: boolean } } }).result.data;
+    expect(linkedData.replayed).toBe(false);
+    expect(linkedData.opportunityId).toBe(existingData.id);
+    expect(linkedData.projectId).toBe(existingProjectId); // 复用原项目，不新建
+    expect((await query<{ n: number }>(`SELECT count(*)::int AS n FROM projects`))[0].n).toBe(projCountBefore);
+    const linkCheck = await query<{
+      source_lead_id: string | null; project_id: string | null;
+      lead_cust: string | null; lead_opp: string | null;
+    }>(
+      `SELECT o.source_lead_id, o.project_id,
+              l.converted_customer_id AS lead_cust, l.converted_opportunity_id AS lead_opp
+       FROM crm_opportunities o JOIN crm_leads l ON l.id = o.source_lead_id
+       WHERE o.id=$1`,
+      [existingData.id],
+    );
+    expect(linkCheck[0].source_lead_id).toBe(linkLeadData.id);
+    expect(linkCheck[0].lead_opp).toBe(existingData.id);
+    expect(linkCheck[0].lead_cust).toBe(linkedData.customerId);
+    expect(linkCheck[0].project_id).toBe(existingProjectId); // 三者勾稽一致
+
+    // ===== D-18-2-2：同键仅换项目负责人 → 409；同键同载荷 → 200 不重复立项 =====
+    const key = uuid();
+    const first = await trpc(app, "crm.opportunities.create", {
+      cookie: salesACookie,
+      input: { customerId: anyCustomer.id, name: "18-02 幂等靶", projectManagerId: pmUserId, idempotencyKey: key },
+    });
+    expect(first.status).toBe(200);
+    const financeId = (await query<{ id: string }>(`SELECT id FROM users WHERE email='guojingwen@lexflow.demo'`))[0].id;
+    const diffPm = await trpc(app, "crm.opportunities.create", {
+      cookie: salesACookie,
+      input: { customerId: anyCustomer.id, name: "18-02 幂等靶", projectManagerId: financeId, idempotencyKey: key },
+    });
+    expect(diffPm.status).toBe(409); // 仅换项目负责人=异载荷
+    const sameAgain = await trpc(app, "crm.opportunities.create", {
+      cookie: salesACookie,
+      input: { customerId: anyCustomer.id, name: "18-02 幂等靶", projectManagerId: pmUserId, idempotencyKey: key },
+    });
+    expect(sameAgain.status).toBe(200);
+    expect((sameAgain.json as { result: { data: { replayed: boolean } } }).result.data.replayed).toBe(true);
+    expect((sameAgain.json as { result: { data: { id: string } } }).result.data.id).toBe(
+      (first.json as { result: { data: { id: string } } }).result.data.id,
+    );
+
+    // ===== D-18-2-3：同键同载荷 Promise.all 真并发 → 双 200 同商机/项目，项目仅 +1 =====
+    const cKey = uuid();
+    const cPayload = { customerId: anyCustomer.id, name: "18-02 并发靶", projectManagerId: pmUserId, idempotencyKey: cKey };
+    const projBefore = (await query<{ n: number }>(`SELECT count(*)::int AS n FROM projects`))[0].n;
+    const [r1, r2] = await Promise.all([
+      trpc(app, "crm.opportunities.create", { cookie: salesACookie, input: cPayload }),
+      trpc(app, "crm.opportunities.create", { cookie: salesACookie, input: cPayload }),
+    ]);
+    expect(r1.status, `r1=${JSON.stringify(r1.json).slice(0, 200)}`).toBe(200);
+    expect(r2.status, `r2=${JSON.stringify(r2.json).slice(0, 200)}`).toBe(200); // 不再 200+500
+    const r1id = (r1.json as { result: { data: { id: string } } }).result.data.id;
+    const r2id = (r2.json as { result: { data: { id: string } } }).result.data.id;
+    expect(r1id).toBe(r2id); // 同一商机
+    const r1proj = (r1.json as { result: { data: { projectId: string } } }).result.data.projectId;
+    const r2proj = (r2.json as { result: { data: { projectId: string } } }).result.data.projectId;
+    expect(r1proj).toBe(r2proj); // 同一项目
+    expect((await query<{ n: number }>(`SELECT count(*)::int AS n FROM projects`))[0].n).toBe(projBefore + 1);
+
+    // ===== D-18-2-4：sales+presales 组合角色范围并集（被指派商机不丢）=====
+    // 销售 B 建独立商机（owner=B，不在 A 的树下）
+    const bLead = await trpc(app, "crm.leads.create", { cookie: salesBCookie, input: { name: "18-02 B 组合线索" } });
+    const bLeadData = (bLead.json as { result: { data: { id: string; rowVersion: number } } }).result.data;
+    const bConv = await trpc(app, "crm.leads.convert", {
+      cookie: salesBCookie,
+      input: { id: bLeadData.id, rowVersion: bLeadData.rowVersion, customer: { name: "18-02 B 组合客户" }, projectManagerId: pmUserId, opportunity: { name: "18-02 B 组合商机" } },
+    });
+    const bOppId = (bConv.json as { result: { data: { opportunityId: string } } }).result.data.opportunityId;
+    // A 看不到（树外+未指派）
+    const aBefore = await trpc(app, "crm.opportunities.getById", { cookie: salesACookie, method: "GET", input: { id: bOppId } });
+    expect(aBefore.status).toBe(404);
+    // sysadmin 给 A 加挂 presales 角色
+    const assign = await trpc(app, "admin.assignRole", { cookie: sysadminCookie, input: { userId: salesAId, roleKey: "presales" } });
+    expect(assign.status).toBe(200);
+    // 指派 A 为售前 → A（sales+presales）必须看到
+    const bOppDetail = await trpc(app, "crm.opportunities.getById", { cookie: salesBCookie, method: "GET", input: { id: bOppId } });
+    const bOppRv = (bOppDetail.json as { result: { data: { rowVersion: number } } }).result.data.rowVersion;
+    const assignPs = await trpc(app, "crm.opportunities.update", {
+      cookie: salesBCookie,
+      input: { id: bOppId, rowVersion: bOppRv, presalesId: salesAId },
+    });
+    expect(assignPs.status).toBe(200);
+    const aAfter = await trpc(app, "crm.opportunities.getById", { cookie: salesACookie, method: "GET", input: { id: bOppId } });
+    expect(aAfter.status).toBe(200); // 组合角色并集：presales 来源范围不丢
+    const aList = await trpc(app, "crm.opportunities.list", { cookie: salesACookie, method: "GET", input: {} });
+    expect((aList.json as { result: { data: { items: Array<{ id: string }> } } }).result.data.items.some((o) => o.id === bOppId)).toBe(true);
+    // 并集另一侧不丢：A 仍见本人 tree 商机
+    const mineIds = (aList.json as { result: { data: { items: Array<{ id: string }> } } }).result.data.items;
+    expect(mineIds.length).toBeGreaterThanOrEqual(1);
+  });
 });
