@@ -1,9 +1,11 @@
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 
 import {
   budgetLedger,
   crmContractPaymentPlans,
   crmContracts,
+  crmOpportunities,
+  expenseItems,
   finReceivables,
   finCostRates,
   paymentReceipts,
@@ -35,6 +37,10 @@ export interface ProjectCosting {
   laborCostCents: number;
   grossMarginCents: number;
   grossMarginOnContractCents: number;
+  /** 成本分段（arch/13 §5.5，加性字段不删既有）：total=presales+delivery=直接成本（不双计） */
+  presalesCostCents: number;
+  deliveryCostCents: number;
+  totalCostCents: number;
 }
 
 export async function computeProjectCosting(db: DbOrTx, projectId: string): Promise<ProjectCosting | null> {
@@ -83,6 +89,50 @@ export async function computeProjectCosting(db: DbOrTx, projectId: string): Prom
     .where(and(eq(budgetLedger.projectId, projectId), eq(budgetLedger.entryType, "EXPENSE_RECOGNIZED")));
   const directCostCents = Number(directAgg[0]?.s ?? 0);
 
+  // 成本分段（arch/13 §5.5 统一业务公式）：
+  // - 无激活合同（含开放与已关闭商机）：有效费用全部计售前；
+  // - 有激活合同：费用明细业务发生日期早于合同激活业务日期=售前；同日及以后=交付；
+  // - 非商机来源存量项目：沿用既有口径（全部计交付，售前=0）；
+  // 日期取 expense_items.date（台账幂等键 EXPENSE_RECOGNIZED:{reportId}:{itemId} 第三段=明细 id），
+  // 非费用台账行（经费支出等）回退台账 occurred_at。
+  const [oppLink] = await db
+    .select({ id: crmOpportunities.id })
+    .from(crmOpportunities)
+    .where(eq(crmOpportunities.projectId, projectId))
+    .limit(1);
+  const [active] = await db
+    .select({ signedAt: crmContracts.signedAt })
+    .from(crmContracts)
+    .where(and(eq(crmContracts.matterId, project.matterId), eq(crmContracts.status, "active")))
+    .orderBy(asc(crmContracts.signedAt))
+    .limit(1);
+  let presalesCostCents = 0;
+  let deliveryCostCents = 0;
+  if (!oppLink) {
+    deliveryCostCents = directCostCents; // 存量非商机项目：既有口径
+  } else if (!active?.signedAt) {
+    presalesCostCents = directCostCents; // 无激活合同：全部售前（含 lost）
+  } else {
+    const cut = active.signedAt.slice(0, 10);
+    const splitRows = await db
+      .select({
+        d: sql<string>`coalesce(${expenseItems.date}::text, ${budgetLedger.occurredAt}::text)`,
+        s: sql<number>`coalesce(sum(${budgetLedger.actualDeltaCents}), 0)::float8`,
+      })
+      .from(budgetLedger)
+      .leftJoin(
+        expenseItems,
+        sql`${budgetLedger.sourceType} = 'expense' AND ${expenseItems.id} = split_part(${budgetLedger.idempotencyKey}, ':', 3)::uuid`,
+      )
+      .where(and(eq(budgetLedger.projectId, projectId), eq(budgetLedger.entryType, "EXPENSE_RECOGNIZED")))
+      .groupBy(sql`coalesce(${expenseItems.date}::text, ${budgetLedger.occurredAt}::text)`);
+    for (const r of splitRows) {
+      if ((r.d ?? "").slice(0, 10) < cut) presalesCostCents += r.s;
+      else deliveryCostCents += r.s;
+    }
+  }
+  const totalCostCents = presalesCostCents + deliveryCostCents; // = directCostCents（不重记不双算）
+
   // 人力成本：批准+锁定工时 × 成本率（按人价优先，其次按角色价）
   const entries = await db
     .select({ userId: timeEntries.userId, minutes: timeEntries.durationMinutes })
@@ -121,6 +171,9 @@ export async function computeProjectCosting(db: DbOrTx, projectId: string): Prom
     laborCostCents,
     grossMarginCents,
     grossMarginOnContractCents,
+    presalesCostCents,
+    deliveryCostCents,
+    totalCostCents,
   };
 }
 

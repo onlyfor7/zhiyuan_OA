@@ -1,9 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 
 import { CONFIG_KEY, ERROR_CODE } from "@lexflow/shared";
 
-import { clients, matters, orgUnits, projectTemplates, sessions, systemConfig, userRoles, users } from "../../db/schema";
+import { clients, crmLeads, crmOpportunities, matters, orgUnits, projectTemplates, projects, sessions, systemConfig, userRoles, users } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { hashPassword, verifyPassword } from "../../lib/password";
 import { BusinessError, pgErrorCode } from "../../lib/errors";
@@ -352,4 +352,106 @@ export async function mustChangePasswordFlag(db: DbOrTx, userId: string): Promis
   // 02b 列就位：读 users.must_change_password（system_config 临时键已被迁移删除）
   const [row] = await db.select({ mustChangePassword: users.mustChangePassword }).from(users).where(eq(users.id, userId)).limit(1);
   return row?.mustChangePassword === true;
+}
+
+/* ===== 受控数据纠正（arch/13 §7.3 D3：sysadmin 限定·白名单对象/字段·理由+乐观锁·before/after 全快照审计） ===== */
+
+interface CorrectInput {
+  object: "lead" | "opportunity" | "client" | "project" | "user";
+  id: string;
+  rowVersion: number;
+  patch: Record<string, unknown>;
+  reason: string;
+}
+
+const CONFIDENTIALITY = ["public", "internal", "confidential", "secret"] as const;
+
+/** 白名单：本棒最小集（线索联系信息/商机基础字段与售前指派/客户基础字段/项目名称类型密级/员工部门岗位主管） */
+const WHITELIST: Record<CorrectInput["object"], string[]> = {
+  lead: ["contactName", "contactPhone", "source"],
+  opportunity: ["name", "expectedAmountCents", "winRate", "presalesId"],
+  client: ["name", "level", "industry", "address"],
+  project: ["name", "type", "confidentialityLevel"],
+  user: ["orgUnitId", "position", "managerId"],
+};
+
+const CORRECT_TABLES = {
+  lead: { table: crmLeads, targetType: "crm_lead" },
+  opportunity: { table: crmOpportunities, targetType: "crm_opportunity" },
+  client: { table: clients, targetType: "client" },
+  project: { table: projects, targetType: "project" },
+  user: { table: users, targetType: "user" },
+} as const;
+
+export async function correctRecord(db: DbOrTx, actor: SessionUser, input: CorrectInput, ip: string | null, sessionId: string | null) {
+  await requireAdminConfig(db, actor); // sysadmin 限定（admin.config 门）
+  if (!input.reason.trim()) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "纠正理由必填", { reason: ["纠正理由必填"] });
+  const allowedFields = WHITELIST[input.object];
+  const keys = Object.keys(input.patch);
+  if (keys.length === 0) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "纠正补丁为空", { patch: ["纠正补丁为空"] });
+  for (const k of keys) {
+    if (!allowedFields.includes(k)) {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, `字段不在纠正白名单：${input.object}.${k}`, { patch: [`${input.object} 仅允许：${allowedFields.join("/")}`] });
+    }
+  }
+
+  const now = new Date().toISOString();
+  const { table, targetType } = CORRECT_TABLES[input.object];
+
+  // 引用与状态机校验（服务端重鉴权，不轻信补丁）
+  if (input.object === "opportunity" && input.patch.presalesId) {
+    const [ps] = await db.select({ id: users.id }).from(users).where(and(eq(users.id, String(input.patch.presalesId)), eq(users.status, "active"))).limit(1);
+    if (!ps) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "售前指派人不存在或已停用", { presalesId: ["售前指派人不存在或已停用"] });
+  }
+  if (input.object === "opportunity") {
+    const [row] = await db.select({ stage: crmOpportunities.stage }).from(crmOpportunities).where(eq(crmOpportunities.id, input.id)).limit(1);
+    if (!row) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "纠正对象不存在或无权访问");
+    if (row.stage === "lost" || row.stage === "won") throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "商机已终态，不可纠正（走既有业务语义）");
+  }
+  if (input.object === "user") {
+    if (input.patch.orgUnitId) {
+      const [ou] = await db.select({ id: orgUnits.id }).from(orgUnits).where(eq(orgUnits.id, String(input.patch.orgUnitId))).limit(1);
+      if (!ou) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "部门不存在", { orgUnitId: ["部门不存在"] });
+    }
+    if (input.patch.managerId) {
+      const mid = String(input.patch.managerId);
+      const [mgr] = await db.select({ id: users.id }).from(users).where(and(eq(users.id, mid), eq(users.status, "active"))).limit(1);
+      if (!mgr) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "主管不存在或已停用", { managerId: ["主管不存在或已停用"] });
+      if (mid === input.id) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "主管不可为本人", { managerId: ["主管不可为本人"] });
+      const { wouldCreateManagerCycle } = await import("../../services/access/crm-scope");
+      if (await wouldCreateManagerCycle(db, input.id, mid)) {
+        throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "主管变更将成环（多级汇报链校验拒绝）", { managerId: ["主管链不可成环"] });
+      }
+    }
+  }
+  if (input.object === "project" && input.patch.confidentialityLevel) {
+    if (!(CONFIDENTIALITY as readonly string[]).includes(String(input.patch.confidentialityLevel))) {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "密级非法", { confidentialityLevel: [`允许：${CONFIDENTIALITY.join("/")}`] });
+    }
+  }
+
+  const before = await db.execute(sql`SELECT * FROM ${table} WHERE id = ${input.id} LIMIT 1`);
+  if (!before.rows[0]) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "纠正对象不存在或无权访问");
+
+  const snake = (k: string) => k.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`); // TS 驼峰 → DB snake_case
+  const assignments = keys.map((k) => {
+    const v = input.patch[k];
+    const val = typeof v === "string" ? v.trim() : (v ?? null);
+    return sql`${sql.identifier(snake(k))} = ${val as never}`;
+  });
+  const updated = await db.execute(sql`
+    UPDATE ${table}
+    SET ${sql.join([...assignments, sql`updated_at = ${now}`, sql`row_version = row_version + 1`], sql`, `)}
+    WHERE id = ${input.id} AND row_version = ${input.rowVersion}
+    RETURNING *
+  `);
+  if (!updated.rows[0]) throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "数据已被他人修改，请刷新后重试");
+
+  await recordAudit(db, {
+    actorId: actor.id, sessionId, action: "admin.correctRecord", targetType, targetId: input.id, result: "success",
+    beforeJson: before.rows[0] as Record<string, unknown>,
+    afterJson: { ...(updated.rows[0] as Record<string, unknown>), correctReason: input.reason.trim(), patchedFields: keys },
+    ip,
+  });
+  return { object: input.object, id: input.id, before: before.rows[0], after: updated.rows[0], corrected: keys };
 }

@@ -10,8 +10,11 @@ const cursorPage = {
   limit: z.number().int().min(1).max(100).default(20),
 };
 
-/** CRM 域（arch/12 §6/§11）：线索/客户/联系人/商机/合同/付款计划/跟进；权限门在 service 层（member 同形 404、金额列对无 fin.read 剔除） */
+/** CRM 域（arch/12 §6/§11 + arch/13 §4/§5）：线索/客户/联系人/商机/合同/付款计划/跟进；
+ * 权限门在 service 层（crm-scope SQL 范围解析、member 同形 404、金额按范围形态剥离） */
 export const crmRouter = router({
+  /** 只读聚合（arch/13 §4.1.3）：计数与金额汇总，无名称/uuid 清单/联系人/跟进；tree/presales 按范围聚合 */
+  summary: authedProcedure.query(({ ctx }) => service.crmSummary(ctx.db, ctx.user)),
   leads: router({
     list: authedProcedure
       .input(z.object({ ...cursorPage, status: z.enum(LEAD_STATUS).optional(), keyword: z.string().trim().max(100).optional() }).prefault({}))
@@ -58,11 +61,16 @@ export const crmRouter = router({
               address: z.string().trim().max(300).optional(),
             })
             .optional(),
-          opportunity: z.object({
-            name: z.string().trim().min(1, "商机名称必填").max(200),
-            expectedAmountCents: z.number().int().min(1).nullable().optional(),
-            winRate: z.number().int().min(0).max(100).nullable().optional(),
-          }),
+          opportunityId: z.uuid().optional(),
+          projectManagerId: z.uuid().optional(),
+          idempotencyKey: z.uuid().optional(),
+          opportunity: z
+            .object({
+              name: z.string().trim().min(1, "商机名称必填").max(200),
+              expectedAmountCents: z.number().int().min(1).nullable().optional(),
+              winRate: z.number().int().min(0).max(100).nullable().optional(),
+            })
+            .optional(),
         }),
       )
       .mutation(({ ctx, input }) => service.convertLead(ctx.db, ctx.user, input, ctx.ip, ctx.session.id)),
@@ -132,10 +140,18 @@ export const crmRouter = router({
           name: z.string().trim().min(1, "商机名称必填").max(200),
           expectedAmountCents: z.number().int().min(1).nullable().optional(),
           winRate: z.number().int().min(0).max(100).nullable().optional(),
-          stage: z.enum(["initial", "needs", "proposal", "negotiation"]).optional(),
+          presalesId: z.uuid().nullable().optional(),
+          projectManagerId: z.uuid({ message: "项目负责人必填" }),
+          idempotencyKey: z.uuid({ message: "幂等键必填" }),
         }),
       )
       .mutation(({ ctx, input }) => service.createOpportunity(ctx.db, ctx.user, input, ctx.ip, ctx.session.id)),
+    getById: authedProcedure
+      .input(z.object({ id: z.uuid() }))
+      .query(({ ctx, input }) => service.getOpportunityById(ctx.db, ctx.user, input.id)),
+    ensureProjectPlan: authedMutation
+      .input(z.object({ opportunityId: z.uuid() }))
+      .mutation(({ ctx, input }) => service.ensureOpportunityProjectPlan(ctx.db, ctx.user, input, ctx.ip, ctx.session.id)),
     update: authedMutation
       .input(
         z.object({
@@ -145,6 +161,7 @@ export const crmRouter = router({
           expectedAmountCents: z.number().int().min(1).nullable().optional(),
           winRate: z.number().int().min(0).max(100).nullable().optional(),
           ownerId: z.uuid().nullable().optional(),
+          presalesId: z.uuid().nullable().optional(),
         }),
       )
       .mutation(({ ctx, input }) => service.updateOpportunity(ctx.db, ctx.user, input, ctx.ip, ctx.session.id)),

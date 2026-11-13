@@ -379,6 +379,8 @@ export async function updateMember(
     position?: string;
     employeeNo?: string | null;
     joinedAt?: string | null;
+    /** 直属主管（arch/13 §3.2：权限数据，sysadmin 维护；多级成环校验） */
+    managerId?: string | null;
     roleKeys?: string[];
   },
   ip: string | null,
@@ -388,6 +390,16 @@ export async function updateMember(
   const [before] = await db.select().from(users).where(eq(users.id, input.id)).limit(1);
   if (!before) throw notFound();
   if (input.orgUnitId) await loadUnit(db, input.orgUnitId);
+  // 主管维护：多级成环校验 + 引用校验（arch/13 §3.2）
+  if (input.managerId !== undefined && input.managerId !== null) {
+    if (input.managerId === input.id) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "主管不可为本人", { managerId: ["主管不可为本人"] });
+    const [mgr] = await db.select({ id: users.id }).from(users).where(and(eq(users.id, input.managerId), eq(users.status, "active"))).limit(1);
+    if (!mgr) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "主管不存在或已停用", { managerId: ["主管不存在或已停用"] });
+    const { wouldCreateManagerCycle } = await import("../../services/access/crm-scope");
+    if (await wouldCreateManagerCycle(db, input.id, input.managerId)) {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "主管变更将成环（多级汇报链校验拒绝）", { managerId: ["主管链不可成环"] });
+    }
+  }
   let updated;
   try {
     [updated] = await db
@@ -398,6 +410,7 @@ export async function updateMember(
         ...(input.position !== undefined ? { position: input.position.trim() } : {}),
         ...(input.employeeNo !== undefined ? { employeeNo: input.employeeNo?.trim() || null } : {}),
         ...(input.joinedAt !== undefined ? { joinedAt: input.joinedAt } : {}),
+        ...(input.managerId !== undefined ? { managerId: input.managerId } : {}),
         updatedAt: new Date().toISOString(),
       })
       .where(eq(users.id, input.id))

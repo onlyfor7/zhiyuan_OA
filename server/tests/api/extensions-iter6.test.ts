@@ -397,9 +397,9 @@ describe("迭代 6 扩展域（E1–E8）", () => {
     expect(audit[0].after_json.value?.regularThresholdMinutes).toBe(600);
   });
 
-  it("E8 权限：sysadmin 无业务内容权；member 不见收款与 /admin", async () => {
+  it("E8 权限：sysadmin 项目读按 arch/13 D3 放行；member 不见收款与 /admin", async () => {
     const sysProject = await trpc(app, "project.getById", { cookie: sysadminCookie, input: { id: projectAId }, method: "GET" });
-    expect(sysProject.status).toBe(404);
+    expect(sysProject.status).toBe(200); // arch/13 D3：sysadmin 全局最高读（写仍受控）
     const sysReceipts = await trpc(app, "receipts.summary", { cookie: sysadminCookie, method: "GET", input: { by: "project" } });
     expect(sysReceipts.status).toBe(404); // sysadmin 不在 finance/partner/成员范围
     const memberAdmin = await trpc(app, "admin.userList", { cookie: memberCookie, method: "GET" });

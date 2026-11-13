@@ -22,7 +22,8 @@ import { can, projectScopeFilter } from "../../services/access";
 import { recordAudit } from "../../services/audit";
 import { computeProjectCosting, listProjectCostings } from "../../services/fin/costing";
 import { computeAging } from "../fin/fin";
-import { canReadCrm, canSeeCrmAmounts } from "../crm/crm";
+import { canReadCrm } from "../crm/crm";
+import { canSeeAmounts, contractScopeSql, customerScopeSql, opportunityScopeSql, resolveCrmScope } from "../../services/access/crm-scope";
 import { statsByProject, statsByUser } from "../time/stats";
 import { saveUpload } from "../../services/file/service";
 import { signDownloadToken } from "../../services/file/tokens";
@@ -453,11 +454,13 @@ export async function reportUtilization(db: DbOrTx, user: SessionUser, f: Report
 
 export async function reportOpportunityFunnel(db: DbOrTx, user: SessionUser, f: ReportFilter): Promise<ReportResult> {
   await requireReportRead(db, user);
-  const showAmount = canSeeCrmAmounts(user);
-  if (!canReadCrm(user)) {
+  const scope = await resolveCrmScope(db, user);
+  const showAmount = canSeeAmounts(scope);
+  const scopeSql = opportunityScopeSql(scope);
+  if (!canReadCrm(user) || scopeSql === null) {
     return { columns: [], rows: [], summaryCards: [{ key: "note", label: "口径", value: "无 CRM 可见权" }] };
   }
-  const conditions: (SQL | undefined)[] = [];
+  const conditions: (SQL | undefined)[] = [scopeSql];
   if (f.customerId) conditions.push(eq(crmOpportunities.customerId, f.customerId));
   if (f.from) conditions.push(gte(crmOpportunities.createdAt, `${f.from}T00:00:00Z`));
   if (f.to) conditions.push(lte(crmOpportunities.createdAt, `${f.to}T23:59:59Z`));
@@ -493,13 +496,16 @@ export async function reportOpportunityFunnel(db: DbOrTx, user: SessionUser, f: 
 export async function reportCustomerContribution(db: DbOrTx, user: SessionUser, f: ReportFilter): Promise<ReportResult> {
   await requireReportRead(db, user);
   void f; // 客户贡献暂不按区间过滤（合同额/回款额为累计口径）
-  const showAmount = canSeeCrmAmounts(user);
-  if (!canReadCrm(user)) {
+  const scope = await resolveCrmScope(db, user);
+  const showAmount = canSeeAmounts(scope);
+  const ctrScope = contractScopeSql(scope);
+  if (!canReadCrm(user) || ctrScope === null) {
     return { columns: [], rows: [], summaryCards: [{ key: "note", label: "口径", value: "无 CRM 可见权" }] };
   }
   const contractRows = await db
     .select({ customerId: crmContracts.customerId, sum: sql<number>`coalesce(sum(${crmContracts.amountCents}) filter (where ${crmContracts.status} <> 'terminated'), 0)::float8` })
     .from(crmContracts)
+    .where(ctrScope)
     .groupBy(crmContracts.customerId);
   const receiptRows = await db
     .select({
@@ -510,7 +516,11 @@ export async function reportCustomerContribution(db: DbOrTx, user: SessionUser, 
     .from(paymentReceipts)
     .groupBy(paymentReceipts.clientId);
   const receiptsByClient = new Map(receiptRows.map((r) => [r.clientId, r.net]));
-  const names = new Map((await db.select({ id: clients.id, name: clients.name }).from(clients)).map((c) => [c.id, c.name]));
+  const custScope = customerScopeSql(scope);
+  const custCond = custScope ?? sql`false`;
+  const names = new Map(
+    (await db.select({ id: clients.id, name: clients.name }).from(clients).where(custCond)).map((c) => [c.id, c.name]),
+  );
   const rows = contractRows.map((r) => ({
     customerId: r.customerId,
     customer: names.get(r.customerId) ?? r.customerId,

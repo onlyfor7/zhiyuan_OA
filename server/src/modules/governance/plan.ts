@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 import { ERROR_CODE } from "@lexflow/shared";
 
@@ -285,4 +285,78 @@ export async function transitionMilestone(
     .returning();
   if (!updated) throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "里程碑状态已变化，请刷新");
   return updated;
+}
+
+/* ===== 甘特专用输出（arch/13 §10：只画阶段/里程碑时间条；任务仅聚合三态计数，不产个人任务时间条） ===== */
+
+/**
+ * 节点条形输出：stages/milestones 为条节点；任务按节点聚合三态——
+ * done=已完成；overdue=未完成且截止早于今天；delayed=当前计划晚于基线（基线版本 items 对比，存在已批准延后同口径并入）。
+ * 三态优先级 done > overdue > delayed（每任务恰入一桶）。
+ */
+export async function ganttView(db: DbOrTx, user: SessionUser, projectId: string) {
+  await requireProjectRead(db, user, projectId);
+  const liveStages = await db.select().from(stages).where(eq(stages.projectId, projectId)).orderBy(asc(stages.seq));
+  const liveMilestones = await db.select().from(milestones).where(eq(milestones.projectId, projectId)).orderBy(asc(milestones.seq));
+  const liveTasks = await db.select().from(tasks).where(eq(tasks.projectId, projectId));
+
+  const [baseline] = await db
+    .select()
+    .from(planVersions)
+    .where(and(eq(planVersions.projectId, projectId), eq(planVersions.kind, "baseline")))
+    .orderBy(desc(planVersions.versionNo))
+    .limit(1);
+  const baseItems = baseline
+    ? await db.select().from(planItems).where(eq(planItems.planVersionId, baseline.id))
+    : [];
+  const baseByRef = new Map(baseItems.map((i) => [i.refId, i]));
+
+  const today = new Date().toISOString().slice(0, 10);
+  const triBucket = (t: (typeof liveTasks)[number]): "done" | "overdue" | "delayed" | null => {
+    if (t.status === "done") return "done";
+    if (t.plannedEnd < today) return "overdue";
+    const base = t.id ? baseByRef.get(t.id) : undefined;
+    if (base && t.plannedEnd > base.plannedEnd) return "delayed";
+    return null;
+  };
+  const countsFor = (stageId: string | null) => {
+    const c = { total: 0, done: 0, overdue: 0, delayed: 0 };
+    for (const t of liveTasks) {
+      if (t.stageId !== stageId) continue;
+      c.total++;
+      const b = triBucket(t);
+      if (b) c[b]++;
+    }
+    return c;
+  };
+
+  const nodes = [
+    ...liveStages.map((s) => ({
+      id: s.id,
+      kind: "stage" as const,
+      code: s.code,
+      name: s.name,
+      seq: s.seq,
+      plannedStart: s.plannedStart,
+      plannedEnd: s.plannedEnd,
+      actualStart: s.actualStart,
+      actualEnd: s.actualEnd,
+      status: s.status,
+      tasks: countsFor(s.id),
+    })),
+    ...liveMilestones.map((m) => ({
+      id: m.id,
+      kind: "milestone" as const,
+      code: m.code,
+      name: m.name,
+      seq: m.seq,
+      plannedStart: m.plannedDate,
+      plannedEnd: m.plannedDate,
+      actualStart: m.actualDate,
+      actualEnd: m.actualDate,
+      status: m.status,
+      tasks: { total: 0, done: 0, overdue: 0, delayed: 0 },
+    })),
+  ].sort((a, b) => a.seq - b.seq);
+  return { projectId, nodes };
 }

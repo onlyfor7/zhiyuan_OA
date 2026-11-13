@@ -372,11 +372,11 @@ describe("迭代 6 验收·扩展域（arch/09 §6）", () => {
     expect(newLogin.user.email).toBe(email);
   });
 
-  it("E8 权限：sysadmin 无业务内容权；member 不见收款与 /admin；partner 流程只读", async () => {
+  it("E8 权限：sysadmin 读按 arch/13 D3 放行；member 不见收款与 /admin；partner 流程只读", async () => {
     const sysProject = await trpc(app, "project.getById", { cookie: sysadminCookie, input: { id: projectBId }, method: "GET" });
-    expect(sysProject.status).toBe(404);
+    expect(sysProject.status).toBe(200); // arch/13 D3：全局最高读（写受控）
     const sysFile = await trpc(app, "expense.list", { cookie: sysadminCookie, method: "GET" });
-    expect([200, 404]).toContain(sysFile.status); // sysadmin 无财务职责→不可见费用
+    expect([200, 404]).toContain(sysFile.status); // 费用列表按费用域口径（D3 后 sysadmin 读放行亦合法）
     const memberReceipts = await trpc(app, "receipts.list", { cookie: memberCookie, method: "GET", input: {} });
     expect(memberReceipts.status).toBe(404);
     const memberAdmin = await trpc(app, "admin.userList", { cookie: memberCookie, method: "GET" });

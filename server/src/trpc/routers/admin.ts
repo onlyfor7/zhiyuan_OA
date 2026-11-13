@@ -7,6 +7,18 @@ import { storageOrphansDryRun, storageOrphansPurge } from "../../modules/admin/s
 import * as admin from "../../modules/admin/admin";
 
 export const adminRouter = router({
+  /** 受控数据纠正（arch/13 §7.3：sysadmin 白名单字段/理由/乐观锁/全快照审计） */
+  correctRecord: authedMutation
+    .input(
+      z.object({
+        object: z.enum(["lead", "opportunity", "client", "project", "user"]),
+        id: z.uuid(),
+        rowVersion: z.number().int().min(0),
+        patch: z.record(z.string(), z.unknown()),
+        reason: z.string().trim().min(1, "纠正理由必填").max(500),
+      }),
+    )
+    .mutation(({ ctx, input }) => admin.correctRecord(ctx.db, ctx.user, input, ctx.ip, ctx.session.id)),
   storageOrphans: authedProcedure
     .input(z.object({}).prefault({}))
     .query(({ ctx }) => storageOrphansDryRun(ctx.db, ctx.user, ctx.ip, ctx.session.id)),

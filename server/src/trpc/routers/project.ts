@@ -10,7 +10,7 @@ import {
   PROJECT_LIFECYCLE_STATUS,
 } from "@lexflow/shared";
 
-import { clients, matters, projectMembers, projects, users } from "../../db/schema";
+import { clients, crmOpportunities, matters, projectMembers, projects, users } from "../../db/schema";
 import { BusinessError } from "../../lib/errors";
 import { can, projectScopeFilter } from "../../services/access";
 import { authedMutation, authedProcedure, router } from "../trpc";
@@ -160,8 +160,16 @@ export const projectRouter = router({
       .from(projectMembers)
       .where(eq(projectMembers.projectId, input.id));
 
+    // 商机最小标识（arch/13 §5.4：项目↔商机互跳；无关联为 null）
+    const [opp] = await ctx.db
+      .select({ id: crmOpportunities.id, code: crmOpportunities.code, stage: crmOpportunities.stage })
+      .from(crmOpportunities)
+      .where(eq(crmOpportunities.projectId, input.id))
+      .limit(1);
+
     return {
       ...row,
+      opportunity: opp ?? null,
       memberCount: members.length,
       myRole: ctx.user.projectRoles.get(input.id) ?? null,
     };

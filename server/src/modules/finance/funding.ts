@@ -5,7 +5,7 @@ import { ERROR_CODE } from "@lexflow/shared";
 import { budgetLedger, expenseItems, expenseReports, fundingRequests } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
-import { requireProjectMember, requireProjectRead } from "../../services/access";
+import { assertProjectNotClosed, requireProjectMember, requireProjectRead } from "../../services/access";
 import { recordLedger } from "../../services/ledger/record";
 import * as engine from "../../services/approval/engine";
 import type { DbOrTx } from "../../trpc/context";
@@ -49,6 +49,7 @@ export async function createFunding(
   input: CreateFundingInput,
 ): Promise<{ id: string; code: string }> {
   await requireProjectMember(db, user, input.projectId);
+  await assertProjectNotClosed(db, input.projectId); // arch/13 §5.4：closed 项目阻断新增
   if (!input.purpose.trim()) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "用途必填", { purpose: ["用途必填"] });
   if (input.amountCents <= 0) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "金额须为正整数（分）", { amountCents: ["金额须为正整数（分）"] });
   const code = await nextCode("FND", db);

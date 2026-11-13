@@ -9,7 +9,7 @@ import { TEST_DATABASE_URL } from "../db/helpers";
 
 /**
  * 迭代 9d · 工单 02（arch/12 §7）：财务核算服务端——
- * 权限三探针（finance/partner 通、member·sysadmin 404、PM 读通无 manage）、
+ * 权限三探针（finance/partner/sysadmin(D3) 通、member 404、PM 读通无 manage）——arch/13 D3 后按新矩阵更新,
  * 应收账龄分桶（宽限 fin.ar.overdue_grace_days）+ 自动生成幂等、收款勾稽应收同事务写回（与 9c 计划行写回同链）、
  * 发票开具联动（应收带出金额/默认税率/company_profile 抬头）与红冲（voided+冲正行）、成本率 upsert、
  * 项目核算 §7.3 冻结公式聚合（毛利双口径自勾稽）。
@@ -54,13 +54,14 @@ describe("9d-02 财务核算服务端", () => {
     await closeDb();
   });
 
-  it("权限三探针：finance/partner 全通；member·sysadmin 财务域 404 同形；PM 读通但无 fin.manage（成本率写 404）", async () => {
-    for (const [name, cookie] of [["partner", partnerCookie], ["finance", financeCookie], ["pm", pmCookie]] as const) {
+  it("权限三探针：finance/partner/sysadmin(D3 提升) 全通；member 财务域 404 同形；PM 读通但无 fin.manage（成本率写 404）", async () => {
+    // arch/13 D3：sysadmin fin.read 全局放行（并入 200 组）；member 仍 404
+    for (const [name, cookie] of [["partner", partnerCookie], ["finance", financeCookie], ["pm", pmCookie], ["sysadmin", sysadminCookie]] as const) {
       expect((await trpc(app, "fin.receivables.list", { cookie, method: "GET", input: {} })).status, `${name} 应收`).toBe(200);
       expect((await trpc(app, "fin.invoices.list", { cookie, method: "GET", input: {} })).status, `${name} 发票`).toBe(200);
       expect((await trpc(app, "fin.projectCosting.list", { cookie, method: "GET" })).status, `${name} 核算`).toBe(200);
     }
-    for (const [name, cookie] of [["member", memberCookie], ["sysadmin", sysadminCookie]] as const) {
+    for (const [name, cookie] of [["member", memberCookie]] as const) {
       expect((await trpc(app, "fin.receivables.list", { cookie, method: "GET", input: {} })).status, `${name} 应收应 404`).toBe(404);
       expect((await trpc(app, "fin.invoices.list", { cookie, method: "GET", input: {} })).status, `${name} 发票应 404`).toBe(404);
       expect((await trpc(app, "fin.costRates.list", { cookie, method: "GET" })).status, `${name} 成本率应 404`).toBe(404);

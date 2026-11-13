@@ -8,7 +8,9 @@ import { getApp, loginAs, setupDatabase, trpc, trpcError } from "./helpers";
 import { TEST_DATABASE_URL } from "../db/helpers";
 
 /**
- * 迭代 9c · 工单 02（arch/12 §6/§11）：CRM 服务端——
+ * 迭代 9c · 工单 02（arch/12 §6/§11）+ 迭代 18-02 按 arch/13 §4 如实更新：CRM 操作方由 project_manager 改为 partner
+ *（§4.1.6 收回 pm 全局 CRM 短路由）；商机 create/convert 按 §5.3 D5 补 projectManagerId+idempotencyKey（成立即立项）；
+ * sysadmin 按 D3 提升为全局 CRM 读（探针反转 404→200）。原断言语义不变。
  * 权限三探针（partner 只读穿透 / finance 读 / member·sysadmin 同形 404；金额列口径）、
  * 转化事务（建客户+建商机+converted 写回，幂等重放，失败零部分写入）、赢单事务（won 必挂合同同事务）、
  * 回款勾稽（计划行状态 paid/partial + 作废回写 + 不挂合同兼容存量）、客户详情六区、跟进多态校验。
@@ -40,6 +42,7 @@ describe("9c-02 CRM 服务端", () => {
   let memberCookie: string; // 管晨
   let sysadminCookie: string; // 赵凯（矩阵无 crm 权）
   let projectAId: string;
+  let pmUserId: string;
 
   beforeAll(async () => {
     await setupDatabase();
@@ -49,6 +52,7 @@ describe("9c-02 CRM 服务端", () => {
     financeCookie = (await loginAs(app, "guojingwen@lexflow.demo")).cookie;
     memberCookie = (await loginAs(app, "guanchen@lexflow.demo")).cookie;
     sysadminCookie = (await loginAs(app, "zhaokai@lexflow.demo")).cookie;
+    pmUserId = (await query<{ id: string }>(`SELECT id FROM users WHERE email='wangbaozhuo@lexflow.demo'`))[0].id;
     const list = await trpc(app, "project.list", { cookie: pmCookie, method: "GET" });
     const items = (list.json as { result: { data: { items: { id: string; code: string }[] } } }).result.data.items;
     projectAId = items.find((p) => p.code === `PRJ-${YEAR}-00001`)!.id;
@@ -68,22 +72,26 @@ describe("9c-02 CRM 服务端", () => {
     expect(oppItem).toBeTruthy(); // partner=fin.read 口径：金额列在场
     const financeCustomers = await trpc(app, "crm.customers.list", { cookie: financeCookie, method: "GET", input: {} });
     expect(financeCustomers.status).toBe(200);
-    expect((financeCustomers.json as { result: { data: { items: Array<{ contractSum?: number }> } } }).result.data.items[0]).toHaveProperty("contractSum");
+    // arch/13 D4：finance 客户列表合同额（跨合同聚合）剥离；active 合同链明细金额在 contracts.getById 放行（见回款勾稽用例）
+    expect((financeCustomers.json as { result: { data: { items: Array<{ contractSum?: number }> } } }).result.data.items[0]).not.toHaveProperty("contractSum");
 
+    // member（交付角色）无线索明细权 404 不变；sysadmin 按 arch/13 D3 提升为全局 CRM 读（200）
+    const memberLeads = await trpc(app, "crm.leads.list", { cookie: memberCookie, method: "GET", input: {} });
+    expect(memberLeads.status, "member 线索列表应 404").toBe(404);
+    const sysLeads = await trpc(app, "crm.leads.list", { cookie: sysadminCookie, method: "GET", input: {} });
+    expect(sysLeads.status, "sysadmin 线索列表应 200（D3 全局读）").toBe(200);
     for (const [name, cookie] of [["member", memberCookie], ["sysadmin", sysadminCookie]] as const) {
-      const leads = await trpc(app, "crm.leads.list", { cookie, method: "GET", input: {} });
-      expect(leads.status, `${name} 线索列表应 404`).toBe(404);
       const detail = await trpc(app, "crm.customers.getById", { cookie, method: "GET", input: { id: crypto.randomUUID() } });
-      expect(detail.status, `${name} 客户详情应 404`).toBe(404);
+      expect(detail.status, `${name} 随机 uuid 客户详情应 404（同形不破）`).toBe(404);
     }
-    // manage 门：member 建线索/跟进 404
+    // manage 门：member 建线索/跟进 404（manage 仍 partner 粗门）
     expect((await trpc(app, "crm.leads.create", { cookie: memberCookie, input: { name: "member 越权线索" } })).status).toBe(404);
-    // 金额剔除说明：当前矩阵 crm.read ⊆ fin.read，剔除路径不触发（实现保留防矩阵扩展），sysadmin 亦无 crm 权
+    // 金额口径（arch/13 §1）：partner/运营/管理层/范围内销售可见；finance 合同前只见聚合（crm.summary）
   });
 
   it("转化事务：建客户+建商机+converted 写回；幂等重放零新增；坏客户回滚零部分写入", async () => {
     const lead = await trpc(app, "crm.leads.create", {
-      cookie: pmCookie,
+      cookie: partnerCookie,
       input: { name: "9c验收线索", source: "展会", contactName: "张总", contactPhone: "13800000000" },
     });
     expect(lead.status).toBe(200);
@@ -93,11 +101,12 @@ describe("9c-02 CRM 服务端", () => {
     const oppsBefore = await count("crm_opportunities");
 
     const converted = await trpc(app, "crm.leads.convert", {
-      cookie: pmCookie,
+      cookie: partnerCookie,
       input: {
         id: leadId,
         rowVersion: leadRv,
         customer: { name: "9c验收客户", level: "重点客户", industry: "验收业" },
+        projectManagerId: pmUserId,
         opportunity: { name: "9c验收商机", expectedAmountCents: 666000, winRate: 50 },
       },
     });
@@ -122,7 +131,7 @@ describe("9c-02 CRM 服务端", () => {
 
     // 幂等重放：再 convert（同线索任意输入）→ replayed:true 同 ids，计数不再变
     const replay = await trpc(app, "crm.leads.convert", {
-      cookie: pmCookie,
+      cookie: partnerCookie,
       input: { id: leadId, rowVersion: 99, customer: { name: "不应被创建" }, opportunity: { name: "不应被创建" } },
     });
     expect(replay.status).toBe(200);
@@ -132,12 +141,12 @@ describe("9c-02 CRM 服务端", () => {
     expect(await count("crm_opportunities")).toBe(oppsBefore + 1);
 
     // 回滚零部分写入：新线索 convert 挂不存在客户 → 400，线索保持未转化且客户/商机计数不变
-    const lead2 = await trpc(app, "crm.leads.create", { cookie: pmCookie, input: { name: "9c回滚线索" } });
+    const lead2 = await trpc(app, "crm.leads.create", { cookie: partnerCookie, input: { name: "9c回滚线索" } });
     const lead2Id = (lead2.json as { result: { data: { id: string; rowVersion: number } } }).result.data.id;
     const lead2Rv = (lead2.json as { result: { data: { rowVersion: number } } }).result.data.rowVersion;
     const bad = await trpc(app, "crm.leads.convert", {
-      cookie: pmCookie,
-      input: { id: lead2Id, rowVersion: lead2Rv, customerId: crypto.randomUUID(), opportunity: { name: "不应存在" } },
+      cookie: partnerCookie,
+      input: { id: lead2Id, rowVersion: lead2Rv, customerId: crypto.randomUUID(), projectManagerId: pmUserId, opportunity: { name: "不应存在" } },
     });
     expect(bad.status).toBe(400);
     const lead2Row = await query<{ status: string }>(`SELECT status FROM crm_leads WHERE id=$1`, [lead2Id]);
@@ -148,17 +157,17 @@ describe("9c-02 CRM 服务端", () => {
 
   it("商机阶段/赢单/输单：setStage 审计、markWon 同事务建合同（重放零新增）、markLost 原因必填", async () => {
     // 用种子客户（比博思特）直建商机
-    const customers = await trpc(app, "crm.customers.list", { cookie: pmCookie, method: "GET", input: { keyword: "比博思特" } });
+    const customers = await trpc(app, "crm.customers.list", { cookie: partnerCookie, method: "GET", input: { keyword: "比博思特" } });
     const customerId = (customers.json as { result: { data: { items: Array<{ id: string }> } } }).result.data.items[0].id;
     const opp = await trpc(app, "crm.opportunities.create", {
-      cookie: pmCookie,
-      input: { customerId, name: "9c赢单商机", expectedAmountCents: 888000, winRate: 70 },
+      cookie: partnerCookie,
+      input: { customerId, name: "9c赢单商机", expectedAmountCents: 888000, winRate: 70, projectManagerId: pmUserId, idempotencyKey: crypto.randomUUID() },
     });
     expect(opp.status).toBe(200);
     const oppId = (opp.json as { result: { data: { id: string; rowVersion: number } } }).result.data.id;
     const oppRv = (opp.json as { result: { data: { rowVersion: number } } }).result.data.rowVersion;
 
-    const staged = await trpc(app, "crm.opportunities.setStage", { cookie: pmCookie, input: { id: oppId, rowVersion: oppRv, stage: "proposal" } });
+    const staged = await trpc(app, "crm.opportunities.setStage", { cookie: partnerCookie, input: { id: oppId, rowVersion: oppRv, stage: "proposal" } });
     expect(staged.status).toBe(200);
     const stageAudit = await query<{ n: number }>(`SELECT count(*)::int AS n FROM audit_events WHERE action='crm.opportunities.setStage' AND target_id=$1`, [oppId]);
     expect(stageAudit[0].n).toBe(1);
@@ -166,7 +175,7 @@ describe("9c-02 CRM 服务端", () => {
     // markWon：同事务建合同并激活
     const contractsBefore = await count("crm_contracts");
     const won = await trpc(app, "crm.opportunities.markWon", {
-      cookie: pmCookie,
+      cookie: partnerCookie,
       input: { id: oppId, rowVersion: oppRv + 1, contract: { title: "9c验收合同", amountCents: 888000, activate: true } },
     });
     expect(won.status).toBe(200);
@@ -181,7 +190,7 @@ describe("9c-02 CRM 服务端", () => {
 
     // markWon 重放：返回现状，合同零新增
     const wonReplay = await trpc(app, "crm.opportunities.markWon", {
-      cookie: pmCookie,
+      cookie: partnerCookie,
       input: { id: oppId, rowVersion: 99, contract: { title: "不应被创建", amountCents: 1 } },
     });
     expect(wonReplay.status).toBe(200);
@@ -189,32 +198,32 @@ describe("9c-02 CRM 服务端", () => {
     expect(await count("crm_contracts")).toBe(contractsBefore + 1);
 
     // markLost 原因必填 + 正常输单
-    const opp2 = await trpc(app, "crm.opportunities.create", { cookie: pmCookie, input: { customerId, name: "9c输单商机" } });
+    const opp2 = await trpc(app, "crm.opportunities.create", { cookie: partnerCookie, input: { customerId, name: "9c输单商机", projectManagerId: pmUserId, idempotencyKey: crypto.randomUUID() } });
     const opp2Data = (opp2.json as { result: { data: { id: string; rowVersion: number } } }).result.data;
-    const lostNoReason = await trpc(app, "crm.opportunities.markLost", { cookie: pmCookie, input: { id: opp2Data.id, rowVersion: opp2Data.rowVersion, reason: " " } });
+    const lostNoReason = await trpc(app, "crm.opportunities.markLost", { cookie: partnerCookie, input: { id: opp2Data.id, rowVersion: opp2Data.rowVersion, reason: " " } });
     expect(lostNoReason.status).toBe(400);
-    const lost = await trpc(app, "crm.opportunities.markLost", { cookie: pmCookie, input: { id: opp2Data.id, rowVersion: opp2Data.rowVersion, reason: "预算冻结" } });
+    const lost = await trpc(app, "crm.opportunities.markLost", { cookie: partnerCookie, input: { id: opp2Data.id, rowVersion: opp2Data.rowVersion, reason: "预算冻结" } });
     expect(lost.status).toBe(200);
     // setStage 直拖 won/lost 被拦（须走 markWon/markLost）
-    const opp3 = await trpc(app, "crm.opportunities.create", { cookie: pmCookie, input: { customerId, name: "9c拖拽拦截" } });
+    const opp3 = await trpc(app, "crm.opportunities.create", { cookie: partnerCookie, input: { customerId, name: "9c拖拽拦截", projectManagerId: pmUserId, idempotencyKey: crypto.randomUUID() } });
     const opp3Data = (opp3.json as { result: { data: { id: string; rowVersion: number } } }).result.data;
-    const dragWon = await trpc(app, "crm.opportunities.setStage", { cookie: pmCookie, input: { id: opp3Data.id, rowVersion: opp3Data.rowVersion, stage: "won" as never } });
+    const dragWon = await trpc(app, "crm.opportunities.setStage", { cookie: partnerCookie, input: { id: opp3Data.id, rowVersion: opp3Data.rowVersion, stage: "won" as never } });
     expect(dragWon.status).toBe(400);
   });
 
   it("商机 update：名称/金额/赢率/负责人落库 + rowVersion 冲突 + 审计（14-03 随棒：update 增 ownerId，对齐 leads/customers.update 家族）", async () => {
-    const customers = await trpc(app, "crm.customers.list", { cookie: pmCookie, method: "GET", input: { keyword: "比博思特" } });
+    const customers = await trpc(app, "crm.customers.list", { cookie: partnerCookie, method: "GET", input: { keyword: "比博思特" } });
     const customerId = (customers.json as { result: { data: { items: Array<{ id: string }> } } }).result.data.items[0].id;
     const partnerUserId = (await query<{ id: string }>(`SELECT id FROM users WHERE email='liangqifeng@lexflow.demo'`))[0].id;
     const opp = await trpc(app, "crm.opportunities.create", {
-      cookie: pmCookie,
-      input: { customerId, name: "14-03更新商机", expectedAmountCents: 100000, winRate: 10 },
+      cookie: partnerCookie,
+      input: { customerId, name: "14-03更新商机", expectedAmountCents: 100000, winRate: 10, projectManagerId: pmUserId, idempotencyKey: crypto.randomUUID() },
     });
     expect(opp.status).toBe(200);
     const data = (opp.json as { result: { data: { id: string; rowVersion: number } } }).result.data;
 
     const updated = await trpc(app, "crm.opportunities.update", {
-      cookie: pmCookie,
+      cookie: partnerCookie,
       input: { id: data.id, rowVersion: data.rowVersion, name: "14-03更新商机·改", expectedAmountCents: 200000, winRate: 40, ownerId: partnerUserId },
     });
     expect(updated.status).toBe(200);
@@ -231,7 +240,7 @@ describe("9c-02 CRM 服务端", () => {
     expect(audit[0].n).toBe(1);
 
     // 旧 rowVersion 再改 → 冲突（409）
-    const stale = await trpc(app, "crm.opportunities.update", { cookie: pmCookie, input: { id: data.id, rowVersion: data.rowVersion, name: "不应生效" } });
+    const stale = await trpc(app, "crm.opportunities.update", { cookie: partnerCookie, input: { id: data.id, rowVersion: data.rowVersion, name: "不应生效" } });
     expect(stale.status).toBe(409);
     const nameAfter = await query<{ name: string }>(`SELECT name FROM crm_opportunities WHERE id=$1`, [data.id]);
     expect(nameAfter[0].name).toBe("14-03更新商机·改");
@@ -335,33 +344,33 @@ describe("9c-02 CRM 服务端", () => {
     expect(contracts.length).toBeGreaterThanOrEqual(0);
 
     // 联系人：主联系人互斥 + 删除
-    const c1 = await trpc(app, "crm.contacts.create", { cookie: pmCookie, input: { customerId, name: "甲联系人", isPrimary: true } });
+    const c1 = await trpc(app, "crm.contacts.create", { cookie: partnerCookie, input: { customerId, name: "甲联系人", isPrimary: true } });
     expect(c1.status).toBe(200);
-    const c2 = await trpc(app, "crm.contacts.create", { cookie: pmCookie, input: { customerId, name: "乙联系人", isPrimary: true } });
+    const c2 = await trpc(app, "crm.contacts.create", { cookie: partnerCookie, input: { customerId, name: "乙联系人", isPrimary: true } });
     expect(c2.status).toBe(200);
     const primaryCount = await query<{ n: number }>(`SELECT count(*)::int AS n FROM crm_contacts WHERE customer_id=$1 AND is_primary`, [customerId]);
     expect(primaryCount[0].n).toBe(1);
     const c1Id = (c1.json as { result: { data: { id: string } } }).result.data.id;
-    const del = await trpc(app, "crm.contacts.delete", { cookie: pmCookie, input: { id: c1Id } });
+    const del = await trpc(app, "crm.contacts.delete", { cookie: partnerCookie, input: { id: c1Id } });
     expect(del.status).toBe(200);
 
     // 跟进多态：三形态可建，目标不存在 400
-    const leads = await trpc(app, "crm.leads.list", { cookie: pmCookie, method: "GET", input: {} });
+    const leads = await trpc(app, "crm.leads.list", { cookie: partnerCookie, method: "GET", input: {} });
     const leadId = (leads.json as { result: { data: { items: Array<{ id: string }> } } }).result.data.items[0].id;
     for (const [targetType, targetId] of [["lead", leadId], ["customer", customerId]] as const) {
-      const f = await trpc(app, "crm.followups.create", { cookie: pmCookie, input: { targetType, targetId, content: `9c${targetType}跟进` } });
+      const f = await trpc(app, "crm.followups.create", { cookie: partnerCookie, input: { targetType, targetId, content: `9c${targetType}跟进` } });
       expect(f.status).toBe(200);
     }
-    const badFollowup = await trpc(app, "crm.followups.create", { cookie: pmCookie, input: { targetType: "customer", targetId: crypto.randomUUID(), content: "目标不存在" } });
+    const badFollowup = await trpc(app, "crm.followups.create", { cookie: partnerCookie, input: { targetType: "customer", targetId: crypto.randomUUID(), content: "目标不存在" } });
     expect(badFollowup.status).toBe(400);
     expect(trpcError(badFollowup).fieldErrors?.targetId).toBeTruthy();
 
     // 付款计划 upsert：草稿合同可整替；含已回款行的合同被守卫拦截
-    const contractsList = await trpc(app, "crm.contracts.list", { cookie: pmCookie, method: "GET", input: { keyword: "GD" } });
+    const contractsList = await trpc(app, "crm.contracts.list", { cookie: partnerCookie, method: "GET", input: { keyword: "GD" } });
     const gd = (contractsList.json as { result: { data: { items: Array<{ id: string; code: string }> } } }).result.data.items
       .find((c) => c.code === `CTR-${YEAR}-00001`)!;
     const blocked = await trpc(app, "crm.paymentPlans.upsert", {
-      cookie: pmCookie,
+      cookie: partnerCookie,
       input: { contractId: gd.id, rows: [{ seq: 1, dueDate: "2027-06-01", amountCents: 1000 }] },
     });
     expect(blocked.status).toBe(409); // 存在已回款（paid）行

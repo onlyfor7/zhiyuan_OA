@@ -91,6 +91,8 @@ export const orgRouter = router({
           position: z.string().trim().max(100).optional(),
           employeeNo: z.string().trim().max(50).nullable().optional(),
           joinedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "入职日须为 YYYY-MM-DD").nullable().optional(),
+          /** 直属主管（arch/13 §3.2：sysadmin 维护；多级成环服务端校验） */
+          managerId: z.uuid().nullable().optional(),
           roleKeys: z.array(z.string().min(1).max(50)).optional(),
         }),
       )

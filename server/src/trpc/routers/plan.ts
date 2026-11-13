@@ -22,6 +22,10 @@ export const planRouter = router({
   current: authedProcedure
     .input(z.object({ projectId: z.uuid() }))
     .query(({ ctx, input }) => service.currentVersion(ctx.db, ctx.user, input.projectId)),
+  /** 甘特专用输出（arch/13 §10）：仅阶段/里程碑条节点 + 任务三态聚合（done/overdue/delayed），无个人任务时间条 */
+  gantt: authedProcedure
+    .input(z.object({ projectId: z.uuid() }))
+    .query(({ ctx, input }) => service.ganttView(ctx.db, ctx.user, input.projectId)),
 
   simulate: authedProcedure
     .input(

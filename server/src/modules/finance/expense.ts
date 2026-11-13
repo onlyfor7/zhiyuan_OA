@@ -15,7 +15,7 @@ import {
 } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
-import { requireProjectMember, requireProjectRead } from "../../services/access";
+import { assertProjectNotClosed, requireProjectMember, requireProjectRead } from "../../services/access";
 import { aggregateProject, overBudgetMessage } from "../../services/ledger/record";
 import * as engine from "../../services/approval/engine";
 import { recordAudit } from "../../services/audit";
@@ -91,6 +91,7 @@ async function insertItems(
   let total = 0;
   for (const item of items) {
     await requireProjectMember(db, user, item.projectId); // 跨项目逐行鉴权（EXP-001；写路径成员门，partner 全局只读不放行）
+    await assertProjectNotClosed(db, item.projectId); // arch/13 §5.4：closed 项目阻断新增
     if (item.amountCents <= 0) {
       throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "明细金额须为正整数（分）", {
         items: [`${item.description} 金额非法`],

@@ -106,11 +106,6 @@ export async function createProject(
       templateId: ["项目模板不存在或已停用"],
     });
   }
-  const structure = template.structureJson as {
-    stages?: TemplateStage[];
-    checkItems?: TemplateCheckItem[];
-    tasks?: TemplateTask[];
-  };
 
   // 指定负责人须为在职用户（成员表同事务对齐的前提；不存在/停用 → 4xx 不泄 500）
   const managerId = input.managerId ?? user.id;
@@ -127,6 +122,55 @@ export async function createProject(
     }
   }
 
+  const project = await instantiateProjectFromTemplate(db, user.id, {
+    matterId: input.matterId,
+    name: input.name,
+    type: input.type,
+    managerId,
+    confidentialityLevel: input.confidentialityLevel,
+    template,
+    startDate: input.startDate,
+  });
+
+  // 创建人≠负责人时创建人落 member（降级语义），保证后续 transferManager 双向可还原
+  if (managerId !== user.id) {
+    await db
+      .insert(projectMembers)
+      .values({ projectId: project.id, userId: user.id, projectRole: "member" })
+      .onConflictDoNothing();
+  }
+
+  await recordAudit(db, {
+    actorId: user.id,
+    sessionId,
+    action: "project.create",
+    targetType: "project",
+    targetId: project.id,
+    result: "success",
+    afterJson: { code: project.code, templateId: input.templateId, matterId: input.matterId },
+    ip,
+  });
+
+  return project;
+}
+
+/**
+ * 模板实例化核心（arch/13 §5.3 D5 复用点）：项目行 + 成员(manager 恰一行) + 基线 v1 计划/阶段/任务/检查项 + 十一档案目录。
+ * 供 project.create 与 CRM 商机即立项同事务复用——权限门/校验/审计由调用方承载；任一步失败随调用方事务整体回滚。
+ */
+export async function instantiateProjectFromTemplate(
+  db: DbOrTx,
+  actorId: string,
+  input: {
+    matterId: string;
+    name: string;
+    type?: string;
+    managerId: string;
+    confidentialityLevel?: "public" | "internal" | "confidential" | "secret";
+    template: typeof projectTemplates.$inferSelect;
+    startDate: string;
+  },
+): Promise<{ id: string; code: string }> {
   const projectCode = await nextCode("PRJ", db);
   const [project] = await db
     .insert(projects)
@@ -135,40 +179,60 @@ export async function createProject(
       matterId: input.matterId,
       name: input.name,
       type: input.type ?? "",
-      managerId,
+      managerId: input.managerId,
       confidentialityLevel: input.confidentialityLevel ?? "internal",
       lifecycleStatus: "preparing",
       healthStatus: "normal",
-      createdBy: user.id,
-      updatedBy: user.id,
+      createdBy: actorId,
+      updatedBy: actorId,
     })
     .returning({ id: projects.id, code: projects.code });
   if (!project) throw new Error("项目插入失败");
 
-  // 成员表与 manager_id 同事务对齐（09c 打回修复：两表不再脱节；与 transferManager 同一语义——恰一条 manager 行）。
-  // 创建人≠负责人时创建人落 member（降级语义），保证后续 transferManager 双向可还原。
+  // 成员表与 manager_id 同事务对齐（09c 打回修复语义）：恰一条 manager 行
   await db
     .insert(projectMembers)
-    .values({ projectId: project.id, userId: managerId, projectRole: "manager" })
+    .values({ projectId: project.id, userId: input.managerId, projectRole: "manager" })
     .onConflictDoNothing();
-  if (managerId !== user.id) {
-    await db
-      .insert(projectMembers)
-      .values({ projectId: project.id, userId: user.id, projectRole: "member" })
-      .onConflictDoNothing();
+
+  await instantiateTemplatePlan(db, actorId, project.id, input.template, input.startDate, `模板「${input.template.name}」初始基线`);
+
+  // 固定十一档案目录
+  for (const dir of ARCHIVE_DIRECTORIES) {
+    await db.insert(archiveDirectories).values({ projectId: project.id, ...dir });
   }
 
-  // 模板阶段（days 累计排期，默认 14 天/阶段）+ 基线 v1 及 items
+  return project;
+}
+
+/**
+ * 模板计划实例化（plan v1 + 阶段 + 任务 + 检查项 + plan_items；arch/04 §2.10 冻结规则）。
+ * 供项目创建与 crm.opportunities.ensureProjectPlan（存量项目补建售前计划）复用；幂等由调用方先查 v1。
+ */
+export async function instantiateTemplatePlan(
+  db: DbOrTx,
+  actorId: string,
+  projectId: string,
+  template: typeof projectTemplates.$inferSelect,
+  startDate: string,
+  notes: string,
+): Promise<{ planVersionId: string }> {
+  const structure = template.structureJson as {
+    stages?: TemplateStage[];
+    checkItems?: TemplateCheckItem[];
+    tasks?: TemplateTask[];
+  };
+
   const [v1] = await db
     .insert(planVersions)
     .values({
-      projectId: project.id,
+      projectId,
       versionNo: 1,
       kind: "baseline",
       status: "active",
-      notes: `模板「${template.name}」初始基线`,
-      createdBy: user.id,
-      updatedBy: user.id,
+      notes,
+      createdBy: actorId,
+      updatedBy: actorId,
     })
     .returning({ id: planVersions.id });
   if (!v1) throw new Error("计划版本插入失败");
@@ -181,7 +245,7 @@ export async function createProject(
     return d;
   };
   const createdStages: Array<{ id: string; seq: number; start: Date; end: Date }> = [];
-  const cursor = new Date(`${input.startDate}T00:00:00Z`);
+  const cursor = new Date(`${startDate}T00:00:00Z`);
   for (const s of (structure.stages ?? []).slice().sort((a, b) => a.seq - b.seq)) {
     const days = s.days ?? 14;
     const ps = new Date(cursor);
@@ -191,15 +255,15 @@ export async function createProject(
     const [stage] = await db
       .insert(stages)
       .values({
-        projectId: project.id,
+        projectId,
         code,
         name: s.name,
         seq: s.seq,
         plannedStart: fmt(ps),
         plannedEnd: fmt(pe),
         status: "pending",
-        createdBy: user.id,
-        updatedBy: user.id,
+        createdBy: actorId,
+        updatedBy: actorId,
       })
       .returning({ id: stages.id });
     createdStages.push({ id: stage.id, seq: s.seq, start: ps, end: pe });
@@ -211,7 +275,7 @@ export async function createProject(
       plannedStart: fmt(ps),
       plannedEnd: fmt(pe),
       seq: ++seq,
-      createdBy: user.id,
+      createdBy: actorId,
     });
   }
 
@@ -233,7 +297,7 @@ export async function createProject(
       const candidate = await db
         .select({ userId: projectMembers.userId })
         .from(projectMembers)
-        .where(and(eq(projectMembers.projectId, project.id), eq(projectMembers.projectRole, taskDef.assigneeRole)))
+        .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.projectRole, taskDef.assigneeRole)))
         .orderBy(projectMembers.joinedAt)
         .limit(1);
       assigneeId = candidate[0]?.userId ?? null;
@@ -242,7 +306,7 @@ export async function createProject(
     const [taskRow] = await db
       .insert(tasks)
       .values({
-        projectId: project.id,
+        projectId,
         stageId: stage.id,
         code: taskCode,
         title: taskDef.name,
@@ -250,8 +314,8 @@ export async function createProject(
         plannedStart: fmt(ps),
         plannedEnd: fmt(pe),
         status: "pending",
-        createdBy: user.id,
-        updatedBy: user.id,
+        createdBy: actorId,
+        updatedBy: actorId,
       })
       .returning({ id: tasks.id });
     await db.insert(planItems).values({
@@ -262,7 +326,7 @@ export async function createProject(
       plannedStart: fmt(ps),
       plannedEnd: fmt(pe),
       seq: ++seq,
-      createdBy: user.id,
+      createdBy: actorId,
     });
   }
 
@@ -270,32 +334,16 @@ export async function createProject(
   for (const item of structure.checkItems ?? []) {
     const stageRow = item.stageSeq !== undefined ? stageBySeq.get(item.stageSeq) : undefined;
     await db.insert(qualityCheckItems).values({
-      projectId: project.id,
+      projectId,
       stageId: stageRow?.id ?? null,
       name: item.name,
       required: item.required ?? true,
-      createdBy: user.id,
-      updatedBy: user.id,
+      createdBy: actorId,
+      updatedBy: actorId,
     });
   }
 
-  // 固定十一档案目录
-  for (const dir of ARCHIVE_DIRECTORIES) {
-    await db.insert(archiveDirectories).values({ projectId: project.id, ...dir });
-  }
-
-  await recordAudit(db, {
-    actorId: user.id,
-    sessionId,
-    action: "project.create",
-    targetType: "project",
-    targetId: project.id,
-    result: "success",
-    afterJson: { code: project.code, templateId: input.templateId, matterId: input.matterId },
-    ip,
-  });
-
-  return { id: project.id, code: project.code };
+  return { planVersionId: v1.id };
 }
 
 export interface UpdateProjectInput {

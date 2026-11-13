@@ -61,6 +61,8 @@ export async function can(
       if (resource.type !== "project") return false;
       // arch/03 §2.2 v1.1（迭代8 用户裁定）：partner 全局只读可见（看得到 ≠ 管得了；写操作另有成员门）
       if (user.globalRoles.includes("partner")) return true;
+      // arch/13 D3：sysadmin 全局最高权限——项目读取放行（写仍受控）
+      if (user.globalRoles.includes("sysadmin")) return true;
       if (user.projectRoles.has(resource.projectId)) return true;
       return hasActiveGrant(db, user.id, "project", resource.projectId, action);
     }
@@ -93,19 +95,31 @@ export async function can(
       return true;
     }
     case "crm.read": {
-      // arch/12 §11：partner 全局只读穿透 + finance + 项目负责人；owner 本人在服务层放行
+      // arch/13 §4 可见性矩阵：全局(partner/operations/ceo/sysadmin) + tree(sales/sales_manager/regional_vp)
+      // + presales + finance(D4 分界在 service 层 SQL) + project_manager(收回全局短路由，仅项目关联最小信息在 service 层)；
+      // member/viewer 等交付角色无明细权（同形 404），整体汇总走 crm.summary
       return (
         user.globalRoles.includes("partner") ||
+        user.globalRoles.includes("operations") ||
+        user.globalRoles.includes("ceo") ||
+        user.globalRoles.includes("sysadmin") ||
+        user.globalRoles.includes("sales") ||
+        user.globalRoles.includes("sales_manager") ||
+        user.globalRoles.includes("regional_vp") ||
+        user.globalRoles.includes("presales") ||
         user.globalRoles.includes("finance") ||
         user.globalRoles.includes("project_manager")
       );
     }
     case "fin.read": {
-      // arch/12 §11：fin.read=finance/partner/项目负责人（costing 本项目 manager 在 service 层另放行）
+      // arch/12 §11：fin.read=finance/partner/项目负责人（costing 本项目 manager 在 service 层另放行）；
+      // arch/13 §4/D3：operations 全公司财务台账、sysadmin 全局最高权限放行
       return (
         user.globalRoles.includes("finance") ||
         user.globalRoles.includes("partner") ||
-        user.globalRoles.includes("project_manager")
+        user.globalRoles.includes("project_manager") ||
+        user.globalRoles.includes("operations") ||
+        user.globalRoles.includes("sysadmin")
       );
     }
     case "fin.manage": {
@@ -113,12 +127,25 @@ export async function can(
       return user.globalRoles.includes("finance") || user.globalRoles.includes("partner");
     }
     case "crm.manage": {
-      // arch/12 §11：crm.manage=partner/owner（owner 校验在服务层按记录判定）
-      return user.globalRoles.includes("partner") || user.globalRoles.includes("project_manager");
+      // arch/12 §11 + arch/13 §4：manage=partner；tree 范围内 owner/主管与售前指派维护在 service 层按记录判定；
+      // project_manager 全局 manage 收回（§4.1.6）
+      return user.globalRoles.includes("partner");
     }
     default:
       // 已注册动作未实现判定路径 → 默认拒绝（arch/03 §3）
       return false;
+  }
+}
+
+/** arch/13 §5.4：商机关闭联动的 closed 项目禁止新增费用/差旅/经费/任务（既有记录只读） */
+export async function assertProjectNotClosed(db: DbOrTx, projectId: string): Promise<void> {
+  const [p] = await db
+    .select({ lifecycleStatus: projects.lifecycleStatus })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  if (p?.lifecycleStatus === "closed") {
+    throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "项目已关闭，不可新增费用/差旅/经费/任务");
   }
 }
 

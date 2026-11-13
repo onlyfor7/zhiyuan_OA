@@ -6,7 +6,7 @@ import { milestones, projectMembers, stages, tasks, users } from "../../db/schem
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
 import { emitEvent } from "../../lib/events";
-import { requireProjectMember, requireProjectRead } from "../../services/access";
+import { assertProjectNotClosed, requireProjectMember, requireProjectRead } from "../../services/access";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
 import { cursorCondition, encodeCursor, nowIso } from "./util";
@@ -121,6 +121,7 @@ export async function createTask(
   input: CreateTaskInput,
 ): Promise<{ id: string; code: string }> {
   await requireProjectMember(db, user, input.projectId); // 成员即可建任务（arch/03 §3 本人业务创建）
+  await assertProjectNotClosed(db, input.projectId); // arch/13 §5.4：closed 项目阻断新增
   if (input.plannedEnd < input.plannedStart) {
     throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "计划完成日不能早于开始日", {
       plannedEnd: ["计划完成日不能早于开始日"],
