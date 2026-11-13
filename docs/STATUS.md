@@ -5,7 +5,7 @@
 
 ## 当前迭代
 
-**迭代 18 · 会议纪要业务架构对齐（一期）**（**进行中**——18-01/01b/18-02/18-02c/18-03 验收通过；当前解锁 18-04 外测部署，18-05 未解锁）
+**迭代 18 · 会议纪要业务架构对齐（一期）**（**进行中**——18-01/01b/18-02/18-02c/18-03/18-04 验收通过；当前解锁 18-05 测试收口）
 
 **迭代 17 · 打磨与加固综合包（用户选定五项）**（**已收口** 2026-11-13——五项取证 prod 全绿+根 309 全绿）
 
@@ -129,8 +129,8 @@
 | 18-02 可见性与商机即立项服务端 | 后端 | **通过** | 后端会话 | 2026-11-13 | 架构复核：D-18-2-1~5 全修；typecheck/build/migrate+根 327 独立复跑全绿；五偏差均关闭 |
 | 18-02c 前端联调接口补齐 | 后端 | **通过** | 后端会话 | 2026-11-13 | 架构复核：三项接口证据成立；typecheck/build/migrate+根 330 独立复跑全绿 |
 | 18-03 角色页面与项目全周期前端 | 前端 | **通过** | 前端会话 | 2026-11-13 | 架构复核：D-18-3-1~4 全闭环；typecheck/build/migrate+根 330 独立复跑全绿；截图与探针采信 |
-| 18-04 外测迁移发布 | 部署 | **待验收** | 部署会话 | 2026-11-13 | 备份/双镜像/digest 核对/迁移 16 行/0014 回执 anomalies=0/种子幂等/外网冒烟全绿（含 AI 真模型）；交接记录置顶条 |
-| 18-05 验收与手册 | 测试 | 未解锁 | — | — | 待 18-04 完成 |
+| 18-04 外测迁移发布 | 部署 | **通过** | 部署会话 | 2026-11-13 | 架构外网复核：品牌/八角色口径/财务分界/主管链/报表三列/节点甘特/AI 105ms 全过；发布证据采信 |
+| 18-05 验收与手册 | 测试 | **未认领** | — | — | 已解锁；契约 `docs/work-orders/迭代18/05-测试会话-验收回归与手册.md` |
 
 ## 迭代 17 工单状态（arch/12 §20 v2.6）
 
@@ -418,6 +418,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-13｜架构｜迭代18-04通过｜**工单 04（外测迁移发布）验收通过，发布并解锁 18-05（测试会话）。** 发布证据采信：备份目录完整、远端镜像 digest 与本地一致、迁移 0000–0015 共 16 行、0014 回执 processed=2/reused=1/created=1/anomalies=0、种子两次零漂移、三服务 healthy。架构从本机对外网独立复核：首页 200+品牌正确；销售 A 列表与商机项目关联、主管看下级、售前仅指派、财务线索 404+核算三列右对齐、sysadmin 主管链（郑→高→宋）、plan.gantt 无任务节点；DeepSeek `ai.config.testConnection` ok 105ms deepseek-chat。**勘误部署遗留口径**：`冒烟-` 对象不能靠当前 /admin 数据纠正页删除——该页只改白名单字段，不能删除或改状态；18-05 已写入处理要求（优先业务终态，不得物理清库）。新契约 `docs/work-orders/迭代18/05-测试会话-验收回归与手册.md`：e2e 签名/角色/全周期计数适配、开放对象零净增、六组验收矩阵、dev/prod 双程回归、手册 v2.6 与测试报告。
 
 - 2026-11-13｜部署｜迭代18-04｜**工单 18-04（外测迁移发布：182.92.206.62 迭代 16→18）完成，转「待验收」。** ① **预检**：本地基线 iter18frontend-fullcycle@a39368e（HEAD 2f8ac28 为纯 docs 提交，代码与基线一致）；远端三服务 healthy（31h）、compose 2.26.1、磁盘余 69G、8080 在位。升级前基线：migrations=14、users=22、projects=5、opportunities=2（crm_opportunities 无 project_id 列=迭代 16 schema 实证）。② **备份（镜像替换前完成）**：`/opt/lexflow/backups/iter18-pre-20261113T144803Z/`——pg_dump（274K/65 CREATE TABLE，dump 头校验通过）、uploads 卷 tar.gz（gzip 校验通过，外测暂无上传为空档正常）、compose+.env.production 副本（**600**，不回显不外传）、旧镜像 ID 与容器摘要；可读性全部核验过才进镜像替换。③ **构建**（DOCKER_BUILDKIT=0，server/web **均 --no-cache**）：server 本地标签 a0d082339c8a…c384a、web 3820ae060a5b…862ce。④ **分发**：save→scp→load，tar sha256 两端一致（c93c35f2…72089）；**远端 load 后 digest 与本地 tar config digest 逐字一致**（server 382c09916b34…87050f9 / web ed6a090165ec…9487636——legacy builder 展示差异本次未复现）；**旧镜像 5035c35f4a01/787c814bc19c 保留为 dangling 可回滚**。⑤ **compose/env**：远端与本地 sha256 一致（75ea1b9d…），**未上传未覆盖**，远端 .env.production 与 AI 配置原样保留。⑥ **起栈**（一律 `--env-file .env.production`）：滚动重建 server+web（postgres 不动）约 31s 三服务 healthy。⑦ **迁移与回执**：`__drizzle_migrations`=**16 行（0000–0015，末位 0015_iter18-01b-opp-idempotency）**；**0014 补齐回执** `db.migration.iter18_01.opp_project_backfill`：processed=2/reused=1/created=1/**anomalies=0**/lostFallback=0/lostBackfilled=0；三项复核全过：`project_id IS NULL`=0、一项目多商机占用=0、lost 商机 closed_reason/closed_at 齐。⑧ **种子幂等**：SEED_PROFILE=full 连跑两次零漂移——roles 8→**14**、users 22→**29**（既有 22 人+7 演示账号）、projects=6（0014 回填 +1）、两商机各挂唯一项目且各有首版售前计划（plan_versions=4）。⑨ **外网冒烟（本机实发 http://182.92.206.62:8080）**：首页 200+品牌+静态资产 200；八账号登录全过（王宝茁/苏明轩/林婉清/郑浩然/何志远/许文静/郭静文/赵凯）；可见性矩阵五角色全过（销售 A/B 各见本人、主管看下级全集、售前只看指派、运营全局、财务合同前商机 ACCESS_DENIED+summary 可达）；D5 线索→转化同事务建客户+商机+项目（两条链路实证）；新建线索无 LD 编号（code=null）；直接建商机缺负责人/幂等键 400（校验失败无写入）；商机详情跳项目且售前阶段 preparing；**商机关闭→项目 closed 结项只读、赢单+合同 activate→同一项目 in_progress 转交付**（不新建第二项目实证）；甘特可达无个人任务时间条字段；项目核算含 presalesCostCents/deliveryCostCents/totalCostCents 三列；/admin 200+数据纠正 API 可达（sysadmin）；桌面 1440 四页+375 三页**全部无横向溢出**。**冒烟三轮脚本自身三处载荷/断言缺陷已修正复测（convert 的 presalesId 须置于 opportunity 对象内、project.getById 须走 ?input=、运营无跨项目 PROJECT_READ 属按设计），均非平台缺陷**。⑩ **AI**：复用远端既有配置（system_config/deepseek-chat/脱敏 ****8c0b 原样未动）；**DeepSeek 已恢复可用（用户侧余额已处理）**——testConnection ok latency=118ms，ai.chat 实弹答「2」tokensIn=22/tokensOut=1 真实记账（provider=openai 为 OpenAI 兼容客户端标识，实际端点 api.deepseek.com）。⑪ **遗留**：冒烟临时对象（「冒烟-」前缀线索/客户/商机×3、合同「冒烟测试合同」、项目 PRJ-2026-00009/00010/00011）**留待 /admin 数据纠正页清理**（页面与 API 已验证可达，不做生产数据误清）；**凭据文件 D:\tmp\deploy-cred.txt 按用户本次明示指示保留不删**（推翻上次「用后删除」，后续会话直接复用；仍未入 git 未回显）；外测库口令统一 Demo@2026 提示实测用户后续改密。提交：[部署] 前缀仅 STATUS。提请架构会话验收（验收通过前不启动 18-05）。
 - 2026-11-13｜架构｜迭代18-03通过｜**工单 03 复修验收通过，发布并解锁 18-04（部署会话）。** 复核边界：复修提交只动 app/STATUS；D-18-3-1~4 全闭环——转化售前随请求提交并落库/售前可见，员工主管预填与汇报链展示，报表三成本列右对齐+元格式化，客户/项目数据纠正 rowVersion 详情自动回填且加载中禁提交。架构独立执行：typecheck/build/db:migrate 全过；根测试 **330/330**（server 301 + app 29）。截图 3 张与探针 15/15 采信。登记非阻断观察项 O-18-3-1（DataCorrectTab 非项目对象时空 id 调项目详情，归 18-05/迭代19 清零）。新契约 `docs/work-orders/迭代18/04-部署会话-外测迁移发布.md`：备份优先、0014/0015 迁移与商机项目补齐回执、种子幂等、外网八类角色冒烟、AI 402 用户侧余额口径、回滚预案。**串行提醒：部署会话不得改业务代码，不擅自清库，不覆盖远端密钥；18-05 继续锁定。**
