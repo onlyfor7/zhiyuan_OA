@@ -212,14 +212,19 @@ export async function runE2eCleanup(): Promise<string[]> {
 export async function collectOpenCounts(): Promise<Record<string, number>> {
   const out: Record<string, number> = {};
   const call = async (tag: string, email: string, path: string, filter: (r: any) => boolean) => {
-    try {
-      const s = new Session(email);
-      await s.login();
-      const data = d(await s.api(path));
-      out[tag] = ((data.items ?? []) as any[]).filter(filter).length;
-    } catch {
-      out[tag] = -1;
+    // 17-05：e2e 连跑后偶发瞬断（代理/限流）——3 次退避重试，仍失败记 -1
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const s = new Session(email);
+        await s.login();
+        const data = d(await s.api(path));
+        out[tag] = ((data.items ?? []) as any[]).filter(filter).length;
+        return;
+      } catch {
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 3_000));
+      }
     }
+    out[tag] = -1;
   };
   await call("approval.pending", EMAILS.partner, `approval.listMine?input=${encodeURIComponent(JSON.stringify({ limit: 100 }))}`, () => true);
   await call("expense.open", EMAILS.finance, `expense.list?input=${encodeURIComponent(JSON.stringify({ limit: 100 }))}`, (r) => ["pending_approval", "returned", "submitted", "pending"].includes(r.status));
