@@ -14,6 +14,12 @@ export function usePlanCurrent(projectId: string) {
   return useQuery(trpc.plan.current.queryOptions({ projectId }));
 }
 
+/** 节点级甘特（arch/13 §12/plan.gantt）：仅阶段/里程碑节点 + 任务三态聚合（done/overdue/delayed），任务不生成时间条 */
+export function usePlanGantt(projectId: string) {
+  const trpc = useTRPC();
+  return useQuery(trpc.plan.gantt.queryOptions({ projectId }, { enabled: !!projectId }));
+}
+
 export function usePlanVersion(id: string | null) {
   const trpc = useTRPC();
   return useQuery(trpc.plan.versionGet.queryOptions({ id: id ?? "" }, { enabled: !!id }));

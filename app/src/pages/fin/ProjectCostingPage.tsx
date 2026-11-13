@@ -32,6 +32,14 @@ export default function ProjectCostingPage() {
         ["毛利（回款口径）", c.grossMarginCents],
       ]
     : [];
+  // arch/13 §5.5 成本分段（加性三指标：售前+交付=总，总额=直接成本不重记）
+  const segmented = c
+    ? [
+        ["售前成本", c.presalesCostCents],
+        ["交付成本", c.deliveryCostCents],
+        ["总成本", c.totalCostCents],
+      ]
+    : [];
 
   return (
     <div className="screen fin-costing-screen">
@@ -89,6 +97,17 @@ export default function ProjectCostingPage() {
                     <strong className="mono">{fmt(value as number)}</strong>
                   </div>
                 ))}
+      {segmented.length > 0 ? (
+        <div className="metric-strip overview-strip" style={{ marginTop: 10 }} aria-label="成本分段">
+          {segmented.map(([label, value]) => (
+            <div key={label as string}>
+              <span>{label}（§5.5）</span>
+              <strong className="mono">{formatYuan(value as number)} 元</strong>
+              <small>{label === "总成本" ? "=售前+交付（与直接成本一致，不重记）" : "按费用发生日 vs 合同激活日分段"}</small>
+            </div>
+          ))}
+        </div>
+      ) : null}
               </div>
               <span className="section-label" style={{ display: "block", marginTop: 14 }}>毛利横条（双口径）</span>
               <div className="fin-margin-bars">

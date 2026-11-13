@@ -111,6 +111,7 @@ export default function ContractsPage() {
   const m = useCrmMutations();
   const [drawerId, setDrawerId] = useState<string | null>(null);
   const [terminateTarget, setTerminateTarget] = useState<{ id: string; rowVersion: number; title: string } | null>(null);
+  const [activateTarget, setActivateTarget] = useState<{ id: string; rowVersion: number; title: string } | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -148,6 +149,9 @@ export default function ContractsPage() {
                   <strong>{c.title}</strong>
                   <span className="p9a-row-actions">
                     <button className="text-action" onClick={() => setDrawerId(c.id)}>详情/付款计划</button>
+                    {c.status === "draft" ? (
+                      <button className="text-action" onClick={() => setActivateTarget(c)}>激活</button>
+                    ) : null}
                     {c.status === "active" ? (
                       <button className="text-action" onClick={() => setTerminateTarget(c)}>终止</button>
                     ) : null}
@@ -167,6 +171,30 @@ export default function ContractsPage() {
       </div>
       {error ? <p className="form-error" role="alert">{error}</p> : null}
       {drawerId ? <ContractDrawer contractId={drawerId} onClose={() => setDrawerId(null)} /> : null}
+      {activateTarget ? (
+        <DangerConfirm
+          title={`激活合同 · ${activateTarget.title}`}
+          consequence={
+            <>
+              <strong>激活后该合同全链财务明细开放（arch/13 D4 分界），关联项目同事务转入交付（preparing→in_progress，同一项目）。</strong>
+              <p>草稿期可改付款计划；激活后计划只读。此操作写入审计。</p>
+            </>
+          }
+          confirmLabel="确认激活"
+          pending={m.activateContract.isPending}
+          onCancel={() => setActivateTarget(null)}
+          onConfirm={() => {
+            setError(null);
+            m.activateContract.mutate(
+              { id: activateTarget.id, rowVersion: activateTarget.rowVersion },
+              {
+                onSuccess: () => { toast.success("合同已激活：项目转入交付，财务明细按 D4 开放"); setActivateTarget(null); },
+                onError: (err) => { setError(rootErrorMessage(err)); setActivateTarget(null); },
+              },
+            );
+          }}
+        />
+      ) : null}
       {terminateTarget ? (
         <DangerConfirm
           title={`终止合同 · ${terminateTarget.title}`}

@@ -25,10 +25,10 @@ export default function FollowupsPage() {
 
   const targets =
     targetType === "lead"
-      ? (leads.data?.items ?? []).map((t) => ({ id: t.id, label: `${t.name}（${t.code}）` }))
+      ? (leads.data?.items ?? []).map((t) => ({ id: t.id, label: t.name }))
       : targetType === "customer"
-        ? (customers.data?.items ?? []).map((t) => ({ id: t.id, label: `${t.name}（${t.code}）` }))
-        : (opps.data?.items ?? []).map((t) => ({ id: t.id, label: `${t.name}（${t.code}）` }));
+        ? (customers.data?.items ?? []).map((t) => ({ id: t.id, label: t.name }))
+        : (opps.data?.items ?? []).map((t) => ({ id: t.id, label: t.name }));
 
   return (
     <div className="screen crm-followups-screen">

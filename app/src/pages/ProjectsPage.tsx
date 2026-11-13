@@ -137,8 +137,11 @@ export default function ProjectsPage() {
                 <small>{project.matterName}</small>
               </span>
               <span>{project.managerName}</span>
-              <span className={`badge badge-lifecycle-${project.lifecycleStatus}`}>
-                {LIFECYCLE_LABEL[project.lifecycleStatus]}
+              <span
+                className={`badge badge-lifecycle-${project.lifecycleStatus}`}
+                title="arch/13 D5：preparing=售前阶段，in_progress=交付，closed=已关闭"
+              >
+                {project.lifecycleStatus === "preparing" ? "售前" : project.lifecycleStatus === "in_progress" ? "交付" : "已关闭"}
               </span>
               <span className={`badge badge-health-${project.healthStatus}`}>
                 {HEALTH_LABEL[project.healthStatus]}

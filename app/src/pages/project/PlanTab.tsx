@@ -3,6 +3,7 @@ import { GitBranch } from "lucide-react";
 
 import {
   usePlanCurrent,
+  usePlanGantt,
   usePlanSimulate,
   usePlanTransitions,
   usePlanVersion,
@@ -31,6 +32,7 @@ export default function PlanTab() {
   const [simRun, setSimRun] = useState(false);
   const [changePrefill, setChangePrefill] = useState<PlanAdjustment[] | null>(null);
   const simulate = usePlanSimulate(projectId, simAdjustments, simRun);
+  const gantt = usePlanGantt(projectId);
 
   const baselineMeta = useMemo(() => {
     if (!versions.data) return null;
@@ -49,7 +51,8 @@ export default function PlanTab() {
     baseline: baselineDetail.data ?? null,
     live: current.data,
     simulateItems: simulate.data?.items,
-  });
+  }).filter((r) => r.itemType !== "task"); // arch/13 §12：任务不生成时间条，仅节点行（阶段/里程碑）
+  const taskSummary = new Map((gantt.data?.nodes ?? []).map((n) => [n.id, n.tasks]));
 
   return (
     <div className="space-tab-body plan-tab">
@@ -89,6 +92,8 @@ export default function PlanTab() {
       <GanttBoard
         rows={rows}
         today={todayStr()}
+        taskSummary={taskSummary}
+        tasksLink={(refId) => `/projects/${projectId}/tasks?stage=${refId}`}
         onTransitionStage={(refId, action) => transitions.stage.mutate({ stageId: refId, action })}
         onTransitionMilestone={(refId, action) =>
           transitions.milestone.mutate({ milestoneId: refId, action })

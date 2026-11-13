@@ -11,6 +11,7 @@ import { HelpIcon } from "../../components/HelpIcon";
 import { FormDialog } from "../../components/FormDialog";
 import AiConfigTab from "./AiConfigTab";
 import { rootErrorMessage } from "../../lib/form";
+import DataCorrectTab from "./DataCorrectTab";
 import { CONFIDENTIALITY_LABEL } from "../../lib/labels";
 import { CONFIG_KEY } from "@lexflow/shared";
 
@@ -21,6 +22,7 @@ const TABS = [
   ["params", "系统参数"],
   ["codes", "编号规则"],
   ["ai-config", "AI 配置"],
+  ["data-correct", "数据纠正"],
 ] as const;
 
 /** 白名单参数键（CONFIG_KEY 全量展示；编辑逐个 get/set） */
@@ -78,6 +80,7 @@ export default function AdminCenterPage() {
       {tab === "params" ? <ParamsTab /> : null}
       {tab === "codes" ? <CodesTab /> : null}
       {tab === "ai-config" ? <AiConfigTab /> : null}
+      {tab === "data-correct" ? <DataCorrectTab /> : null}
     </div>
   );
 }

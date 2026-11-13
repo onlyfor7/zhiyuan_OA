@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
-import { useContractList, useCrmMutations, useCustomer, useFollowupList } from "../../api/crm";
+import { useContractList, useCrmMutations, useCustomer, useFollowupList, useOpportunity } from "../../api/crm";
+import { usePlanCurrent } from "../../api/plan";
+import { useProjectMembers } from "../../api/project";
 import { formatYuan } from "../../api/reference";
 import type { RouterOutputs } from "../../lib/trpc";
 import { useUserNameMap } from "./shared";
@@ -27,6 +29,12 @@ export function OpportunityDrawer({ opp, onClose }: { opp: OppRow; onClose: () =
   const customer = useCustomer(opp.customerId);
   const followups = useFollowupList("opportunity", opp.id);
   const contracts = useContractList({ customerId: opp.customerId, limit: 100 });
+  /** arch/13 §5.4：详情补关联项目最小标识 + 项目阶段/负责人（互跳入口） */
+  const detail = useOpportunity(opp.id);
+  const project = detail.data?.project ?? null;
+  const projectMembers = useProjectMembers(project?.id ?? "");
+  const pmName = (projectMembers.data ?? []).find((x) => x.projectRole === "manager")?.name ?? null;
+  const planCurrent = usePlanCurrent(project?.id ?? "");
   const editable = !["won", "lost"].includes(opp.stage);
   const canSeeAmount = "expectedAmountCents" in opp;
   const linked = (contracts.data?.items ?? []).filter((c) => c.opportunityId === opp.id || c.id === opp.wonContractId);
@@ -39,13 +47,18 @@ export function OpportunityDrawer({ opp, onClose }: { opp: OppRow; onClose: () =
   const [stage, setStage] = useState(opp.stage);
   const [rv, setRv] = useState(opp.rowVersion);
   const [followText, setFollowText] = useState("");
+  const [presalesPick, setPresalesPick] = useState(opp.presalesId ?? "");
+  const [lostOpen, setLostOpen] = useState(false);
+  const [lostReason, setLostReason] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const oppRow = detail.data ?? opp;
 
   const dirty =
     form.name.trim() !== opp.name ||
     form.amountYuan !== (amountOf(opp) != null ? String((amountOf(opp) as number) / 100) : "") ||
     form.winRate !== (opp.winRate != null ? String(opp.winRate) : "") ||
-    (form.ownerId || null) !== opp.ownerId;
+    (form.ownerId || null) !== opp.ownerId ||
+    presalesPick !== (opp.presalesId ?? "");
 
   const onStageChange = (next: string) => {
     if (next === stage) return;
@@ -81,6 +94,8 @@ export function OpportunityDrawer({ opp, onClose }: { opp: OppRow; onClose: () =
         <p className="context-note">
           阶段：{OPPORTUNITY_STAGE_LABEL[stage] ?? stage}{!editable ? "（终态只读）" : ""} · 所属客户：{customer.data?.customer.name ?? "加载中…"}
           {customer.data ? <> · <Link className="text-action" to={`/crm/customers/${opp.customerId}`}>查看客户档案 →</Link></> : null}
+          {oppRow.sourceLeadId ? <> · 来源线索：<Link className="text-action" to={`/crm/leads?lead=${oppRow.sourceLeadId}`}>查看 →</Link></> : null}
+          {oppRow.closedReason ? <> · 关闭原因：{oppRow.closedReason}{oppRow.closedAt ? `（${oppRow.closedAt.slice(0, 16).replace("T", " ")}）` : ""}</> : null}
         </p>
         <div className="p9a-field-grid two">
           <label className="form-field"><span>商机编号</span><input value={opp.code} disabled /></label>
@@ -115,16 +130,51 @@ export function OpportunityDrawer({ opp, onClose }: { opp: OppRow; onClose: () =
               disabled={!editable}
               onChange={(e) => setForm((f) => ({ ...f, winRate: e.target.value }))}
             /></label>
-          <div className="form-field"><span>负责人</span>
+          <div className="form-field"><span>负责人（销售）</span>
             {editable ? (
               <UserPicker value={form.ownerId} onChange={(userId) => setForm((f) => ({ ...f, ownerId: userId }))} placeholder="搜索新负责人" />
             ) : (
               <input value={nameOf(opp.ownerId)} disabled />
             )}
           </div>
+          <div className="form-field"><span>售前{editable ? "（可指派/改派，保存生效）" : ""}</span>
+            {editable ? (
+              <UserPicker value={presalesPick} onChange={setPresalesPick} placeholder="搜索售前（可选）" />
+            ) : (
+              <input value={opp.presalesId ? nameOf(opp.presalesId) : "—"} disabled />
+            )}
+          </div>
+          <label className="form-field"><span>项目负责人</span>
+            <input value={project ? (pmName ?? "见项目空间成员") : "—"} disabled /></label>
+          <label className="form-field"><span>关联项目（D5 商机即立项）</span>
+            <input value={project ? `${project.code} · ${project.name}` : "—"} disabled /></label>
           <label className="form-field"><span>赢单合同</span>
             <input value={opp.wonContractId ? "已挂合同（见关联合同区）" : "—"} disabled /></label>
         </div>
+        {project ? (
+          <p className="context-note">
+            项目全周期：{project.lifecycleStatus === "preparing" ? "售前阶段" : project.lifecycleStatus === "in_progress" ? "交付中" : project.lifecycleStatus === "closed" ? "已关闭（只读）" : project.lifecycleStatus}
+            {" · "}
+            <Link className="text-action" to={`/projects/${project.id}/overview`}>进入项目空间 →</Link>
+            {planCurrent.data ? " · 售前计划已建" : planCurrent.isError ? " · 计划读取受限" : (
+              <button
+                type="button"
+                className="text-action"
+                style={{ marginLeft: 6 }}
+                disabled={m.ensureProjectPlan.isPending}
+                onClick={() => {
+                  setError(null);
+                  m.ensureProjectPlan.mutate(
+                    { opportunityId: opp.id },
+                    { onSuccess: () => toast.success("售前计划已补建（幂等：已有版本不重复建）"), onError: (err) => setError(rootErrorMessage(err)) },
+                  );
+                }}
+              >
+                补建售前计划
+              </button>
+            )}
+          </p>
+        ) : null}
 
         <span className="section-label">关联合同（{linked.length}）</span>
         {contracts.isPending ? <p className="list-note">合同加载中…</p> : null}
@@ -171,6 +221,9 @@ export function OpportunityDrawer({ opp, onClose }: { opp: OppRow; onClose: () =
         <div className="row-ops">
           <button className="secondary-action" onClick={onClose}>关闭</button>
           {editable ? (
+            <button className="secondary-action" onClick={() => setLostOpen(true)}>关闭商机…</button>
+          ) : null}
+          {editable ? (
             <button
               className="primary-action"
               disabled={!dirty || !form.name.trim() || m.updateOpportunity.isPending}
@@ -186,6 +239,7 @@ export function OpportunityDrawer({ opp, onClose }: { opp: OppRow; onClose: () =
                     ...(canSeeAmount ? { expectedAmountCents: amountCents && amountCents > 0 ? amountCents : null } : {}),
                     winRate,
                     ownerId: form.ownerId || null,
+                    ...(presalesPick !== (opp.presalesId ?? "") ? { presalesId: presalesPick || null } : {}),
                   },
                   {
                     onSuccess: (row) => {
@@ -204,6 +258,32 @@ export function OpportunityDrawer({ opp, onClose }: { opp: OppRow; onClose: () =
           ) : null}
         </div>
       </div>
+      {lostOpen ? (
+        <FormDialog title={`关闭商机 · ${opp.name}`} eyebrow="CRM · 高危确认" onClose={() => setLostOpen(false)}>
+          <label className="form-field"><span>关闭原因 *（写入商机与关联项目，同事务）</span>
+            <textarea rows={2} value={lostReason} onChange={(e) => setLostReason(e.target.value)} /></label>
+          <p className="context-note">关闭后商机 lost、关联项目转「已关闭」只读，禁止新增费用/出差/任务/计划变更。</p>
+          <div className="drawer-actions">
+            <button className="secondary-action" onClick={() => setLostOpen(false)}>取消</button>
+            <button
+              className="danger-action"
+              disabled={!lostReason.trim() || m.markLost.isPending}
+              onClick={() => {
+                setError(null);
+                m.markLost.mutate(
+                  { id: opp.id, rowVersion: rv, reason: lostReason.trim() },
+                  {
+                    onSuccess: () => { toast.success("商机已关闭（项目已转只读）"); setLostOpen(false); onClose(); },
+                    onError: (err) => { setError(rootErrorMessage(err)); setLostOpen(false); },
+                  },
+                );
+              }}
+            >
+              确认关闭
+            </button>
+          </div>
+        </FormDialog>
+      ) : null}
     </FormDialog>
   );
 }

@@ -24,6 +24,12 @@ export function useOpportunityList(input: { stage?: string; customerId?: string;
   return useQuery(trpc.crm.opportunities.list.queryOptions({ limit: 50, customerId: input.customerId, cursor: input.cursor, ...(input.stage ? { stage: input.stage as never } : {}) }));
 }
 
+/** 商机详情（arch/13 §5.4：含关联项目最小标识 id/code/name/lifecycleStatus） */
+export function useOpportunity(id: string | null) {
+  const trpc = useTRPC();
+  return useQuery(trpc.crm.opportunities.getById.queryOptions({ id: id ?? "" }, { enabled: !!id }));
+}
+
 export function useContractList(input: { status?: string; customerId?: string; cursor?: string; limit?: number }, enabled = true) {
   const trpc = useTRPC();
   return useQuery(trpc.crm.contracts.list.queryOptions({ limit: 20, customerId: input.customerId, cursor: input.cursor, ...(input.status ? { status: input.status as never } : {}) }, { enabled }));
@@ -62,6 +68,8 @@ export function useCrmMutations() {
     setStage: useMutation(trpc.crm.opportunities.setStage.mutationOptions({ onSuccess: invalidate })),
     markWon: useMutation(trpc.crm.opportunities.markWon.mutationOptions({ onSuccess: invalidate })),
     markLost: useMutation(trpc.crm.opportunities.markLost.mutationOptions({ onSuccess: invalidate })),
+    /** 补建售前计划（arch/13 §5.3：幂等，已有 v1 返回现状） */
+    ensureProjectPlan: useMutation(trpc.crm.opportunities.ensureProjectPlan.mutationOptions({ onSuccess: invalidate })),
     updateContract: useMutation(trpc.crm.contracts.update.mutationOptions({ onSuccess: invalidate })),
     activateContract: useMutation(trpc.crm.contracts.activate.mutationOptions({ onSuccess: invalidate })),
     terminateContract: useMutation(trpc.crm.contracts.terminate.mutationOptions({ onSuccess: invalidate })),

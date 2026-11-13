@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { ArrowRight, CircleAlert, ShieldCheck } from "lucide-react";
 
-import { useProjectOverview } from "../../api/project";
+import { useProject, useProjectOverview } from "../../api/project";
 import { useMe } from "../../api/auth";
 import { formatYuan } from "../../api/reference";
 import { BudgetBar } from "../../components/finance";
@@ -15,6 +15,7 @@ export default function OverviewTab() {
   const { projectId } = useSpaceParams();
   const me = useMe();
   const overview = useProjectOverview(projectId);
+  const projectDetail = useProject(projectId);
   const allowed = canViewFinance(
     (me.data?.projects ?? []).find((p) => p.id === projectId)?.projectRole ?? null,
     me.data?.globalRoles ?? [],
@@ -24,8 +25,26 @@ export default function OverviewTab() {
   if (overview.isError) throw overview.error;
   const o = overview.data;
 
+  const phase =
+    projectDetail.data?.lifecycleStatus === "preparing"
+      ? "售前"
+      : projectDetail.data?.lifecycleStatus === "in_progress"
+        ? "交付"
+        : projectDetail.data?.lifecycleStatus === "closed"
+          ? "已关闭"
+          : null;
+  const opp = projectDetail.data?.opportunity ?? null;
+
   return (
     <div className="space-tab-body">
+      {phase || opp ? (
+        <p className="context-note" style={{ marginBottom: 10 }}>
+          {phase ? <>全周期阶段：<strong>{phase}</strong>{phase === "已关闭" ? "（只读：禁止新增费用/出差/任务/计划变更）" : ""} · </> : null}
+          {opp ? (
+            <>来源商机：<Link className="text-action" to={`/crm/opportunities?opp=${opp.id}`}>{opp.code}（{opp.stage === "won" ? "赢单" : opp.stage === "lost" ? "关闭" : "进行中"}）→</Link></>
+          ) : null}
+        </p>
+      ) : null}
       <div className="metric-strip overview-strip">
         <div>
           <span>任务总数</span>

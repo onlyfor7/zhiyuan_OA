@@ -126,19 +126,19 @@ export default function LeadsPage() {
         <span>{list.data.items.length} 条</span>
       </div>
       <div className="p9a-ta-table" style={{ gridTemplateRows: "40px minmax(0,1fr)" }}>
-        <div className="p9a-ta-head p9a-ta-row" style={{ gridTemplateColumns: "110px 1.3fr 1fr 90px 100px 90px 90px 140px" }}>
-          <span>编号</span><span>名称</span><span>联系人</span><span>来源</span><span>负责人</span><span>状态</span><span>最近跟进</span><span />
+        <div className="p9a-ta-head p9a-ta-row" style={{ gridTemplateColumns: "1.4fr 1.1fr 90px 100px 90px 90px 150px" }}>
+          <span>名称</span><span>联系人</span><span>来源</span><span>负责人</span><span>状态</span><span>最近跟进</span><span />
         </div>
         <div className="p9a-ta-body">
+          {list.data.items.length === 0 ? <p className="list-note" style={{ padding: "16px 12px" }}>当前范围内暂无线索（arch/13 §4 可见性口径：仅列本人/管辖/指派范围）。</p> : null}
           {list.data.items.map((l) => (
             <div
               className="p9a-ta-row is-clickable"
               key={l.id}
-              style={{ gridTemplateColumns: "110px 1.3fr 1fr 90px 100px 90px 90px 140px" }}
+              style={{ gridTemplateColumns: "1.4fr 1.1fr 90px 100px 90px 90px 150px" }}
               title="点击打开详情抽屉"
               onClick={() => setSp({ lead: l.id })}
             >
-              <span className="mono">{l.code}</span>
               <strong>{l.name}</strong>
               <span>{l.contactName ?? "—"}{l.contactPhone ? ` · ${l.contactPhone}` : ""}</span>
               <span>{l.source ?? "—"}</span>

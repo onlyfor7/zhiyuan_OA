@@ -4,7 +4,9 @@ import { useMe } from "../../api/auth";
 import { useMemberList, useOrgMutations, useUnitTree } from "../../api/org";
 import { FormDialog } from "../../components/FormDialog";
 import { ListSkeleton } from "../../components/feedback";
+import { UserPicker } from "../../components/UserPicker";
 import { GLOBAL_ROLE_LABEL } from "../../lib/labels";
+import { fieldErrorsOf } from "../../lib/trpc";
 import { rootErrorMessage } from "../../lib/form";
 import { toast } from "sonner";
 
@@ -33,6 +35,9 @@ function MemberDialog({ member, onClose }: { member: MemberItem | null; onClose:
   const [orgUnitId, setOrgUnitId] = useState(member?.orgUnitId ?? "");
   const [position, setPosition] = useState(member?.position ?? "");
   const [roleKeys, setRoleKeys] = useState<string[]>(member?.roles ?? ["member"]);
+  /** 直属主管（arch/13 §3.2：写 org.members.update；读=当前主管缺口仲裁登记 18-03-G1，不可成环/本人/停用由服务端校验 fieldErrors 落位） */
+  const [managerId, setManagerId] = useState("");
+  const [fieldErr, setFieldErr] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState<Record<number, boolean>>({});
   const [created, setCreated] = useState<{ email: string; initialPassword: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +49,7 @@ function MemberDialog({ member, onClose }: { member: MemberItem | null; onClose:
 
   const save = () => {
     setError(null);
+    setFieldErr({});
     setDirty({ 0: true, 1: true });
     if (invalid(0) || invalid(1)) return;
     if (member) {
@@ -56,13 +62,19 @@ function MemberDialog({ member, onClose }: { member: MemberItem | null; onClose:
           employeeNo: employeeNo.trim() || null,
           joinedAt: joinedAt || null,
           roleKeys,
+          ...(managerId ? { managerId } : {}),
         },
         {
           onSuccess: () => {
             toast.success("员工信息已更新");
             onClose();
           },
-          onError: (err) => setError(rootErrorMessage(err)),
+          onError: (err) => {
+            const fe = fieldErrorsOf(err);
+            const mgr = fe?.managerId?.[0];
+            if (mgr) setFieldErr({ managerId: mgr });
+            else setError(rootErrorMessage(err));
+          },
         },
       );
     } else {
@@ -162,6 +174,16 @@ function MemberDialog({ member, onClose }: { member: MemberItem | null; onClose:
               <span>职位</span>
               <input value={position} onChange={(e) => setPosition(e.target.value)} placeholder="如 资深律师" />
             </label>
+            {member ? (
+              <div className="form-field">
+                <span>直属主管（销售线数据范围/审批解析依据；不可选本人）</span>
+                <UserPicker value={managerId} onChange={(v) => { setManagerId(v); setFieldErr({}); }} placeholder="搜索并选择新主管" />
+                {fieldErr.managerId ? <em className="ux-err" role="alert">{fieldErr.managerId}</em> : null}
+                <small className="context-note" style={{ marginTop: 4, display: "block" }}>
+                  当前主管与汇报链展示读取接口待补齐（仲裁登记 18-03-G1）；保存即写入，成环/停用/本人由服务端校验并在此落位。
+                </small>
+              </div>
+            ) : null}
             <span className="section-label">角色（多选）</span>
             <div className="org-role-grid">
               {Object.entries(GLOBAL_ROLE_LABEL).map(([key, label]) => (

@@ -22,8 +22,9 @@ export interface NavGroup {
   roles?: string[];
 }
 
-/** CRM/报表域可见角色（arch/12 §11：member 默认不可见客户域） */
-const CRM_ROLES = ["sysadmin", "partner", "finance", "project_manager", "quality_lead", "archivist"];
+/** CRM 域可见角色（arch/13 §3.1/§4：销售线六角色+partner/sysadmin；member/viewer/finance(合同前汇总口径) 等不渲染客户组明细入口）
+ *  finance 合同激活后明细走合同链（fin 域），不进 CRM 列表；project_manager 全局短路由已收回。 */
+const CRM_ROLES = ["sales", "sales_manager", "presales", "operations", "regional_vp", "ceo", "partner", "sysadmin"];
 
 const CS = (domain: string, title: string, sub?: string) =>
   `/coming-soon?domain=${domain}&title=${encodeURIComponent(title)}${sub ? `&sub=${encodeURIComponent(sub)}` : ""}`;

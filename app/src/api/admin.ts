@@ -9,6 +9,19 @@ export function useAdminUsers(enabled: boolean) {
   return useQuery(trpc.admin.userList.queryOptions(undefined, { enabled }));
 }
 
+/** 受控数据纠正（arch/13 §7.3：sysadmin 白名单字段/理由必填/乐观锁/全快照审计） */
+export function useCorrectRecord() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  return useMutation(
+    trpc.admin.correctRecord.mutationOptions({
+      onSuccess: () => {
+        void queryClient.invalidateQueries();
+      },
+    }),
+  );
+}
+
 export function useAdminMutations() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();

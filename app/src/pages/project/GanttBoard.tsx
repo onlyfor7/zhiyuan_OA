@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { Link } from "react-router";
 
 import type { GanttRow } from "./gantt-utils";
 
@@ -34,17 +35,30 @@ function axisEndOf(rows: GanttRow[]): number {
 }
 
 /** 甘特三轨：基线幽灵轨（V1）/当前计划轨（active）/模拟轨（不落库）/实际轨（任务 live） */
+export interface GanttTaskSummary {
+  total: number;
+  done: number;
+  overdue: number;
+  delayed: number;
+}
+
+/** §12 节点级甘特：阶段/里程碑画时间条；节点行可展开任务三态摘要（完成/逾期/延后）+ 任务清单链接 */
 export function GanttBoard({
   rows,
   today,
+  taskSummary,
+  tasksLink,
   onTransitionStage,
   onTransitionMilestone,
 }: {
   rows: GanttRow[];
   today: string;
+  taskSummary?: Map<string, GanttTaskSummary>;
+  tasksLink?: (stageRefId: string) => string;
   onTransitionStage?: (refId: string, action: "start" | "done") => void;
   onTransitionMilestone?: (refId: string, action: "reach" | "miss") => void;
 }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const { axisStart, axisEnd, columns } = useMemo(() => {
     const start = axisStartOf(rows);
     const end = Math.max(axisEndOf(rows), parse(today));
@@ -74,9 +88,31 @@ export function GanttBoard({
       <div className="today-line" style={{ left: `calc(34% + 66% * ${todayPos.toFixed(4)})` }}>
         <span>今天</span>
       </div>
-      {rows.map((row) => (
-        <div className={`gantt-row track-row item-${row.itemType}`} key={row.key}>
+      {rows.map((row) => {
+        const tsum = taskSummary?.get(row.refId) ?? null;
+        const expandable = !!tsum && tsum.total > 0 && row.itemType === "stage";
+        const isOpen = expanded.has(row.key);
+        return (
+          <div className={`gantt-row track-row item-${row.itemType}`} key={row.key}>
           <div className="task-label">
+            {expandable ? (
+              <button
+                type="button"
+                className="gantt-expander"
+                aria-expanded={isOpen}
+                aria-label={isOpen ? "收起任务摘要" : "展开任务摘要"}
+                onClick={() =>
+                  setExpanded((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(row.key)) next.delete(row.key);
+                    else next.add(row.key);
+                    return next;
+                  })
+                }
+              >
+                {isOpen ? "▾" : "▸"}
+              </button>
+            ) : null}
             <span
               className={`task-state ${
                 row.status === "done"
@@ -172,8 +208,18 @@ export function GanttBoard({
               />
             ) : null}
           </div>
+          {expandable && isOpen && tsum ? (
+            <div className="gantt-task-summary">
+              <span className="gantt-ts-total">任务 {tsum.total}</span>
+              <span className="gantt-ts done">完成 {tsum.done}</span>
+              <span className="gantt-ts overdue">逾期 {tsum.overdue}</span>
+              <span className="gantt-ts delayed">延后 {tsum.delayed}</span>
+              {tasksLink ? <Link className="text-action" to={tasksLink(row.refId)}>任务清单 →</Link> : null}
+            </div>
+          ) : null}
         </div>
-      ))}
+        );
+      })}
       <div className="gantt-foot">
         <div>
           <span className="legend-line baseline" />
