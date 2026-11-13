@@ -14,7 +14,8 @@ export interface ReportFilterInput {
 }
 
 export interface ReportData {
-  columns: Array<{ key: string; label: string }>;
+  /** align 可选（18-02c 起）：数值列右对齐口径 */
+  columns: Array<{ key: string; label: string; align?: "right" | "left" }>;
   rows: Array<Record<string, unknown>>;
   summaryCards: Array<{ key: string; label: string; value: number | string }>;
 }

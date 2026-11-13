@@ -204,7 +204,9 @@ function ReportSkeleton({ reportKey }: { reportKey: string }) {
         <div className="rep-table-scroll">
           <div className="p9a-ta-table rep-table rep-excel" style={{ minWidth: `${cols.length * 110}px` }}>
             <div className="p9a-ta-head p9a-ta-row" style={{ gridTemplateColumns: colGrid }}>
-              {cols.map((c) => <span key={c.key}>{meta.label ? meta.label(c.label) : c.label}</span>)}
+              {cols.map((c) => (
+                <span key={c.key} style={c.align === "right" ? { textAlign: "right" } : undefined}>{meta.label ? meta.label(c.label) : c.label}</span>
+              ))}
             </div>
             <div className="p9a-ta-body">
               {pageRows.map((r, i) => (
@@ -213,7 +215,10 @@ function ReportSkeleton({ reportKey }: { reportKey: string }) {
                     <span
                       key={c.key}
                       className={typeof r[c.key] === "number" ? "mono" : undefined}
-                      style={aging && aging[c.key] && typeof r[c.key] === "number" && (r[c.key] as number) > 0 ? { background: aging[c.key] } : undefined}
+                      style={{
+                        textAlign: c.align === "right" ? "right" : undefined,
+                        background: aging && aging[c.key] && typeof r[c.key] === "number" && (r[c.key] as number) > 0 ? aging[c.key] : undefined,
+                      }}
                       title={meta.cell(c.key, r[c.key])}
                     >
                       {meta.cell(c.key, r[c.key])}

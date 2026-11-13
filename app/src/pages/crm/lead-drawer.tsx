@@ -49,6 +49,8 @@ export function LeadConvertDialog({ lead, onClose }: { lead: { id: string; rowVe
           name: oppName.trim(),
           expectedAmountCents: amountYuan ? Math.round(Number(amountYuan) * 100) : null,
           winRate,
+          /** D-18-3-1 复修：售前随转化请求提交（服务端立项 helper 落 presales_id） */
+          presalesId: presalesId || null,
         },
         projectManagerId: pmId || undefined,
         idempotencyKey: idemKey,

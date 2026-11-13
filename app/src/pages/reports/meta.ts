@@ -51,6 +51,8 @@ const moneyKeys = (...keys: string[]) => new Set(keys);
 const COSTING_MONEY = moneyKeys(
   "revenueCents", "receivedCents", "arBalanceCents", "directCostCents", "laborCostCents",
   "grossMarginCents", "grossMarginOnContractCents",
+  // 成本分段三列（18-02c 列定义已补；元展示归前端 cents 格式化）
+  "presalesCostCents", "deliveryCostCents", "totalCostCents",
 );
 const AGING_MONEY = moneyKeys("0-30", "31-60", "61-90", "90+", "total", "overdueTotal");
 const CASHFLOW_MONEY = moneyKeys("income", "expense", "net");

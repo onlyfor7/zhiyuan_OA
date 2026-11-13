@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { useEffect } from "react";
 import { useCorrectRecord } from "../../api/admin";
-import { useCustomerList, useLeadList, useOpportunityList } from "../../api/crm";
+import { useCustomer, useCustomerList, useLeadList, useOpportunityList } from "../../api/crm";
+import { useProject } from "../../api/project";
 import { useProjectList } from "../../api/project";
 import { useUnitTree } from "../../api/org";
 import { useUserList } from "../../api/reference";
@@ -56,6 +58,29 @@ export default function DataCorrectTab() {
   const units = useUnitTree();
 
   // rowVersion 预填：仅 lead/opportunity 列表携带；client/project 列表为最小集不携带（手工输入）；user 无该列（裁定）
+  /** D-18-3-4：客户/项目选择后走详情接口自动取 rowVersion（users 无列不展示，维持裁定） */
+  const isClient = object === "client";
+  const isProject = object === "project";
+  const clientDetail = useCustomer(isClient && recordId ? recordId : null);
+  const projectDetail = useProject(isProject && recordId ? recordId : "");
+  const detailLoading = Boolean(
+    (isClient && recordId && clientDetail.isPending) || (isProject && recordId && projectDetail.isPending),
+  );
+  const detailError = Boolean(
+    (isClient && recordId && clientDetail.isError) || (isProject && recordId && projectDetail.isError),
+  );
+  const detailRv = isClient
+    ? clientDetail.data?.customer.rowVersion
+    : isProject
+      ? projectDetail.data?.rowVersion
+      : undefined;
+  // 详情到达即回填版本号（外部系统=详情查询；快照比对避免级联渲染，同 FlowDesignerPage 范式）
+  /* eslint-disable react-hooks/set-state-in-effect -- 详情查询驱动的表单回填：detailRv 变化一次性同步 */
+  useEffect(() => {
+    if (detailRv !== undefined) setRowVersion(String(detailRv));
+  }, [detailRv]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   const records: Array<{ id: string; label: string; rowVersion?: number }> =
     object === "lead"
       ? (leads.data?.items ?? []).map((r) => ({ id: r.id, label: r.name, rowVersion: r.rowVersion }))
@@ -200,9 +225,11 @@ export default function DataCorrectTab() {
         ))}
       </div>
 
+      {detailLoading ? <p className="list-note">正在读取目标记录当前版本…（加载中禁止提交）</p> : null}
+      {detailError ? <p className="form-error" role="alert">版本自动读取失败（记录不存在或无权访问），请核对目标后手工输入。</p> : null}
       {object !== "user" ? (
         <label className="form-field" style={{ maxWidth: 220 }}>
-          <span>rowVersion *（从列表/详情取当前版本，乐观锁）</span>
+          <span>rowVersion *（客户/项目自动取自详情接口；其余从列表取，乐观锁）</span>
           <input value={rowVersion} onChange={(e) => setRowVersion(e.target.value)} inputMode="numeric" />
           {fieldErr.rowVersion ? <em className="ux-err" role="alert">{fieldErr.rowVersion}</em> : null}
         </label>
@@ -220,7 +247,7 @@ export default function DataCorrectTab() {
         <button className="secondary-action" onClick={resetAll}>重置</button>
         <button
           className="danger-action"
-          disabled={correct.isPending || !recordId || !reason.trim()}
+          disabled={correct.isPending || !recordId || !reason.trim() || detailLoading}
           onClick={submit}
         >
           {correct.isPending ? "提交中…" : "提交纠正（审计留痕）"}

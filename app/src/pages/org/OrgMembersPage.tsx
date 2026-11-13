@@ -21,6 +21,10 @@ type MemberItem = {
   employeeNo: string | null;
   joinedAt: string | null;
   roles: string[];
+  /** 直属主管与汇报链（18-02c：list 返回 managerId/managerName/managerChain） */
+  managerId: string | null;
+  managerName: string | null;
+  managerChain: Array<{ id: string; name: string }>;
 };
 
 /** F3 多页签 Dialog：新建/编辑员工（基本/岗位与角色/账号与安全，页签校验红点） */
@@ -35,8 +39,8 @@ function MemberDialog({ member, onClose }: { member: MemberItem | null; onClose:
   const [orgUnitId, setOrgUnitId] = useState(member?.orgUnitId ?? "");
   const [position, setPosition] = useState(member?.position ?? "");
   const [roleKeys, setRoleKeys] = useState<string[]>(member?.roles ?? ["member"]);
-  /** 直属主管（arch/13 §3.2：写 org.members.update；读=当前主管缺口仲裁登记 18-03-G1，不可成环/本人/停用由服务端校验 fieldErrors 落位） */
-  const [managerId, setManagerId] = useState("");
+  /** 直属主管（arch/13 §3.2：写 org.members.update；18-02c 起 list 带回 managerId 预填，不可成环/本人/停用由服务端 fieldErrors 落位） */
+  const [managerId, setManagerId] = useState(member?.managerId ?? "");
   const [fieldErr, setFieldErr] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState<Record<number, boolean>>({});
   const [created, setCreated] = useState<{ email: string; initialPassword: string } | null>(null);
@@ -178,10 +182,16 @@ function MemberDialog({ member, onClose }: { member: MemberItem | null; onClose:
               <div className="form-field">
                 <span>直属主管（销售线数据范围/审批解析依据；不可选本人）</span>
                 <UserPicker value={managerId} onChange={(v) => { setManagerId(v); setFieldErr({}); }} placeholder="搜索并选择新主管" />
-                {fieldErr.managerId ? <em className="ux-err" role="alert">{fieldErr.managerId}</em> : null}
-                <small className="context-note" style={{ marginTop: 4, display: "block" }}>
-                  当前主管与汇报链展示读取接口待补齐（仲裁登记 18-03-G1）；保存即写入，成环/停用/本人由服务端校验并在此落位。
-                </small>
+  {fieldErr.managerId ? <em className="ux-err" role="alert">{fieldErr.managerId}</em> : null}
+                {member ? (
+                  <small className="context-note" style={{ marginTop: 4, display: "block" }}>
+                    当前直属主管：{member.managerName ?? "未配置"}
+                    {member.managerChain && member.managerChain.length > 0 ? (
+                      <> · 汇报链：{member.managerChain.map((m) => m.name).join(" → ")}</>
+                    ) : null}
+                    ；调整即写入，成环/停用/本人由服务端校验并在此落位。
+                  </small>
+                ) : null}
               </div>
             ) : null}
             <span className="section-label">角色（多选）</span>

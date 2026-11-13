@@ -128,7 +128,7 @@
 | 18-01b 商机立项幂等键补齐 | 数据 | **通过** | 数据会话 | 2026-11-13 | 架构复核：部分唯一索引 dev 实测就位；同键 23505 用例与根 319 全绿 |
 | 18-02 可见性与商机即立项服务端 | 后端 | **通过** | 后端会话 | 2026-11-13 | 架构复核：D-18-2-1~5 全修；typecheck/build/migrate+根 327 独立复跑全绿；五偏差均关闭 |
 | 18-02c 前端联调接口补齐 | 后端 | **通过** | 后端会话 | 2026-11-13 | 架构复核：三项接口证据成立；typecheck/build/migrate+根 330 独立复跑全绿 |
-| 18-03 角色页面与项目全周期前端 | 前端 | **进行中（复修已下发）** | 前端会话 | 2026-11-13 | 18-02c 已通过；按工单 §8 复修 D-18-3-1~4 并重新待验收 |
+| 18-03 角色页面与项目全周期前端 | 前端 | 待验收 | 前端会话 | 2026-11-13 | 复修完成：D-18-3-1~4 逐项取证 15/15 PASS（presalesId 落库+售前可见/主管预填+汇报链/报表三列右对齐/rowVersion 自动取）；四道门 330=301+29 全绿；已合并 iter18/server-ui-contracts(18-02c)；截图 D:\tmp\shots-iter18-fix\ |
 | 18-04 外测迁移发布 | 部署 | 未解锁 | — | — | 待 18-03 验收 |
 | 18-05 验收与手册 | 测试 | 未解锁 | — | — | 待 18-04 完成 |
 
@@ -417,6 +417,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-13｜前端｜迭代18-03复修｜**工单 18-03 复核打回复修完成（D-18-3-1~4 逐项），重新转「待验收」。** 前置：合并 `iter18/server-ui-contracts@863b649`（18-02c 三项接口）入本分支。复修四项与证据：① **D-18-3-1**——`LeadConvertDialog.submitNew` 的 `opportunity` 请求体补 `presalesId`（服务端 18-02c 已接收）；走查实证：convert 请求体含售前 uuid（与所选何志远一致）→ **presales_id 落库**（列表行回读一致）→ **售前可见**（何志远登录商机列表见该商机）。② **D-18-3-2（原 G1）**——org.members.list 已带 managerId/managerName/managerChain；员工编辑弹窗**预填直属主管**（UserPicker 占位项=当前主管名，list 缺员时名绑定兜底）+ 展示**主管链**（当前直属主管：郑浩然 · 汇报链：郑浩然 → 高峻岭 → 宋启铭）。③ **D-18-3-3（原 G2）**——reports.projectCosting 三成本列（售前/交付/总成本）在场；表头+单元格 `textAlign:right` 实证（18-02c 列 align 口径落地，前端 ReportPage 渲染 honor + meta COSTING_MONEY 补三键走 cents 元格式化）；金额「0.00 元」格式统一。④ **D-18-3-4**——数据纠正选择**客户/项目**后经详情接口（customers.getById/project.getById）**自动回填 rowVersion**（实证 rv=0 自动填入、全程未手工输入、提交成功审计已记录×2）；**加载中禁止提交**（detailLoading 入 disabled + 读取中提示 + 失败给手工输入指引不落假成功）；**users 对象维持不展示版本号输入**（实证 0 个匹配）。**质量门**（工单验收命令逐条真实执行）：typecheck✓/build✓/db:migrate✓/根 test **330=301+29** 全绿（F3 独占确认，与 18-02c 基线持平零回归）；tsc+eslint 净（set-state-in-effect 沿用 FlowDesignerPage disable 范式）。**走查**：`probe-iter18-fix.cjs` 15/15 PASS，截图 3 张 `D:\tmp\shots-iter18-fix\`（主管预填/报表三列/纠正自动版本）。**边界**：只改 app/+STATUS，未动 server/schema/迁移/种子/部署/prod（server 变更均为合并 18-02c 而来）。**遗留**：e2e 旧 CRM 签名归 18-05 统一回归；dev 库留复修走查数据（线索/商机/客户/项目纠正各 1，属人工实弹）。分支 `iter18frontend-fullcycle`（已含 18-02c）。
 
 - 2026-11-13｜架构｜迭代18-02c通过｜**工单 02c（前端联调接口补齐）验收通过，18-03 前端复修已下发。** 复核边界：后端只动 server/测试/STATUS，未动 schema/迁移/种子/app/部署/prod。三项证据成立：① convert.opportunity.presalesId 透传立项 helper，落库+售前可见+NULL/非法 400；② org.members.list 与 admin.userList 返回 managerId/managerName/managerChain，白名单无敏感字段；③ reports.projectCosting 三成本列定义+右对齐，行值与 fin.projectCosting.get 勾稽。架构独立执行：typecheck/build/db:migrate 全过；根测试 **330/330**（server 301 + app 29）。前端复修指令：按 18-03 工单 §8 提交转化 presalesId 并实证、预填/展示主管、复核报表三列、数据纠正客户/项目 rowVersion 自动取，D-18-3-4 未修前不得再转待验收。
 
