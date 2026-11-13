@@ -99,6 +99,14 @@ function stripAmounts<T extends Record<string, unknown>>(row: T, see: boolean, k
   return copy;
 }
 
+/** 合同金额深度剥离（O-18-5-3）：外层金额不可见时，付款计划行 amountCents 同步剥离 */
+function stripContractDeep<T extends { plans?: unknown[] } & Record<string, unknown>>(row: T, see: boolean, keys: string[]): T {
+  const outer = stripAmounts(row, see, keys);
+  if (see) return outer;
+  const plans = (outer.plans ?? []) as Array<Record<string, unknown>>;
+  return { ...outer, plans: plans.map((p) => { const { amountCents: _a, ...rest } = p; return rest; }) };
+}
+
 /* ===== 线索 ===== */
 
 export async function listLeads(
@@ -653,7 +661,9 @@ export async function getCustomerById(db: DbOrTx, user: SessionUser, id: string)
     const cumulativeReceivedCents = plans
       .filter((p) => p.receiptStatus === "registered")
       .reduce((sum, p) => sum + (planRows.find((x) => x.plan.id === p.id)?.receiptAmount ?? 0), 0);
-    return stripAmounts({ ...c, plans, cumulativeReceivedCents }, see, ["amountCents", "cumulativeReceivedCents", "expectedAmountCents"]);
+    // O-18-5-3：与 contracts.list/getById 同口径——范围内可见；finance 仅 active 合同放行（外层+计划行）
+    const seeContract = see || (scope.kinds.includes("finance") && c.status === "active");
+    return stripContractDeep({ ...c, plans, cumulativeReceivedCents }, seeContract, ["amountCents", "cumulativeReceivedCents", "expectedAmountCents"]);
   });
   // 项目子表：按项目范围（project 形态仅本人负责项目；其余形态按客户链全量可见）
   const customerProjects =
@@ -1066,7 +1076,7 @@ export async function listContracts(db: DbOrTx, user: SessionUser, input: { curs
     const withCum = await contractWithCumulative(db, c);
     // finance 按 D4 记录级放行：active 合同链可见明细金额，其余剥离
     const see = scopeCanSeeAmounts(scope) || (scope.kinds.includes("finance") && c.status === "active");
-    items.push(stripAmounts(withCum, see, ["amountCents", "cumulativeReceivedCents"]));
+    items.push(stripContractDeep(withCum, see, ["amountCents", "cumulativeReceivedCents"]));
   }
   return {
     items,
@@ -1080,7 +1090,7 @@ export async function getContractById(db: DbOrTx, user: SessionUser, id: string)
   await assertRowVisible(db, crmContracts, id, contractScopeSql(scope));
   const contract = await loadContract(db, id);
   const see = scopeCanSeeAmounts(scope) || (scope.kinds.includes("finance") && contract.status === "active");
-  return stripAmounts(await contractWithCumulative(db, contract), see, ["amountCents", "cumulativeReceivedCents"]);
+  return stripContractDeep(await contractWithCumulative(db, contract), see, ["amountCents", "cumulativeReceivedCents"]);
 }
 
 export async function updateContract(

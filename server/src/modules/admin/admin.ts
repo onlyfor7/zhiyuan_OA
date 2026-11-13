@@ -441,10 +441,19 @@ export async function correctRecord(db: DbOrTx, actor: SessionUser, input: Corre
     const val = typeof v === "string" ? v.trim() : (v ?? null);
     return sql`${sql.identifier(snake(k))} = ${val as never}`;
   });
+  // O-18-5-1：users 表无 row_version 列——user 对象独立更新路径：
+  // SET 仅白名单字段 + updated_at（绝不引用 row_version）；WHERE updated_at = before 快照做服务端内部乐观校验（裁定口径），冲突 409
+  const isUser = input.object === "user";
+  const setClauses = isUser
+    ? [...assignments, sql`updated_at = ${now}`]
+    : [...assignments, sql`updated_at = ${now}`, sql`row_version = row_version + 1`];
+  const lockCond = isUser
+    ? sql`updated_at = ${(before.rows[0] as { updated_at: string }).updated_at}`
+    : sql`row_version = ${input.rowVersion}`;
   const updated = await db.execute(sql`
     UPDATE ${table}
-    SET ${sql.join([...assignments, sql`updated_at = ${now}`, sql`row_version = row_version + 1`], sql`, `)}
-    WHERE id = ${input.id} AND row_version = ${input.rowVersion}
+    SET ${sql.join(setClauses, sql`, `)}
+    WHERE id = ${input.id} AND ${lockCond}
     RETURNING *
   `);
   if (!updated.rows[0]) throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "数据已被他人修改，请刷新后重试");
