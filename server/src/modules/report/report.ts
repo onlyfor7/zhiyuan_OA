@@ -49,7 +49,8 @@ export interface ReportFilter {
 }
 
 export interface ReportResult {
-  columns: Array<{ key: string; label: string }>;
+  /** align 可选（18-02c 起）：数值列右对齐口径；缺省左对齐（既有消费方不受影响） */
+  columns: Array<{ key: string; label: string; align?: "right" | "left" }>;
   rows: Array<Record<string, unknown>>;
   summaryCards: Array<{ key: string; label: string; value: number | string }>;
 }
@@ -175,13 +176,17 @@ export async function reportProjectCosting(db: DbOrTx, user: SessionUser, f: Rep
     columns: [
       { key: "code", label: "项目编号" },
       { key: "name", label: "项目名称" },
-      { key: "revenueCents", label: "收入（签约口径）" },
-      { key: "receivedCents", label: "已回款（净额）" },
-      { key: "arBalanceCents", label: "应收余额" },
-      { key: "directCostCents", label: "直接成本" },
-      { key: "laborCostCents", label: "人力成本" },
-      { key: "grossMarginCents", label: "毛利（回款口径）" },
-      { key: "grossMarginOnContractCents", label: "毛利（签约口径）" },
+      { key: "revenueCents", label: "收入（签约口径）", align: "right" },
+      { key: "receivedCents", label: "已回款（净额）", align: "right" },
+      { key: "arBalanceCents", label: "应收余额", align: "right" },
+      // 成本分段三列（18-02c，arch/13 §5.5 加性不删既有）：值与兄弟列同为分口径，元展示归前端格式化
+      { key: "presalesCostCents", label: "售前成本", align: "right" },
+      { key: "deliveryCostCents", label: "交付成本", align: "right" },
+      { key: "totalCostCents", label: "总成本", align: "right" },
+      { key: "directCostCents", label: "直接成本", align: "right" },
+      { key: "laborCostCents", label: "人力成本", align: "right" },
+      { key: "grossMarginCents", label: "毛利（回款口径）", align: "right" },
+      { key: "grossMarginOnContractCents", label: "毛利（签约口径）", align: "right" },
     ],
     rows: items.map((c) => ({ ...c })),
     summaryCards: [

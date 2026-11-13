@@ -80,8 +80,8 @@ describe("9b-02 组织管理服务端", () => {
     expect(partnerList.status).toBe(200);
     const firstMember = (partnerList.json as { result: { data: { items: Array<Record<string, unknown>> } } }).result.data.items[0];
     const keys = Object.keys(firstMember).sort();
-    // 最小字段：无口令/哈希/改密标记等敏感列
-    expect(keys).toEqual(["email", "employeeNo", "id", "joinedAt", "name", "orgUnitId", "orgUnitName", "position", "roles", "status"].sort());
+    // 最小字段：无口令/哈希/改密标记等敏感列；18-02c 增主管读取三字段（managerChain/Id/Name，白名单安全）
+    expect(keys).toEqual(["email", "employeeNo", "id", "joinedAt", "managerChain", "managerId", "managerName", "name", "orgUnitId", "orgUnitName", "position", "roles", "status"].sort());
     for (const writePath of [
       trpc(app, "org.company.update", { cookie: partnerCookie, input: { rowVersion: 0, phone: "x" } }),
       trpc(app, "org.units.create", { cookie: partnerCookie, input: { name: "partner 越权" } }),

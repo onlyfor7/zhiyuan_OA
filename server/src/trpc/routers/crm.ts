@@ -69,6 +69,8 @@ export const crmRouter = router({
               name: z.string().trim().min(1, "商机名称必填").max(200),
               expectedAmountCents: z.number().int().min(1).nullable().optional(),
               winRate: z.number().int().min(0).max(100).nullable().optional(),
+              /** 售前指派（18-02c：转化新建商机随表单提交；服务端 active 校验在立项 helper） */
+              presalesId: z.uuid().nullable().optional(),
             })
             .optional(),
         }),

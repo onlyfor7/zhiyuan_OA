@@ -8,6 +8,7 @@ import { nextCode } from "../../db/code";
 import { hashPassword, verifyPassword } from "../../lib/password";
 import { BusinessError, pgErrorCode } from "../../lib/errors";
 import { can } from "../../services/access";
+import { attachManagerFields } from "../org/org";
 import { recordAudit } from "../../services/audit";
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
@@ -49,6 +50,7 @@ export async function userList(db: DbOrTx, user: SessionUser) {
       orgUnitId: users.orgUnitId,
       orgUnitName: orgUnits.name,
       mustChangePassword: users.mustChangePassword,
+      managerId: users.managerId,
       createdAt: users.createdAt,
     })
     .from(users)
@@ -62,7 +64,7 @@ export async function userList(db: DbOrTx, user: SessionUser) {
     list.push(r.roleKey);
     rolesByUser.set(r.userId, list);
   }
-  return rows.map((r) => ({ ...r, roles: rolesByUser.get(r.id) ?? [] }));
+  return attachManagerFields(db, rows.map((r) => ({ ...r, roles: rolesByUser.get(r.id) ?? [] })));
 }
 
 export async function createUser(

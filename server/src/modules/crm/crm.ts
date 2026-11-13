@@ -401,7 +401,7 @@ export async function convertLead(
     customer?: { name: string; level?: string; industry?: string; address?: string };
     opportunityId?: string;
     projectManagerId?: string;
-    opportunity?: { name: string; expectedAmountCents?: number | null; winRate?: number | null };
+    opportunity?: { name: string; expectedAmountCents?: number | null; winRate?: number | null; presalesId?: string | null };
     idempotencyKey?: string;
   },
   ip: string | null,
@@ -485,6 +485,7 @@ export async function convertLead(
         expectedAmountCents: input.opportunity.expectedAmountCents ?? null,
         winRate: input.opportunity.winRate ?? null,
         projectManagerId: input.projectManagerId,
+        presalesId: input.opportunity.presalesId ?? null,
         sourceLeadId: lead.id,
         idempotencyKey: input.idempotencyKey ?? `${input.id}`,
       },

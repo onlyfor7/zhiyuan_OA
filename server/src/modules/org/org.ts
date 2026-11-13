@@ -263,6 +263,42 @@ export async function moveUnit(
   return updated;
 }
 
+/* ===== 主管读取（18-02c：直属主管 managerId/managerName + managerChain 向上最多 10 级循环截断） ===== */
+
+export interface ManagerRef {
+  id: string;
+  name: string;
+}
+
+/** 为成员列表项附主管字段：单次全量取 id/name/manager_id 建图，内存走链（组织规模小；白名单不含口令/hash/会话） */
+export async function attachManagerFields<T extends { managerId?: string | null }>(
+  db: DbOrTx,
+  items: T[],
+): Promise<Array<T & { managerId: string | null; managerName: string | null; managerChain: ManagerRef[] }>> {
+  const all = await db.select({ id: users.id, name: users.name, managerId: users.managerId }).from(users);
+  const byId = new Map(all.map((u) => [u.id, u]));
+  const chainOf = (managerId: string | null): ManagerRef[] => {
+    const chain: ManagerRef[] = [];
+    const seen = new Set<string>();
+    let cur = managerId ? byId.get(managerId) : undefined;
+    while (cur && chain.length < 10 && !seen.has(cur.id)) {
+      seen.add(cur.id);
+      chain.push({ id: cur.id, name: cur.name });
+      cur = cur.managerId ? byId.get(cur.managerId) : undefined;
+    }
+    return chain;
+  };
+  return items.map((it) => {
+    const mgr = it.managerId ? byId.get(it.managerId) : undefined;
+    return {
+      ...it,
+      managerId: it.managerId ?? null,
+      managerName: mgr?.name ?? null,
+      managerChain: chainOf(it.managerId ?? null),
+    };
+  });
+}
+
 /* ===== 员工名录与维护 ===== */
 
 export async function listMembers(
@@ -289,6 +325,7 @@ export async function listMembers(
       position: users.position,
       employeeNo: users.employeeNo,
       joinedAt: users.joinedAt,
+      managerId: users.managerId,
       createdAt: users.createdAt,
     })
     .from(users)
@@ -306,8 +343,12 @@ export async function listMembers(
     list.push(r.roleKey);
     rolesByUser.set(r.userId, list);
   }
+  const withMgr = await attachManagerFields(
+    db,
+    page.map(({ createdAt: _at, ...item }) => ({ ...item, roles: rolesByUser.get(item.id) ?? [] })),
+  );
   return {
-    items: page.map(({ createdAt: _at, ...item }) => ({ ...item, roles: rolesByUser.get(item.id) ?? [] })),
+    items: withMgr,
     nextCursor: rows.length > input.limit && last ? encodeCursor(last.createdAt, last.id) : null,
   };
 }
