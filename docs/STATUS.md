@@ -5,7 +5,7 @@
 
 ## 当前迭代
 
-**迭代 18 · 会议纪要业务架构对齐（一期）**（**进行中**——18-01/01b 数据基础验收通过；当前解锁 18-02 后端，18-03~05 未解锁）
+**迭代 18 · 会议纪要业务架构对齐（一期）**（**进行中**——18-01/01b 通过；18-02 后端经架构复核发现 4 项真缺陷，已打回修复；18-03~05 未解锁）
 
 **迭代 17 · 打磨与加固综合包（用户选定五项）**（**已收口** 2026-11-13——五项取证 prod 全绿+根 309 全绿）
 
@@ -126,7 +126,7 @@
 | 18-00 总览与冲突裁定 | 架构 | **通过（用户确认）** | 架构会话 | 2026-11-13 | D1 暂不考虑双系统；D2–D4 按推荐；D5 项目全周期从商机成立开始 |
 | 18-01 角色层级与商机立项数据模型 | 数据 | **通过** | 数据会话 | 2026-11-13 | 架构复核：319 全绿+迁移/种子/回执独立复验通过；app 类型涟漪仲裁接受 |
 | 18-01b 商机立项幂等键补齐 | 数据 | **通过** | 数据会话 | 2026-11-13 | 架构复核：部分唯一索引 dev 实测就位；同键 23505 用例与根 319 全绿 |
-| 18-02 可见性与商机即立项服务端 | 后端 | **待验收** | 后端会话 | 2026-11-13 | 分支 iter18/server-foundation；CRM SQL 范围解析器+商机即立项事务+合同激活转交付+成本分段+sysadmin 纠正+甘特三态；根 325 全绿；dev 六账号实弹通过 |
+| 18-02 可见性与商机即立项服务端 | 后端 | **进行中（打回复修）** | 后端会话 | 2026-11-13 | 架构复核实证 D-18-2-1~4；修复要求已写入工单 §8 |
 | 18-03 角色页面与项目全周期前端 | 前端 | 未解锁 | — | — | 待 18-02 验收 |
 | 18-04 外测迁移发布 | 部署 | 未解锁 | — | — | 待 18-03 验收 |
 | 18-05 验收与手册 | 测试 | 未解锁 | — | — | 待 18-04 完成 |
@@ -381,6 +381,11 @@
 | 2026-10-29 | 测试→后端 | **R8**：阈值配置未接入策略匹配 | **已修复关闭**（05b $config 编译期求值；05c prod live 阈值改后 2 步→1 步） | 已关闭 |
 
 |---|---|---|---|---|
+| 2026-11-13 | 架构→后端 | **D-18-2-1**：线索转化「关联既有商机」路径实证 400——`convertLead` 用线索 `input.id` 查询商机，应使用 `input.opportunityId` | **打回修复**；补关联成功、不新建项目、sourceLeadId/converted_*/projectId 勾稽用例 | 打回中 |
+| 2026-11-13 | 架构→后端 | **D-18-2-2**：同幂等键仅更换 `projectManagerId` 实证仍返 200——异载荷比对漏项目负责人 | **打回修复**；同键异载荷必须 409，同键同载荷不重复立项 | 打回中 |
+| 2026-11-13 | 架构→后端 | **D-18-2-3**：同键同载荷 `Promise.all` 真并发实证 200+500——事务内唯一索引冲突后在已中止事务中重查 | **打回修复**；建议事务级 advisory lock 或事务外回滚后整体重放一次；并发双请求须双 200 同 id | 打回中 |
+| 2026-11-13 | 架构→后端 | **D-18-2-4**：售前加挂 sales 角色后被指派商机消失——范围解析单一排他分支，违反 arch/13 角色可组合 | **打回修复**；范围改为角色能力并集（SQL OR），补 sales+presales 等组合用例 | 打回中 |
+| 2026-11-13 | 后端→架构 | **18-02 users rowVersion 缺口**：users 表无 row_version，受控纠正员工对象无法提交客户端 rowVersion；后端已按服务端 before 快照 updated_at 内部乐观校验落地 | **裁定接受方案 ②**：users/org 管理域无 row_version 是既有 9b 留痕，当前按服务端快照校验+理由+全快照审计合规；不再为本项追加强制数据棒。若未来需要客户端令牌，可另行评估全域 row_version | **已关闭** |
 | 2026-11-13 | 数据→架构 | **18-01 越界最小修复**：新增六角色导致 app 角色标签冒烟测试要求全键映射、`crm_leads.code` 可空导致线索抽屉输入类型变化；数据棒补 `app/src/lib/labels.ts` 六标签与 `lead.code ?? ""` | **裁定：接受为类型涟漪修复，非功能变更**；18-03 前端正式接管线索编号隐藏/角色页面呈现，届时复查注释与交互。根 typecheck 与 319/319 已独立复跑通过 | **已关闭** |
 | 2026-10-28 | 测试 | **P0（系统验收实测发现）**：生产栈（:8080）SPA 多级路径深链白屏——`vite base:'./'` 相对资产路径在 `/meetings/:id`、`/projects/:id`、`/expenses/:id` 等多段路径下被解析为 `/<seg>/assets/...`，nginx SPA 回退返回 HTML 致 React 挂载失败（实测：index.html 200、chunk 200 但内容为 HTML、root innerHTML=0、无 JS 异常）；单段路径（/login、/cockpit）不受影响故部署冒烟未暴露。影响：生产环境全部业务详情深链/刷新/回跳不可用。建议修复：app 构建 base 改 `/`（或 nginx assets 绝对别名）后重建镜像。E2E 矩阵暂按工单「dev 或 prod」约定改用 dev 栈执行，prod 复测留修复后 | **裁定：缺陷属实且违反基线 §5.3 硬性要求（直链/刷新），迭代 5 不关闭**。架构会话已独立证实（深链资产路径返回 text/html）。修复链：03b 前端改 `base:'/'` → 04b 部署重建 web 镜像复起 → 05b 测试 prod 深链复测。E2E「dev 或 prod」约定修订为「至少 prod 栈复测深链」。测试会话发现并如实上报 P0、判定不阻塞但不隐瞒——符合验收职责 | **已关闭**：03b 前端 base '/' 修复 + 04b 重建 web 镜像复起（架构复核确认资产 application/javascript），05b 测试会话 Playwright 深链复测 4/4 全过（10 桌面深链+3 移动+刷新/返回+核心链冒烟，截图 D:	mp\shots-iter5-deeplink\） |
 
@@ -406,6 +411,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-13｜架构｜迭代18-02打回｜**工单 02 验收不通过，转回「进行中（打回复修）」。** 我没有代修；已在工单 §8 写明四项实证缺陷与修复要求：①关联既有商机查错 id（线索 id 当商机 id，测试库实证 400）；②幂等异载荷漏比 projectManagerId（实证同键换负责人仍 200）；③同键真并发 200+500（事务内捕获唯一冲突后在已中止事务重查）；④多角色范围排他截断（售前加挂 sales 后指派商机消失，实证 true→false）。users 无 row_version 偏差已裁定接受「服务端快照 updated_at 内部乐观校验」并关闭。后端会话只修四项、补对应测试并重跑质量门；修复完成前 18-03 保持未解锁。
 
 - 2026-11-13｜后端｜迭代18-02｜**工单 02（可见性与商机即立项服务端，arch/13 §3–§7/§10/§12）完成，转「待验收」。** ① **CRM 范围解析器** `server/src/services/access/crm-scope.ts`（服务端唯一口径）：六形态（global=partner/operations/ceo/sysadmin；tree=sales/sales_manager/regional_vp 走 `users.manager_id` WITH RECURSIVE 授权集合进 SQL IN；presales 按 presales_id+关联线索穿透；finance D4 仅 active 合同及客户链；project_manager 收回全局短路由仅项目关联客户/合同最小信息；member/viewer 等仅 crm.summary）——线索/商机/客户/合同/联系人/跟进/付款计划的列表+详情+子表全接；越权详情同形 404；金额按范围形态剥离（**finance 记录级放行**：active 合同链明细金额可见，跨合同聚合/合同前剥离）。**已知实现要点：递归 CTE 锚点须 `::uuid` 强转**（否则 uuid=text 报错）。② **商机成立即立项（D5）**：`createOpportunityWithProject` 统一 helper（直接创建+线索转化复用）——同事务 OPP 商机（幂等键同键同载荷重放返回既有/异载荷 409/撞唯一索引重查）→ MTR 事项 → PRJ 项目（售前/preparing，`instantiateProjectFromTemplate` 从 project.create 抽取共享：成员/基线 v1/三阶段/模板任务/检查项/十一档案目录，禁半成品复制）→ 商机回写 project_id → 审计；项目负责人必填校验 active、销售 owner 落 member（同人只留 manager）、转化 owner 不漂移；新线索无 LD 号；`ensureProjectPlan` 幂等补建（已有 v1 返回现状）。③ **终态/激活**：markLost 写 closedReason/At 同事务关项目；markWon(activate) 与 activateContract 同事务 preparing→in_progress（同一项目 id 不变）+ matter 回填 + lost 商机激活/改合同阻断；closed 项目阻断费用/差旅/经费/任务新增（`assertProjectNotClosed` 四路挂点）；项目详情↔商机详情互带最小标识。④ **成本分段**（services/fin/costing 唯一处加性字段 presales/delivery/totalCostCents）：§5.5 公式——无 active 合同全售前、有则按费用明细日期 vs 激活业务日（signedAt 取日，台账经幂等键第三段 join expense_items.date，非费用行回退 occurred_at）、非商机存量项目全计交付；total=direct 不重记。⑤ **sysadmin D3**：crm.read/fin.read/项目读全局放行；`admin.correctRecord` 受控纠正（白名单五对象、理由必填、rowVersion 乐观锁、before/after 全快照审计、驼峰→snake 列名映射、商机终态阻断、主管成环校验）。⑥ **plan.gantt**：仅阶段/里程碑条节点+任务三态聚合（done>overdue>delayed 优先级，delayed=当前计划晚于基线）。⑦ **crm.summary** 只读聚合（tree/presales 范围聚合，其余全公司整体）。**验收命令逐条真实执行**：typecheck✓/build✓/db:migrate✓/server **296=290+6**/根 test **325=296+29**；旧断言按 arch/13 如实更新 3 处（fin.test 三探针 sysadmin 并 200 组；iter6-acceptance/extensions-iter6 E8 sysadmin 项目读 404→200；crm.test 操作方 pm→partner+create/convert 补 D5 必填+sysadmin 探针反转+finance 聚合剥离）。**dev 六账号实弹**（:3001）：苏明轩建线索 code=null/本人口径聚合、林婉清隔离 0 条、郑浩然见下级、许文静 20 商机全局、郭静文线索 404+summary/仅 active 合同、赵凯全局读+纠正通道真实写入并落库。**登记仲裁（契约缺口）**：`users` 表无 `row_version` 列（数据地基 0014 未含）——受控纠正 user 对象无法按工单「提交 rowVersion」执行，本棒以服务端 before 快照 `updated_at` 做内部乐观校验（客户端 rowVersion 对 user 忽略）；如需强一致客户端令牌请数据棒加列或架构裁定降级该要求。**遗留**：① e2e/前端 CRM 链路仍用旧签名（opportunities.create 无 projectManagerId/idempotencyKey），按串行链归 18-03 前端改造、18-05 统一回归；② 全局搜索不索引 CRM 类型（无泄露面，若未来加索引必须接 crm-scope）；③ dev 售前何志远指派商机列表为 0 系 dev 数据形态（测试库已造指派数据严格断言）；④ 本棒不发 prod（归 18-04 部署）。交 18-03：商机创建/转化表单补项目负责人+幂等键、线索去编号展示、商机↔项目互跳、角色菜单（sales/sales_manager/presales/operations/regional_vp/ceo）、节点级甘特接 plan.gantt。
 - 2026-11-13｜架构｜会话调度规则纠偏｜**用户裁定：架构会话只负责设计、下发、验收，不得代替数据/后端/前端/测试/部署会话执行。** 我已确认 18-01/01b 虽保持先后串行，但由本会话直接调起数据执行代理，越过职责边界；后续不再出现。工作单协议已升 v1.1：执行会话必须由用户分别开启；架构一次只下发一个可执行工单，上一棒验收通过后才解锁并下发下一棒。当前 18-02 后端工单保持「未认领/已解锁」，等待用户开启后端会话执行；本会话不代做。
