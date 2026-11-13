@@ -572,4 +572,66 @@ describe("18-02 可见性与商机即立项服务端", () => {
     const mineIds = (aList.json as { result: { data: { items: Array<{ id: string }> } } }).result.data.items;
     expect(mineIds.length).toBeGreaterThanOrEqual(1);
   });
+
+  it("二次打回 D-18-2-5：关联目标商机记录级权限门（B 越权 404/A 本人 200/主管下级 200/树外主管 404）", async () => {
+    const customers = await trpc(app, "crm.customers.list", { cookie: salesACookie, method: "GET", input: {} });
+    // D-18-2-4 后 A 已加挂 presales——列表含树外指派客户，必须精确取本人 owner 的客户
+    const anyCustomer = (customers.json as { result: { data: { items: Array<{ id: string; ownerId: string | null }> } } }).result.data.items
+      .find((c) => c.ownerId === salesAId)!;
+    const mkOpp = async (name: string) => {
+      const res = await trpc(app, "crm.opportunities.create", {
+        cookie: salesACookie,
+        input: { customerId: anyCustomer.id, name, projectManagerId: pmUserId, idempotencyKey: uuid() },
+      });
+      expect(res.status).toBe(200);
+      return (res.json as { result: { data: { id: string; projectId: string } } }).result.data;
+    };
+    const mkLead = async (cookie: string, name: string) => {
+      const res = await trpc(app, "crm.leads.create", { cookie, input: { name } });
+      expect(res.status).toBe(200);
+      return (res.json as { result: { data: { id: string; rowVersion: number } } }).result.data;
+    };
+    const convertWith = (cookie: string, leadId: string, rowVersion: number, opportunityId: string) =>
+      trpc(app, "crm.leads.convert", { cookie, input: { id: leadId, rowVersion, opportunityId } });
+
+    // 探针 1：销售 B 关联销售 A 的无来源商机 → 404，且目标商机未被污染
+    const opp1 = await mkOpp("D-18-2-5 靶商机-1");
+    const bLead = await mkLead(salesBCookie, "D-18-2-5 B 线索-1");
+    const denied = await convertWith(salesBCookie, bLead.id, bLead.rowVersion, opp1.id);
+    expect(denied.status).toBe(404);
+    expect(trpcError(denied).businessCode).toBe("ACCESS_DENIED_OR_GONE");
+    const opp1After = await query<{ source_lead_id: string | null }>(`SELECT source_lead_id FROM crm_opportunities WHERE id=$1`, [opp1.id]);
+    expect(opp1After[0].source_lead_id).toBeNull(); // 无权关联不得写目标
+    const bLeadAfter = await query<{ status: string }>(`SELECT status FROM crm_leads WHERE id=$1`, [bLead.id]);
+    expect(bLeadAfter[0].status).toBe("new"); // 回滚零副作用
+
+    // 探针 2：销售 A 关联本人无来源商机 → 200，不新建项目
+    const opp2 = await mkOpp("D-18-2-5 靶商机-2");
+    const projCountBefore = (await query<{ n: number }>(`SELECT count(*)::int AS n FROM projects`))[0].n;
+    const aLead = await mkLead(salesACookie, "D-18-2-5 A 线索-2");
+    const own = await convertWith(salesACookie, aLead.id, aLead.rowVersion, opp2.id);
+    expect(own.status, JSON.stringify(own.json).slice(0, 200)).toBe(200);
+    const ownData = (own.json as { result: { data: { projectId: string | null; opportunityId: string } } }).result.data;
+    expect(ownData.opportunityId).toBe(opp2.id);
+    expect(ownData.projectId).toBe(opp2.projectId); // 复用原项目
+    expect((await query<{ n: number }>(`SELECT count(*)::int AS n FROM projects`))[0].n).toBe(projCountBefore);
+
+    // 探针 3：销售主管（郑浩然，A 在其树下）关联下级商机 → 200
+    const opp3 = await mkOpp("D-18-2-5 靶商机-3");
+    const smLead = await mkLead(smCookie, "D-18-2-5 主管线索-3");
+    const byManager = await convertWith(smCookie, smLead.id, smLead.rowVersion, opp3.id);
+    expect(byManager.status, JSON.stringify(byManager.json).slice(0, 200)).toBe(200);
+
+    // 探针 4：树外主管 → 404（sysadmin 给林婉清加挂 sales_manager，其树仅本人，A 不在树内）
+    const opp4 = await mkOpp("D-18-2-5 靶商机-4");
+    const salesBId = (await query<{ id: string }>(`SELECT id FROM users WHERE email='linwanqing@lexflow.demo'`))[0].id;
+    const promote = await trpc(app, "admin.assignRole", { cookie: sysadminCookie, input: { userId: salesBId, roleKey: "sales_manager" } });
+    expect(promote.status).toBe(200);
+    const bLead4 = await mkLead(salesBCookie, "D-18-2-5 B 线索-4");
+    const outOfTree = await convertWith(salesBCookie, bLead4.id, bLead4.rowVersion, opp4.id);
+    expect(outOfTree.status).toBe(404); // 树外主管无权
+    expect(trpcError(outOfTree).businessCode).toBe("ACCESS_DENIED_OR_GONE");
+    const opp4After = await query<{ source_lead_id: string | null }>(`SELECT source_lead_id FROM crm_opportunities WHERE id=$1`, [opp4.id]);
+    expect(opp4After[0].source_lead_id).toBeNull();
+  });
 });

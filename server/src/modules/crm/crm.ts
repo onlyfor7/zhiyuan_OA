@@ -407,9 +407,10 @@ export async function convertLead(
   ip: string | null,
   sessionId: string | null,
 ) {
+  const scope = await resolveCrmScope(db, user);
   const [lead] = await db.select().from(crmLeads).where(eq(crmLeads.id, input.id)).limit(1);
   if (!lead) throw notFound();
-  await assertRowVisible(db, crmLeads, input.id, leadScopeSql(await resolveCrmScope(db, user)));
+  await assertRowVisible(db, crmLeads, input.id, leadScopeSql(scope));
   await requireCrmManage(db, user, lead.ownerId);
   if (lead.status === "disqualified") throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "已作废线索不可转化");
   if (lead.status === "converted") {
@@ -425,6 +426,9 @@ export async function convertLead(
     // 路径 A：关联既有商机（不新建项目）
     const [opp] = await db.select().from(crmOpportunities).where(eq(crmOpportunities.id, input.opportunityId)).limit(1);
     if (!opp) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "关联商机不存在", { opportunityId: ["关联商机不存在"] });
+    // D-18-2-5：目标商机先做记录级范围+管理校验（本人 owner/主管树下级/partner 既定通道；无权同形 404 不暴露存在性）
+    await assertRowVisible(db, crmOpportunities, input.opportunityId, opportunityScopeSql(scope));
+    await requireCrmManage(db, user, opp.ownerId);
     if (opp.sourceLeadId && opp.sourceLeadId !== input.id) {
       throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "该商机已关联其他来源线索");
     }
