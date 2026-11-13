@@ -129,11 +129,7 @@ const IDLE_TIPS = [
 
 interface PetPos { x: number; y: number }
 
-let mobileCache: boolean | null = null;
-function isMobileView(): boolean {
-  if (mobileCache === null) mobileCache = window.matchMedia("(max-width: 820px)").matches;
-  return mobileCache;
-}
+
 
 /** §19.4 桌面宠物（纯本体形象）：四态表情；点击直进纯对话面板；可拖拽（位置记忆）+贴边停靠；闲置巡检气泡+提醒气泡队列；375 仅悬浮本体 */
 export function AiPet() {
@@ -213,7 +209,7 @@ export function AiPet() {
 
   const onPointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
     poke();
-    if (isMobileView() || open) return;
+    if (open) return; // §20.5 移动端：宠物本体触控拖拽（pointer capture 原生支持触屏）
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     drag.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top, moved: false };
     e.currentTarget.setPointerCapture(e.pointerId);
