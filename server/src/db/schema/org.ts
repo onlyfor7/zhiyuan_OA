@@ -1,5 +1,6 @@
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
-import { boolean, date, index, integer, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { boolean, check, date, index, integer, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { userStatusEnum } from "./enums";
 
 /** 组织树（arch/01 §1；arch/12 §9 树化：parent_id 自引用 FK + sort 调序） */
@@ -34,10 +35,17 @@ export const users = pgTable(
     /** 工号（YN-001 序列；可空保持唯一，多行 null 不冲突） */
     employeeNo: text("employee_no").unique(),
     joinedAt: date("joined_at"),
+    /** 直属主管（arch/13 §3.2：主管关系是权限数据；自引用 FK，DB 层仅禁自引用，多级成环由服务端校验） */
+    managerId: uuid("manager_id").references((): AnyPgColumn => users.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   },
-  (t) => [index("users_org_unit_id_idx").on(t.orgUnitId), index("users_status_idx").on(t.status)],
+  (t) => [
+    index("users_org_unit_id_idx").on(t.orgUnitId),
+    index("users_status_idx").on(t.status),
+    index("users_manager_id_idx").on(t.managerId),
+    check("users_manager_not_self", sql`${t.managerId} is null or ${t.managerId} <> ${t.id}`),
+  ],
 );
 
 /** 全局角色（arch/03 §1，8 角色种子） */

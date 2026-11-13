@@ -158,7 +158,7 @@ export function LeadDrawer({ lead, onClose }: { lead: LeadRow; onClose: () => vo
           {!editable ? " · 终态只读" : ""}
         </p>
         <div className="p9a-field-grid two">
-          <label className="form-field"><span>线索编号</span><input value={lead.code} disabled /></label>
+          <label className="form-field"><span>线索编号</span><input value={lead.code ?? ""} disabled /></label>
           <label className="form-field"><span>创建 / 最近更新</span>
             <input
               value={`${lead.createdAt.slice(0, 16).replace("T", " ")}（${nameOf(lead.createdBy)}）→ ${lead.updatedAt.slice(0, 16).replace("T", " ")}（${nameOf(lead.updatedBy)}）`}

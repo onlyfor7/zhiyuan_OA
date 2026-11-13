@@ -235,7 +235,7 @@ describe("17-02 项目流编辑+SSE 底座+参照端点+本人口径", () => {
       const res = await trpc(app, "project.financeOptions", { cookie, method: "GET" });
       expect(res.status).toBe(200);
       const items = (res.json as { result: { data: { id: string; code: string; name: string }[] } }).result.data;
-      expect(items.length).toBe(5);
+      expect(items.length).toBe(6); // 5 既有 + 18-01 商机 OPP-00001 唯一项目
       expect(Object.keys(items[0]).sort()).toEqual(["code", "id", "name"]); // 最小字段
       const codes = items.map((p) => p.code);
       expect([...codes].sort()).toEqual(codes); // 按 code 排序

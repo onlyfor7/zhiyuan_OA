@@ -89,7 +89,7 @@ describe("工单 02b：参照数据端点 / 立项权限门 / plan_items.name / 
         result: { data: { items: { id: string; code: string; name: string; clientId: string; clientName: string }[] } };
       }
     ).result.data.items;
-    expect(matterItems.length).toBe(5);
+    expect(matterItems.length).toBe(6); // 5 既有 + 18-01 商机 OPP-00001 立项事项（售前）
     expect(matterItems.find((m) => m.code === `MTR-${YEAR}-00001`)).toMatchObject({
       clientName: "比博思特（虚构）",
     });
@@ -100,9 +100,12 @@ describe("工单 02b：参照数据端点 / 立项权限门 / plan_items.name / 
       method: "GET",
       input: { clientId },
     });
+    // 18-01：比博思特客户下新增商机立项事项 MTR-00006（售前）——按 clientId 过滤应得两条（排序后比对，与返回顺序解耦）
     expect(
-      (filtered.json as { result: { data: { items: { code: string }[] } } }).result.data.items.map((m) => m.code),
-    ).toEqual([`MTR-${YEAR}-00001`]);
+      (filtered.json as { result: { data: { items: { code: string }[] } } }).result.data.items
+        .map((m) => m.code)
+        .sort(),
+    ).toEqual([`MTR-${YEAR}-00001`, `MTR-${YEAR}-00006`]);
   });
 
   it("project.create 权限门：partner/sysadmin 可立项，pm/member 统一同形 403/404", async () => {

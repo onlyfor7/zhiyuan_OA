@@ -9,6 +9,8 @@ const YEAR = new Date().getFullYear();
 const PROJECT_A = `PRJ-${YEAR}-00001`;
 const PROJECT_B = `PRJ-${YEAR}-00002`;
 const PROJECT_C = `PRJ-${YEAR}-00003`;
+// 18-01：商机 OPP-00001 唯一项目（售前，王宝茁任负责人 → pm 可见集 +1）
+const PROJECT_F = `PRJ-${YEAR}-00006`;
 
 interface ProjectSummary {
   id: string;
@@ -57,7 +59,7 @@ describe("项目（project.list / getById / user.listProjectMembers）", () => {
     const app = await getApp();
     const pmList = await listProjects(app, pmCookie);
     const memberList = await listProjects(app, memberCookie);
-    expect(pmList.items.map((p) => p.code).sort()).toEqual([PROJECT_A, PROJECT_B]);
+    expect(pmList.items.map((p) => p.code).sort()).toEqual([PROJECT_A, PROJECT_B, PROJECT_F].sort());
     expect(memberList.items.map((p) => p.code)).toEqual([PROJECT_A]);
     // Summary 契约字段（arch/02 §4）
     const a = pmList.items.find((p) => p.code === PROJECT_A);
@@ -78,24 +80,26 @@ describe("项目（project.list / getById / user.listProjectMembers）", () => {
   it("过滤与关键字：pm 按 lifecycle / keyword 收窄", async () => {
     const app = await getApp();
     const preparing = await listProjects(app, pmCookie, { filters: { lifecycle: "preparing" } });
-    expect(preparing.items).toHaveLength(0); // C 是 preparing 但 pm 不可见
+    expect(preparing.items.map((p) => p.code)).toEqual([PROJECT_F]); // C 是 preparing 但 pm 不可见；F（商机立项售前项目）可见
     const warning = await listProjects(app, pmCookie, { filters: { health: "warning" } });
     expect(warning.items.map((p) => p.code)).toEqual([PROJECT_B]);
     const keyword = await listProjects(app, pmCookie, { filters: { keyword: "金通灵" } });
     expect(keyword.items.map((p) => p.code)).toEqual([PROJECT_B]);
   });
 
-  it("游标分页：limit=1 两页并集完整且无重复", async () => {
+  it("游标分页：limit=1 逐页并集完整且无重复（pm 可见 3 项目）", async () => {
     const app = await getApp();
     const page1 = await listProjects(app, pmCookie, { limit: 1 });
     expect(page1.items).toHaveLength(1);
     expect(page1.nextCursor).toBeTruthy();
     const page2 = await listProjects(app, pmCookie, { limit: 1, cursor: page1.nextCursor ?? undefined });
     expect(page2.items).toHaveLength(1);
-    const codes = [...page1.items, ...page2.items].map((p) => p.code);
-    expect(new Set(codes).size).toBe(2);
-    expect(page2.nextCursor ?? codes.length).toBeTruthy();
-    expect(page2.nextCursor).toBeNull();
+    expect(page2.nextCursor).toBeTruthy();
+    const page3 = await listProjects(app, pmCookie, { limit: 1, cursor: page2.nextCursor ?? undefined });
+    expect(page3.items).toHaveLength(1);
+    const codes = [...page1.items, ...page2.items, ...page3.items].map((p) => p.code);
+    expect(new Set(codes).size).toBe(3);
+    expect(page3.nextCursor).toBeNull();
   });
 
   it("member 直取未授权项目详情 → NOT_FOUND 同形（验收场景 2）", async () => {

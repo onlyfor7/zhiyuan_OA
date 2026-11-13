@@ -21,7 +21,7 @@ export type AccessGrantStatus = (typeof ACCESS_GRANT_STATUS)[number];
 export const ACCESS_GRANT_SCOPE_TYPE = ["project", "file", "report", "directory"] as const;
 export type AccessGrantScopeType = (typeof ACCESS_GRANT_SCOPE_TYPE)[number];
 
-/** 全局角色 key（arch/03 §1，冻结） */
+/** 全局角色 key（arch/03 §1 八角色；arch/13 §3.1 v1.0 增补销售线六角色） */
 export const ROLE_KEY = [
   "partner",
   "project_manager",
@@ -31,5 +31,11 @@ export const ROLE_KEY = [
   "archivist",
   "sysadmin",
   "viewer",
+  "sales",
+  "sales_manager",
+  "presales",
+  "operations",
+  "regional_vp",
+  "ceo",
 ] as const;
 export type RoleKey = (typeof ROLE_KEY)[number];

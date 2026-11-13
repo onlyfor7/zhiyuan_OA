@@ -60,12 +60,12 @@ describe("迭代8-06：partner 全局只读可见 + 写边界不变", () => {
     await closeDb();
   });
 
-  it("partner 项目列表全量可见（5 项目）；viewer 不扩散（0 项目）", async () => {
+  it("partner 项目列表全量可见（6 项目：5 既有 + 18-01 商机 OPP-00001 唯一项目）；viewer 不扩散（0 项目）", async () => {
     const partnerList = await trpc(app, "project.list", { cookie: partnerCookie, method: "GET" });
     expect(partnerList.status).toBe(200);
     const items = (partnerList.json as { result: { data: { items: { code: string }[] } } }).result.data.items;
     expect(items.map((i) => i.code).sort()).toEqual(
-      [`PRJ-${YEAR}-00001`, `PRJ-${YEAR}-00002`, `PRJ-${YEAR}-00003`, `PRJ-${YEAR}-00004`, `PRJ-${YEAR}-00005`].sort(),
+      [`PRJ-${YEAR}-00001`, `PRJ-${YEAR}-00002`, `PRJ-${YEAR}-00003`, `PRJ-${YEAR}-00004`, `PRJ-${YEAR}-00005`, `PRJ-${YEAR}-00006`].sort(),
     );
     const viewerList = await trpc(app, "project.list", { cookie: viewerCookie, method: "GET" });
     expect((viewerList.json as { result: { data: { items: unknown[] } } }).result.data.items).toHaveLength(0);

@@ -27,13 +27,13 @@ describe("种子幂等与验收布局", () => {
 
     expect(second).toEqual(first);
     expect(first.org_units).toBe(4); // 1 组织 + 3 部门
-    expect(first.roles).toBe(8); // arch/03 §1
-    expect(first.users).toBe(22); // arch/11 G1 名单（梁奇烽双角色）
-    expect(first.user_roles).toBe(23); // 22 用户 + 梁奇烽 partner+quality_lead 双挂
+    expect(first.roles).toBe(14); // arch/03 §1 八角色 + arch/13 §3.1 销售线六角色（18-01）
+    expect(first.users).toBe(29); // arch/11 G1 名单 22 人 + 18-01 六角色演示账号 7 人（梁奇烽双角色）
+    expect(first.user_roles).toBe(30); // 23（22 用户+梁奇烽双挂）+ 7 演示账号各单角色
     expect(first.clients).toBe(5); // 比博思特/金通灵/佳力奇/合规引擎/GD（arch/11 G1）
-    expect(first.matters).toBe(5);
-    expect(first.projects).toBe(5);
-    expect(first.project_members).toBe(16); // 4+3+2+3+4
+    expect(first.matters).toBe(6); // +18-01 商机 OPP-00001 立项事项（售前）
+    expect(first.projects).toBe(6); // +18-01 商机 OPP-00001 唯一项目；OPP-00002 复用 PRJ-00005 不新建
+    expect(first.project_members).toBe(17); // 4+3+2+3+4 + 商机项目补 manager（王宝茁）
     expect(first.system_config).toBe(21); // 15 + timesheet.step_minutes（arch/11）+ 保留期两键（9a-04 §14.5）
     expect(first.code_sequences).toBe(24); // 19 + LD/OPP/CTR + AR/INV（9c/9d；full 档）
   });

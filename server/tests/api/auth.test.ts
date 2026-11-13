@@ -80,6 +80,7 @@ describe("认证（auth.login / logout / me）", () => {
     expect(meData.projects.map((p) => p.code).sort()).toEqual([
       `PRJ-${new Date().getFullYear()}-00001`,
       `PRJ-${new Date().getFullYear()}-00002`,
+      `PRJ-${new Date().getFullYear()}-00006`, // 18-01：商机 OPP-00001 唯一项目（王宝茁任负责人）
     ]);
 
     const logout = await trpc(app, "auth.logout", { cookie: sessionCookieOf(login) });

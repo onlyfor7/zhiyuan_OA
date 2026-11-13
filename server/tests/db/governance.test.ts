@@ -49,20 +49,20 @@ describe("治理域种子与约束", () => {
     await migrateFresh();
     await runSeed(TEST_DATABASE_URL);
     const counts = await countRows();
-    expect(counts.project_templates).toBe(2);
+    expect(counts.project_templates).toBe(3); // +售前项目模板（18-01，arch/13 §5.3）
     expect(counts.approval_policies).toBe(13); // 迭代 1 三条 + 迭代 2 四条 + 迭代 3 五条 + timesheet 占位（arch/07 §2）
-    expect(counts.stages).toBe(6); // A×4 + B×2（C/D/E 最小结构不设阶段）
+    expect(counts.stages).toBe(12); // A×4 + B×2 + 演示商机项目售前计划 2×3（18-01）
     expect(counts.milestones).toBe(3);
     expect(counts.tasks).toBe(12); // A×8 + B×3 + 会议行动项转换任务×1
-    expect(counts.plan_versions).toBe(2); // A/B 各 v1（C/D/E 最小结构不设计划版本）
-    expect(counts.plan_items).toBe(20); // A: 4+3+8；B: 2+3
+    expect(counts.plan_versions).toBe(4); // A/B 各 v1 + 演示商机项目首版售前计划 v1 ×2（18-01）
+    expect(counts.plan_items).toBe(26); // A: 4+3+8；B: 2+3；售前计划 3+3（18-01）
     expect(counts.deliverables).toBe(3);
     expect(counts.quality_check_items).toBe(4);
     expect(counts.quality_issues).toBe(2);
     expect(counts.quality_issue_events).toBe(7); // severe 3 + minor 4
     expect(counts.decisions).toBe(1);
     expect(counts.weekly_reports).toBe(1);
-    expect(counts.archive_directories).toBe(55); // 5 个项目各十一项（index 统一建，§12.1）
+    expect(counts.archive_directories).toBe(66); // 6 个项目各十一项（5 既有 + 商机 OPP-00001 项目，§12.1；18-01）
     expect(counts.archive_links).toBe(6); // 项目 A 归档链：report/meeting/travel/funding/expense 来源 + 票据文件链接（arch/08 §7）
     expect(counts.change_requests).toBe(0);
     expect(counts.approval_instances).toBe(0);

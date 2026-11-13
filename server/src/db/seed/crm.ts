@@ -10,6 +10,12 @@ import {
   crmFollowups,
   crmLeads,
   crmOpportunities,
+  matters,
+  planItems,
+  planVersions,
+  projectMembers,
+  projects,
+  stages,
   users,
 } from "../schema";
 
@@ -48,6 +54,7 @@ export async function seedCrm(tx: SeedTx): Promise<void> {
   const liangqifengId = await userIdByEmail(tx, "liangqifeng@lexflow.demo");
   const wangbaozhuoId = await userIdByEmail(tx, "wangbaozhuo@lexflow.demo");
   const huodaId = await userIdByEmail(tx, "huoda@lexflow.demo");
+  const hezhiyuanId = await userIdByEmail(tx, "hezhiyuan@lexflow.demo");
 
   /* ===== 五客户补 level/industry/owner（仅既有种子客户码；不覆盖运行期编辑） ===== */
 
@@ -118,6 +125,7 @@ export async function seedCrm(tx: SeedTx): Promise<void> {
       expectedAmountCents: 2000000,
       winRate: 60,
       ownerId: wangbaozhuoId,
+      presalesId: hezhiyuanId,
       createdBy: wangbaozhuoId,
       updatedBy: wangbaozhuoId,
     });
@@ -221,6 +229,12 @@ export async function seedCrm(tx: SeedTx): Promise<void> {
     }
   }
 
+  /* ===== 工单 18-01 §5 种子同步：演示商机 D5 数据级补齐（事项/唯一项目/成员/首版售前计划） ===== */
+
+  await ensureOppProject(tx, opp1, { matterCode: `MTR-${YEAR}-00006`, projectCode: `PRJ-${YEAR}-00006` });
+  // 兜底编码仅作唯一确认失败时的防线：正常路径复用 PRJ-00005（赢单合同事项唯一项目），不会触发新建
+  await ensureOppProject(tx, opp2, { matterCode: `MTR-${YEAR}-00007`, projectCode: `PRJ-${YEAR}-00007` });
+
   // 编号序列水位对齐（LD/OPP/CTR 新前缀）
   for (const [prefix, next] of [["LD", 3], ["OPP", 3], ["CTR", 2]] as const) {
     await tx.execute(
@@ -229,5 +243,187 @@ export async function seedCrm(tx: SeedTx): Promise<void> {
           `ON CONFLICT (prefix, year) DO UPDATE SET next_value = GREATEST(code_sequences.next_value, ${next})`,
       ),
     );
+  }
+}
+
+/* ===== 迭代 18 工单 01：演示商机 D5 数据级补齐（arch/13 §5.3；与迁移 0014 补齐函数同口径） ===== */
+
+/** 首版售前计划三节点（售前项目模板；缺省 14 天/段顺排，arch/04 §4） */
+const PRESALES_PLAN_STAGES = [
+  { name: "需求调研", seq: 1, ps: 0, pe: 13 },
+  { name: "方案与报价", seq: 2, ps: 14, pe: 27 },
+  { name: "商务签约", seq: 3, ps: 28, pe: 41 },
+] as const;
+
+/** 种子内联取号（同 src/db/code.ts 语义；保持种子自包含不引全局 db） */
+async function nextSerial(tx: SeedTx, prefix: string): Promise<string> {
+  const result = await tx.execute(sql`
+    INSERT INTO code_sequences (prefix, year, next_value) VALUES (${prefix}, ${YEAR}, 1)
+    ON CONFLICT (prefix, year) DO UPDATE SET next_value = code_sequences.next_value + 1
+    RETURNING next_value
+  `);
+  const row = result.rows[0] as { next_value: number };
+  return `${prefix}-${YEAR}-${String(row.next_value).padStart(5, "0")}`;
+}
+
+/**
+ * 单商机 D5 补齐（幂等）：
+ * ① 能通过赢单合同/事项唯一确认既有项目的只补关联（禁止新建）；② 否则同事务建事项+项目；
+ * ③ 生命周期：lost→closed、won+active 合同→in_progress、其余→preparing；
+ * ④ 成员补 manager + 商机 owner；⑤ 首版售前计划（项目已有 v1 计划则跳过）。
+ * 新建事项/项目用固定编码（种子惯例；存量库由迁移 0014 next_code 补齐，同水位发出相同 00006 号段）。
+ */
+async function ensureOppProject(
+  tx: SeedTx,
+  oppCode: string,
+  fallbackCodes: { matterCode: string; projectCode: string },
+): Promise<void> {
+  const oppRows = await tx.select().from(crmOpportunities).where(eq(crmOpportunities.code, oppCode));
+  const opp = oppRows[0];
+  if (!opp) throw new Error(`种子商机 ${oppCode} 缺失`);
+  const actorId = opp.ownerId ?? opp.createdBy ?? (await userIdByEmail(tx, "liangqifeng@lexflow.demo"));
+  const nowIso = new Date().toISOString();
+
+  let projectId = opp.projectId;
+  if (!projectId && opp.wonContractId) {
+    const contractRows = await tx
+      .select({ matterId: crmContracts.matterId })
+      .from(crmContracts)
+      .where(eq(crmContracts.id, opp.wonContractId));
+    const matterId = contractRows[0]?.matterId;
+    if (matterId) {
+      const linked = await tx.select({ id: projects.id }).from(projects).where(eq(projects.matterId, matterId));
+      if (linked.length === 1) projectId = linked[0].id;
+    }
+    if (projectId) {
+      await tx
+        .update(crmOpportunities)
+        .set({ projectId, updatedBy: actorId, updatedAt: nowIso })
+        .where(eq(crmOpportunities.id, opp.id));
+    }
+  }
+  if (!projectId) {
+    const matterExisting = await tx.select({ id: matters.id }).from(matters).where(eq(matters.code, fallbackCodes.matterCode));
+    if (matterExisting[0]) throw new Error(`种子立项编码冲突：${fallbackCodes.matterCode} 已被占用`);
+    const matter = await tx
+      .insert(matters)
+      .values({
+        code: fallbackCodes.matterCode,
+        clientId: opp.customerId,
+        name: opp.name,
+        type: "售前",
+        createdBy: actorId,
+        updatedBy: actorId,
+      })
+      .returning({ id: matters.id });
+    const activeContract = await tx
+      .select({ id: crmContracts.id })
+      .from(crmContracts)
+      .where(and(eq(crmContracts.opportunityId, opp.id), eq(crmContracts.status, "active")));
+    const lifecycle: "preparing" | "in_progress" | "closed" =
+      opp.stage === "lost" ? "closed" : opp.stage === "won" && activeContract[0] ? "in_progress" : "preparing";
+    // 项目负责人：无"可唯一确认的既有项目负责人"（本分支即无既有项目）→ 取商机负责人
+    const managerId = opp.ownerId ?? actorId;
+    const projectExisting = await tx.select({ id: projects.id }).from(projects).where(eq(projects.code, fallbackCodes.projectCode));
+    if (projectExisting[0]) throw new Error(`种子立项编码冲突：${fallbackCodes.projectCode} 已被占用`);
+    const project = await tx
+      .insert(projects)
+      .values({
+        code: fallbackCodes.projectCode,
+        matterId: matter[0].id,
+        name: `${opp.name}项目`,
+        type: "售前",
+        managerId,
+        lifecycleStatus: lifecycle,
+        createdBy: actorId,
+        updatedBy: actorId,
+      })
+      .returning({ id: projects.id });
+    projectId = project[0].id;
+    await tx
+      .update(crmOpportunities)
+      .set({ projectId, updatedBy: actorId, updatedAt: nowIso })
+      .where(eq(crmOpportunities.id, opp.id));
+  }
+
+  // 生命周期对齐（含复用路径）
+  const hasActiveContract = await tx
+    .select({ id: crmContracts.id })
+    .from(crmContracts)
+    .where(and(eq(crmContracts.opportunityId, opp.id), eq(crmContracts.status, "active")));
+  if (opp.stage === "lost") {
+    await tx
+      .update(projects)
+      .set({ lifecycleStatus: "closed", updatedAt: nowIso })
+      .where(and(eq(projects.id, projectId), sql`${projects.lifecycleStatus} <> 'closed'`));
+  } else if (opp.stage === "won" && hasActiveContract[0]) {
+    await tx
+      .update(projects)
+      .set({ lifecycleStatus: "in_progress", updatedAt: nowIso })
+      .where(and(eq(projects.id, projectId), eq(projects.lifecycleStatus, "preparing")));
+  }
+
+  // 成员：manager + 商机 owner（同人只留 manager 一行）
+  const projRows = await tx.select({ managerId: projects.managerId }).from(projects).where(eq(projects.id, projectId));
+  await tx
+    .insert(projectMembers)
+    .values({ projectId, userId: projRows[0].managerId, projectRole: "manager" })
+    .onConflictDoNothing();
+  if (opp.ownerId && opp.ownerId !== projRows[0].managerId) {
+    await tx
+      .insert(projectMembers)
+      .values({ projectId, userId: opp.ownerId, projectRole: "member" })
+      .onConflictDoNothing();
+  }
+
+  // 首版售前计划（已有 v1 则跳过，整体同事务不产生半成品）
+  const existingPlan = await tx
+    .select({ id: planVersions.id })
+    .from(planVersions)
+    .where(and(eq(planVersions.projectId, projectId), eq(planVersions.versionNo, 1)));
+  if (!existingPlan[0]) {
+    const stageRefs: Array<{ id: string; name: string; ps: number; pe: number }> = [];
+    for (const def of PRESALES_PLAN_STAGES) {
+      const code = await nextSerial(tx, "STG");
+      const inserted = await tx
+        .insert(stages)
+        .values({
+          projectId,
+          code,
+          name: def.name,
+          seq: def.seq,
+          plannedStart: fmt(addDays(TODAY, def.ps)),
+          plannedEnd: fmt(addDays(TODAY, def.pe)),
+          createdBy: actorId,
+          updatedBy: actorId,
+        })
+        .returning({ id: stages.id });
+      stageRefs.push({ id: inserted[0].id, name: def.name, ps: def.ps, pe: def.pe });
+    }
+    const plan = await tx
+      .insert(planVersions)
+      .values({
+        projectId,
+        versionNo: 1,
+        kind: "baseline",
+        status: "active",
+        notes: "首版售前计划（种子；售前项目模板：需求调研/方案与报价/商务签约）",
+        createdBy: actorId,
+        updatedBy: actorId,
+      })
+      .returning({ id: planVersions.id });
+    let seq = 1;
+    for (const st of stageRefs) {
+      await tx.insert(planItems).values({
+        planVersionId: plan[0].id,
+        itemType: "stage",
+        refId: st.id,
+        name: st.name,
+        plannedStart: fmt(addDays(TODAY, st.ps)),
+        plannedEnd: fmt(addDays(TODAY, st.pe)),
+        seq: seq++,
+        createdBy: actorId,
+      });
+    }
   }
 }

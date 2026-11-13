@@ -20,6 +20,8 @@ const YEAR = new Date().getFullYear();
 const PROJECT_A = `PRJ-${YEAR}-00001`;
 const PROJECT_B = `PRJ-${YEAR}-00002`;
 const PROJECT_C = `PRJ-${YEAR}-00003`;
+// 18-01：商机 OPP-00001 唯一项目（售前，王宝茁任负责人 → pm 可见集 +1）
+const PROJECT_F = `PRJ-${YEAR}-00006`;
 
 const PDF_BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37]); // %PDF-1.7
 const PDF_SHA256 = createHash("sha256").update(PDF_BYTES).digest("hex");
@@ -111,7 +113,7 @@ describe("权限边界验收（工单 00 场景 1/2/3/5）", () => {
     };
     const pmItems = await listOf(pmCookie);
     const memberItems = await listOf(memberCookie);
-    expect(pmItems.map((p) => p.code).sort()).toEqual([PROJECT_A, PROJECT_B]);
+    expect(pmItems.map((p) => p.code).sort()).toEqual([PROJECT_A, PROJECT_B, PROJECT_F].sort());
     expect(memberItems.map((p) => p.code)).toEqual([PROJECT_A]);
     // member 列表计数即集合大小（静默过滤，无分页假象）
     expect(memberItems).toHaveLength(1);

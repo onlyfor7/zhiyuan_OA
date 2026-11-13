@@ -110,10 +110,10 @@ describe("9e-01 报表聚合与导出", () => {
   });
 
   it("权限探针：member 本人口径（费用类别只见本人/收款账龄与商机无权限空集）/partner 全局穿透/无财务权域空集", async () => {
-    // partner 穿透：项目健康度可见全部项目（5）
+    // partner 穿透：项目健康度可见全部项目（6：5 既有 + 18-01 商机 OPP-00001 唯一项目）
     const partnerHealth = (await trpc(app, "reports.projectHealth", { cookie: partnerCookie, method: "GET", input: {} })).json as { result: { data: ReportShape } };
     const partnerTotal = partnerHealth.result.data.summaryCards.find((c) => c.key === "total")?.value;
-    expect(partnerTotal).toBe(5);
+    expect(partnerTotal).toBe(6);
     // member 仅见本项目（项目 A）
     const memberHealth = (await trpc(app, "reports.projectHealth", { cookie: memberCookie, method: "GET", input: {} })).json as { result: { data: ReportShape } };
     expect(memberHealth.result.data.summaryCards.find((c) => c.key === "total")?.value).toBe(1);

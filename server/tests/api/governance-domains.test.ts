@@ -573,12 +573,12 @@ describe("治理域（质量/决策/周报/档案/授权/D2/N1/查询口径）",
       expect(marked.status).toBe(200);
     }
 
-    // 驾驶舱：pm 范围（2 项目）与待审批数
+    // 驾驶舱：pm 范围（3 项目：A 负责 + B 成员 + 18-01 商机 OPP-00001 唯一项目负责）与待审批数
     const summary = await trpc(app, "dashboard.summary", { cookie: pmCookie, method: "GET" });
     const summaryData = (summary.json as {
       result: { data: { projects: { total: number }; pendingApprovals: number } };
     }).result.data;
-    expect(summaryData.projects.total).toBe(2);
+    expect(summaryData.projects.total).toBe(3);
 
     // 审计查阅：member 被拦（audit.read 动作授权）；sysadmin 可查
     const denied = await trpc(app, "audit.list", { cookie: memberCookie, method: "GET", input: {} });

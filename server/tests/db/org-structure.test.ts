@@ -65,7 +65,7 @@ describe("9b-01 组织数据建模（arch/12 §9/§10）", () => {
       ]);
       expect(depts.every((d) => d.parentId === root[0].id)).toBe(true);
 
-      // 员工信息：22 人职位/工号/入职全非空，工号 YN-### 唯一
+      // 员工信息：29 人（22 名单 + 18-01 六角色演示账号 7 人）职位/工号/入职全非空，工号 YN-### 唯一
       const rows = await db
         .select({
           email: users.email,
@@ -74,12 +74,12 @@ describe("9b-01 组织数据建模（arch/12 §9/§10）", () => {
           joinedAt: users.joinedAt,
         })
         .from(users);
-      expect(rows).toHaveLength(22);
+      expect(rows).toHaveLength(29);
       expect(rows.every((r) => r.position.length > 0)).toBe(true);
       expect(rows.every((r) => r.joinedAt !== null)).toBe(true);
       const nos = rows.map((r) => r.employeeNo);
       expect(nos.every((n) => n !== null && /^YN-\d{3}$/.test(n))).toBe(true);
-      expect(new Set(nos).size).toBe(22);
+      expect(new Set(nos).size).toBe(29);
       // 代表性岗位
       const byEmail = new Map(rows.map((r) => [r.email, r]));
       expect(byEmail.get("liangqifeng@lexflow.demo")?.position).toBe("合伙人");

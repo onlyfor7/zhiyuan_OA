@@ -80,6 +80,26 @@ const PROJECT_TEMPLATES = [
       tasks: [{ name: "运维台账建立", stageSeq: 1, offsetDays: 1, durationDays: 5 }],
     },
   },
+  {
+    name: "售前项目模板",
+    description: "商机成立即立项（arch/13 §5.3 D5）：需求调研、方案与报价、商务签约三节点；缺省 14 天/段顺排（arch/04 §4）",
+    structureJson: {
+      stages: [
+        { name: "需求调研", seq: 1, days: 14 },
+        { name: "方案与报价", seq: 2, days: 14 },
+        { name: "商务签约", seq: 3, days: 14 },
+      ],
+      checkItems: [
+        { name: "需求澄清确认", required: true, stageSeq: 1 },
+        { name: "方案与报价评审", required: true, stageSeq: 2 },
+      ],
+      tasks: [
+        { name: "需求访谈与记录", stageSeq: 1, offsetDays: 0, durationDays: 5, assigneeRole: "manager" },
+        { name: "方案与报价编制", stageSeq: 2, offsetDays: 0, durationDays: 7 },
+        { name: "合同条款核对", stageSeq: 3, offsetDays: 0, durationDays: 5 },
+      ],
+    },
+  },
 ];
 
 /** arch/04 §2.9 种子审批策略 */

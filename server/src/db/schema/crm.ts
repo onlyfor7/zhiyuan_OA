@@ -8,6 +8,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
@@ -20,7 +21,7 @@ import {
   paymentPlanStatusEnum,
 } from "./enums";
 import { users } from "./org";
-import { clients, matters } from "./business";
+import { clients, matters, projects } from "./business";
 import { paymentReceipts } from "./extensions";
 
 /** 通用审计四件套字段（arch/01 §2） */
@@ -31,12 +32,12 @@ const auditFour = {
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
 };
 
-/** 线索（arch/12 §6.2：new→contacted→qualified→converted / disqualified〔原因必填〕） */
+/** 线索（arch/12 §6.2：new→contacted→qualified→converted / disqualified〔原因必填〕；arch/13 §5.2：code 改可空，历史 LD 保留、不再发放新号，PG 唯一约束天然允许多 NULL） */
 export const crmLeads = pgTable(
   "crm_leads",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    code: text("code").notNull().unique(),
+    code: text("code").unique(),
     name: text("name").notNull(),
     source: text("source").notNull().default(""),
     contactName: text("contact_name"),
@@ -80,7 +81,7 @@ export const crmContacts = pgTable(
   (t) => [index("crm_contacts_customer_id_idx").on(t.customerId)],
 );
 
-/** 商机（arch/12 §6.2：initial→needs→proposal→negotiation→won / lost；won 必挂合同） */
+/** 商机（arch/12 §6.2：initial→needs→proposal→negotiation→won / lost；won 必挂合同；arch/13 §5.3 D5：成立即立项唯一项目 + 售前/来源/关闭字段） */
 export const crmOpportunities = pgTable(
   "crm_opportunities",
   {
@@ -97,12 +98,24 @@ export const crmOpportunities = pgTable(
     wonContractId: uuid("won_contract_id").references((): AnyPgColumn => crmContracts.id, {
       onDelete: "restrict",
     }),
+    /** 来源线索（直接建商机为 NULL；线索转化关联来源，arch/13 §5.1） */
+    sourceLeadId: uuid("source_lead_id").references(() => crmLeads.id, { onDelete: "restrict" }),
+    /** 售前指派（arch/13 §6.1 基础字段；完整协同归二期） */
+    presalesId: uuid("presales_id").references(() => users.id, { onDelete: "restrict" }),
+    /** 关联项目（D5：一商机一项目、一项目最多一商机；唯一索引，多 NULL 不冲突） */
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "restrict" }),
+    /** 关闭原因/时间（lost 终态必填的落库基础；运行时强制归 18-02） */
+    closedReason: text("closed_reason"),
+    closedAt: timestamp("closed_at", { withTimezone: true, mode: "string" }),
     ...auditFour,
     rowVersion: integer("row_version").notNull().default(0),
   },
   (t) => [
     index("crm_opportunities_customer_id_idx").on(t.customerId),
     index("crm_opportunities_stage_idx").on(t.stage),
+    uniqueIndex("crm_opportunities_project_id_unique").on(t.projectId),
+    index("crm_opportunities_source_lead_id_idx").on(t.sourceLeadId),
+    index("crm_opportunities_presales_id_idx").on(t.presalesId),
   ],
 );
 

@@ -1,4 +1,4 @@
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, isNull, isNotNull } from "drizzle-orm";
 import type { ExtractTablesWithRelations } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import type { NodePgDatabase, NodePgTransaction } from "drizzle-orm/node-postgres";
@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import { hashPassword } from "../../lib/password";
 import { loadEnvFile, requireDatabaseUrl } from "../env";
 import * as schema from "../schema";
-import { archiveDirectories, clients, companyProfile, matters, orgUnits, projectMembers, projects, roles, systemConfig, userRoles, users } from "../schema";
+import { archiveDirectories, clients, companyProfile, crmOpportunities, matters, orgUnits, projectMembers, projects, roles, systemConfig, userRoles, users } from "../schema";
 import { SYSTEM_CONFIG_DEFAULTS } from "./config-defaults";
 import { seedClosure } from "./closure";
 import { seedCollab } from "./collab";
@@ -30,7 +30,7 @@ const YEAR = new Date().getFullYear();
 const ORG_FIRM = "因诺智元";
 const ORG_DEPARTMENTS = ["诉讼业务部", "非诉业务部", "综合管理部"] as const;
 
-/** 8 角色（arch/03 §1，冻结） */
+/** 8 + 6 角色（arch/03 §1 冻结八角色；arch/13 §3.1 v1.0 增补销售线六角色） */
 const ROLE_SEED = [
   { key: "partner", name: "管理层/合伙人", description: "项目组合监督、重大审批；按管辖项目范围" },
   { key: "project_manager", name: "项目负责人", description: "项目内全权（受职责分离约束）" },
@@ -40,6 +40,13 @@ const ROLE_SEED = [
   { key: "archivist", name: "档案管理员", description: "归档、完整性、授权管理" },
   { key: "sysadmin", name: "权限/系统管理员", description: "组织、角色、参数配置；不默认读取业务内容" },
   { key: "viewer", name: "只读查阅人", description: "仅经 AccessGrant 的限定范围与期限" },
+  // arch/13 §3.1：销售线六角色（默认数据范围见 arch/13 §4 可见性矩阵，服务端 18-02 落地）
+  { key: "sales", name: "销售", description: "线索、商机、跟进、报价申请、本人销售支出；仅本人负责的线索/商机及关联客户、项目" },
+  { key: "sales_manager", name: "销售主管", description: "下级销售管理、线索真实性复核、业绩与转化；本人及全部下级销售数据" },
+  { key: "presales", name: "售前", description: "第二/三次拜访介入、需求与方案评估、POC 支持；被指派商机及其关联对象" },
+  { key: "operations", name: "运营", description: "商机台账、预测、经营分析、项目推进、成本与客户台账；全公司运营/项目/客户/财务台账（不含系统秘密）" },
+  { key: "regional_vp", name: "大区 VP", description: "区域销售管理、折扣逐级审批；本人管理树下级销售及待本人审批事项" },
+  { key: "ceo", name: "CEO", description: "重大折扣与经营事项审批、经营视图；全局经营只读及审批职责（不取代 partner）" },
 ] as const;
 
 interface UserSeed {
@@ -80,6 +87,21 @@ const USER_SEED: UserSeed[] = [
   { email: "caojiani@lexflow.demo", name: "曹佳妮", roleKeys: ["member"], org: "非诉业务部", position: "法务专员", employeeNo: "YN-020", joinedAt: "2024-05-13" },
   { email: "lishuo@lexflow.demo", name: "李硕", roleKeys: ["member"], org: "非诉业务部", position: "法务专员", employeeNo: "YN-021", joinedAt: "2024-08-19" },
   { email: "liumingle@lexflow.demo", name: "刘明乐", roleKeys: ["member"], org: "非诉业务部", position: "法务专员", employeeNo: "YN-022", joinedAt: "2024-11-25" },
+];
+
+/**
+ * 迭代 18 工单 01 演示账号（arch/13 §3.1：销售 A/B、销售主管、售前、运营、大区 VP、CEO 各 1 个 + 主管树；
+ * 仅 full 档——minimal 只补角色/模板/配置；口令沿用 Demo@2026；不动既有 22 人岗位）。
+ * 主管树：销售 A/B、售前 → 销售主管郑浩然 → 大区 VP 高峻岭 → CEO 宋启铭；运营许文静 → CEO。
+ */
+const DEMO_ORG_USER_SEED: Array<UserSeed & { managerEmail?: string }> = [
+  { email: "songqiming@lexflow.demo", name: "宋启铭", roleKeys: ["ceo"], org: "综合管理部", position: "CEO", employeeNo: "YN-023", joinedAt: "2015-01-12" },
+  { email: "gaojunling@lexflow.demo", name: "高峻岭", roleKeys: ["regional_vp"], org: "综合管理部", position: "大区VP", employeeNo: "YN-024", joinedAt: "2016-06-01", managerEmail: "songqiming@lexflow.demo" },
+  { email: "zhenghaoran@lexflow.demo", name: "郑浩然", roleKeys: ["sales_manager"], org: "综合管理部", position: "销售主管", employeeNo: "YN-025", joinedAt: "2018-04-09", managerEmail: "gaojunling@lexflow.demo" },
+  { email: "sumingxuan@lexflow.demo", name: "苏明轩", roleKeys: ["sales"], org: "综合管理部", position: "销售", employeeNo: "YN-026", joinedAt: "2021-03-15", managerEmail: "zhenghaoran@lexflow.demo" },
+  { email: "linwanqing@lexflow.demo", name: "林婉清", roleKeys: ["sales"], org: "综合管理部", position: "销售", employeeNo: "YN-027", joinedAt: "2022-05-10", managerEmail: "zhenghaoran@lexflow.demo" },
+  { email: "hezhiyuan@lexflow.demo", name: "何志远", roleKeys: ["presales"], org: "综合管理部", position: "售前工程师", employeeNo: "YN-028", joinedAt: "2020-09-21", managerEmail: "zhenghaoran@lexflow.demo" },
+  { email: "xuwenjing@lexflow.demo", name: "许文静", roleKeys: ["operations"], org: "综合管理部", position: "运营专员", employeeNo: "YN-029", joinedAt: "2019-11-04", managerEmail: "songqiming@lexflow.demo" },
 ];
 
 /**
@@ -270,9 +292,9 @@ export type SeedProfile = "full" | "minimal";
 /** 全部编号前缀水位（minimal 档亦建全表，full 档经 GREATEST 上移不冲突） */
 const WATER_FLOORS: Array<[string, number]> = [
   ["CLT", 6],
-  ["MTR", 6],
-  ["PRJ", 6],
-  ["STG", 11],
+  ["MTR", 8],
+  ["PRJ", 8],
+  ["STG", 18],
   ["MLS", 4],
   ["TSK", 17],
   ["DLV", 4],
@@ -367,6 +389,30 @@ async function seedDemoFoundation(tx: DbOrTx): Promise<void> {
   for (const userSeed of USER_SEED) {
     const row = await tx.select({ id: users.id }).from(users).where(eq(users.email, userSeed.email));
     if (row[0]) userIds.set(userSeed.email, row[0].id);
+  }
+  // 迭代 18 工单 01：六角色演示账号 + 主管树（仅 full 档；manager_id 仅在未配置时回填，不覆盖运行期调整）
+  const passwordHash = hashPassword(DEMO_PASSWORD);
+  const deptIds = new Map<string, string>();
+  for (const dept of ORG_DEPARTMENTS) {
+    const row = await tx.select({ id: orgUnits.id }).from(orgUnits).where(eq(orgUnits.name, dept));
+    if (row[0]) deptIds.set(dept, row[0].id);
+  }
+  for (const demo of DEMO_ORG_USER_SEED) {
+    const orgId = demo.org ? deptIds.get(demo.org) : undefined;
+    const userId = await ensureUser(tx, demo, orgId, passwordHash);
+    userIds.set(demo.email, userId);
+    for (const roleKey of demo.roleKeys) {
+      await tx.insert(userRoles).values({ userId, roleKey }).onConflictDoNothing();
+    }
+  }
+  for (const demo of DEMO_ORG_USER_SEED) {
+    if (!demo.managerEmail) continue;
+    const managerId = userIds.get(demo.managerEmail);
+    if (!managerId) throw new Error(`种子主管 ${demo.managerEmail} 缺失`);
+    await tx
+      .update(users)
+      .set({ managerId })
+      .where(and(eq(users.email, demo.email), isNull(users.managerId)));
   }
   const pmId = userIds.get("wangbaozhuo@lexflow.demo")!;
   const clientIds = new Map<string, string>();
@@ -485,8 +531,17 @@ async function seedSchema(databaseUrl: string, profile: SeedProfile): Promise<vo
       // 迭代 6 扩展域种子（默认流程等价迁移/演示流程/佳力奇主数据/收款演示）
       await seedExtensions(tx);
 
-      // 迭代 9c CRM 种子（2 线索/五客户级别行业/2 商机/1 合同+2 付款计划/3 跟进）
+      // 迭代 9c CRM 种子（2 线索/五客户级别行业/2 商机/1 合同+2 付款计划/3 跟进；工单 18-01 起含商机项目/售前计划补齐）
       await seedCrm(tx);
+
+      // 商机关联项目补齐十一档案目录（§12.1 同口径；工单 18-01 D5：演示商机项目与既有项目一致）
+      const linkedProjects = await tx
+        .select({ projectId: crmOpportunities.projectId })
+        .from(crmOpportunities)
+        .where(isNotNull(crmOpportunities.projectId));
+      for (const row of linkedProjects) {
+        await ensureArchiveDirs(tx, row.projectId!);
+      }
 
       // 迭代 9d 财务核算种子（GD 2 应收含逾期演示/1 发票 issued/三档成本率）
       await seedFin(tx);

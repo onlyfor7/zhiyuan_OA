@@ -54,6 +54,13 @@ export const GLOBAL_ROLE_LABEL: Record<string, string> = {
   archivist: "档案管理员",
   sysadmin: "系统管理员",
   viewer: "只读查阅人",
+  // arch/13 §3.1 销售线六角色（18-01 数据会话落枚举/种子时同步标签；角色页面归 18-03）
+  sales: "销售",
+  sales_manager: "销售主管",
+  presales: "售前",
+  operations: "运营",
+  regional_vp: "大区 VP",
+  ceo: "CEO",
 };
 
 export const STAGE_STATUS_LABEL: Record<StageStatus, string> = {
