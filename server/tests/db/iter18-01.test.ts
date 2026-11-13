@@ -81,19 +81,19 @@ describe("迭代 18 工单 01：角色层级与商机立项数据模型（arch/1
     const client = new pg.Client({ connectionString: TEST_DATABASE_URL });
     await client.connect();
     try {
-      // 新列与可空性（arch/13 §3.2/§5.2/§5.3）
+      // 新列与可空性（arch/13 §3.2/§5.2/§5.3 + 工单 01b 幂等键）
       const cols = await client.query<{ table_name: string; column_name: string; is_nullable: string }>(
         `SELECT table_name, column_name, is_nullable FROM information_schema.columns
          WHERE table_schema = 'public' AND (
            (table_name = 'users' AND column_name = 'manager_id') OR
            (table_name = 'crm_leads' AND column_name = 'code') OR
-           (table_name = 'crm_opportunities' AND column_name IN ('source_lead_id', 'presales_id', 'project_id', 'closed_reason', 'closed_at'))
+           (table_name = 'crm_opportunities' AND column_name IN ('source_lead_id', 'presales_id', 'project_id', 'closed_reason', 'closed_at', 'idempotency_key'))
          )`,
       );
       const nullable = new Map(cols.rows.map((r) => [`${r.table_name}.${r.column_name}`, r.is_nullable]));
       expect(nullable.get("users.manager_id")).toBe("YES");
       expect(nullable.get("crm_leads.code")).toBe("YES"); // 线索去编号：历史值保留、新数据可空
-      for (const col of ["source_lead_id", "presales_id", "project_id", "closed_reason", "closed_at"]) {
+      for (const col of ["source_lead_id", "presales_id", "project_id", "closed_reason", "closed_at", "idempotency_key"]) {
         expect(nullable.get(`crm_opportunities.${col}`), `${col} 应可空`).toBe("YES");
       }
 
@@ -101,11 +101,17 @@ describe("迭代 18 工单 01：角色层级与商机立项数据模型（arch/1
       const idx = await client.query<{ indexname: string; indexdef: string }>(
         `SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'public' AND indexname IN (
            'users_manager_id_idx', 'crm_opportunities_project_id_unique',
-           'crm_opportunities_source_lead_id_idx', 'crm_opportunities_presales_id_idx')`,
+           'crm_opportunities_source_lead_id_idx', 'crm_opportunities_presales_id_idx',
+           'crm_opportunities_idempotency_key_unique')`,
       );
       const byName = new Map(idx.rows.map((r) => [r.indexname, r.indexdef]));
-      expect(byName.size).toBe(4);
+      expect(byName.size).toBe(5);
       expect(byName.get("crm_opportunities_project_id_unique")).toContain("UNIQUE");
+      // 工单 01b：幂等键部分唯一索引（仅约束非空键，历史/未传键行 NULL 不互撞）
+      const idemIdx = byName.get("crm_opportunities_idempotency_key_unique") ?? "";
+      expect(idemIdx).toContain("UNIQUE");
+      expect(idemIdx.toLowerCase()).toContain("where");
+      expect(idemIdx.toLowerCase()).toContain("idempotency_key is not null");
 
       // 自引用 check 与补齐函数
       const chk = await client.query(`SELECT conname FROM pg_constraint WHERE conname = 'users_manager_not_self'`);
@@ -276,14 +282,37 @@ describe("迭代 18 工单 01：角色层级与商机立项数据模型（arch/1
         "23505",
       );
 
+      // 工单 01b：幂等键部分唯一索引——多行 NULL 共存；相同非空 key 第二行 23505
+      const idemNulls = await db
+        .insert(crmOpportunities)
+        .values([
+          { code: "OPP-TEST-IDEM-1", customerId: opp1[0].customerId, name: "无幂等键商机甲" },
+          { code: "OPP-TEST-IDEM-2", customerId: opp1[0].customerId, name: "无幂等键商机乙" },
+        ])
+        .returning({ id: crmOpportunities.id });
+      expect(idemNulls).toHaveLength(2);
+      await db
+        .insert(crmOpportunities)
+        .values({ code: "OPP-TEST-IDEM-3", customerId: opp1[0].customerId, name: "幂等键商机", idempotencyKey: "idem-test-18-01b" });
+      await expectPgViolation(
+        db.insert(crmOpportunities).values({
+          code: "OPP-TEST-IDEM-4",
+          customerId: opp1[0].customerId,
+          name: "幂等键重放商机",
+          idempotencyKey: "idem-test-18-01b",
+        }),
+        "23505",
+      );
+
       // 主管不得自引用
       await expectPgViolation(
         db.execute(sql`UPDATE users SET manager_id = id WHERE email = 'sumingxuan@lexflow.demo'`),
         "23514",
       );
 
-      // 自清：删掉本用例新建的两条无编号线索（无业务引用）
+      // 自清：删掉本用例新建的两条无编号线索与三条幂等键商机（均无业务引用；商机 project_id 均为 NULL，不干扰后续补齐勾稽用例）
       await db.delete(crmLeads).where(sql`${crmLeads.id} IN (${inserted[0].id}, ${inserted[1].id})`);
+      await db.delete(crmOpportunities).where(sql`${crmOpportunities.code} IN ('OPP-TEST-IDEM-1', 'OPP-TEST-IDEM-2', 'OPP-TEST-IDEM-3')`);
     } finally {
       await pool.end();
     }

@@ -193,11 +193,12 @@ describe("一致性地基验收（审计 / 登录同形 / 会话一致性 / 幂�
     expect(third.fileObjectId).not.toBe(first.fileObjectId);
   });
 
-  it("[D2 已落地] idempotency_key 列随迭代 1/3/6 表落地（approval_instances / budget_ledger / file_versions / payment_receipts）", async () => {
+  it("[D2 已落地] idempotency_key 列随迭代 1/3/6/18 表落地（approval_instances / budget_ledger / crm_opportunities / file_versions / payment_receipts）", async () => {
     // D2 偏差裁定关闭（STATUS 2026-10-27）：幂等键列由数据会话随迭代 1 迁移落地；
     // budget_ledger 幂等键为 arch/06 §2 台账唯一约束；本条取证对象随数据棒落地原地更新，
     // 正式「重复上传/重复记账拦截断言」归测试会话工单 04。
     // R6（STATUS 2026-10-29 迭代6-05b）：payment_receipts 增 idempotency_key 唯一列（收款登记幂等）。
+    // 18-01b（2026-11-13）：crm_opportunities 增 idempotency_key 部分唯一索引（商机立项重放安全，运行时消费归 18-02）。
     const rows = await query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.columns
        WHERE table_schema = 'public' AND column_name = 'idempotency_key'
@@ -206,6 +207,7 @@ describe("一致性地基验收（审计 / 登录同形 / 会话一致性 / 幂�
     expect(rows).toEqual([
       { table_name: "approval_instances" },
       { table_name: "budget_ledger" },
+      { table_name: "crm_opportunities" },
       { table_name: "file_versions" },
       { table_name: "payment_receipts" },
     ]);

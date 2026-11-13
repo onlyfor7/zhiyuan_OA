@@ -12,6 +12,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 import {
   contractStatusEnum,
@@ -107,6 +108,11 @@ export const crmOpportunities = pgTable(
     /** 关闭原因/时间（lost 终态必填的落库基础；运行时强制归 18-02） */
     closedReason: text("closed_reason"),
     closedAt: timestamp("closed_at", { withTimezone: true, mode: "string" }),
+    /**
+     * 请求幂等键（工单 18-01b）：18-02 `crm.opportunities.create` 重放安全（同键重放返回既有商机/项目，不重复取号）；
+     * 历史行与未传键旧调用为 NULL，部分唯一索引仅约束非空键；线索转化另以「线索已 converted 返回现状」既有幂等语义兜底。
+     */
+    idempotencyKey: text("idempotency_key"),
     ...auditFour,
     rowVersion: integer("row_version").notNull().default(0),
   },
@@ -116,6 +122,9 @@ export const crmOpportunities = pgTable(
     uniqueIndex("crm_opportunities_project_id_unique").on(t.projectId),
     index("crm_opportunities_source_lead_id_idx").on(t.sourceLeadId),
     index("crm_opportunities_presales_id_idx").on(t.presalesId),
+    uniqueIndex("crm_opportunities_idempotency_key_unique")
+      .on(t.idempotencyKey)
+      .where(sql`${t.idempotencyKey} is not null`),
   ],
 );
 
