@@ -289,7 +289,7 @@ const TabPane = memo(function TabPane({ tab, active, mounted, from }: { tab: WsT
   return (
     <div className={`ws-pane ${active ? "is-active" : "is-hidden"}`} aria-hidden={!active}>
       {mounted ? (
-        <AccessErrorBoundary from={from}>{element}</AccessErrorBoundary>
+        <AccessErrorBoundary key={loc.pathname} from={from}>{element}</AccessErrorBoundary>
       ) : (
         <div className="ws-pane-placeholder">
           <span className="section-label">WORKSPACE TAB</span>

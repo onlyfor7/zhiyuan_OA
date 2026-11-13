@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AI_FLOW_DRAFT_KEY } from "../../components/ai/ai-actions";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, Navigate, useNavigate, useParams } from "react-router";
 import {
   Background,
   Controls,
@@ -30,6 +30,7 @@ import {
   useFlowVersions,
   type FlowDefinitionInput,
 } from "../../api/flow";
+import { useProjectFlowMutations, useProjectFlows } from "../../api/project";
 import { businessCodeOf, type RouterOutputs } from "../../lib/trpc";
 import { FLOW_CONDITION_FIELD_TYPES } from "@lexflow/shared";
 import { newIdempotencyKey, rootErrorMessage } from "../../lib/form";
@@ -149,23 +150,42 @@ function fromFlowState(nodes: FlowNode[], edges: Edge[]): FlowDefinitionInput {
 }
 
 type FlowRow = RouterOutputs["flow"]["getById"];
+type ProjectFlowRow = RouterOutputs["project"]["flows"]["list"][number];
 
-/** /admin/flows/:id 审批流设计器（真实 flow.*；保存=草稿 updateDraft，发布=publish 服务端强校验） */
+/** §20.2 项目级复用：项目流程设计器上下文（保存走 project.flows.updateDraft，发布同系统级强校验） */
+interface ProjectDesignerCtx {
+  projectId: string;
+  flow: ProjectFlowRow;
+}
+
+/**
+ * /admin/flows/:flowId 系统级设计器；/flows/p/:projectId/:flowId 项目级复用（同一 DesignerEditor，
+ * 保存=updateDraft/发布=publish，均为服务端结构校验+乐观锁，§20.2 告别 JSON 骨架重建）。
+ */
 export default function FlowDesignerPage() {
-  const { flowId } = useParams();
+  const { flowId, projectId } = useParams();
   const isNew = flowId === "new";
-  const flow = useFlow(isNew ? null : (flowId ?? null));
+  const flow = useFlow(isNew || projectId ? null : (flowId ?? null));
   const flows = useFlowList();
+  const projectFlows = useProjectFlows(projectId ?? null);
+
+  if (projectId) {
+    if (projectFlows.isPending) return <p className="list-note">正在加载项目内流程…</p>;
+    if (projectFlows.isError) throw projectFlows.error;
+    const pf = projectFlows.data.find((f) => f.id === flowId) ?? null;
+    if (!pf) return <Navigate to={`/projects/${projectId}/flows`} replace />;
+    return <DesignerEditor key={pf.id} isNew={false} flow={null} projectCtx={{ projectId, flow: pf }} />;
+  }
 
   if (!isNew && flow.isPending) return <p className="list-note">正在加载流程…</p>;
   if (!isNew && flow.isError) throw flow.error;
   if (isNew && flows.isError) throw flows.error;
 
-  return <DesignerEditor key={flow.data?.id ?? "new"} isNew={isNew} flow={flow.data ?? null} />;
+  return <DesignerEditor key={flow.data?.id ?? "new"} isNew={isNew} flow={flow.data ?? null} projectCtx={null} />;
 }
 
-function initialCanvas(isNew: boolean, flow: FlowRow | null) {
-  if (isNew || !flow) {
+function initialCanvas(isNew: boolean, definitionJson: unknown) {
+  if (isNew || !definitionJson) {
     // 合法最小骨架（服务端结构校验要求 start 可达 end）：start → 审批(partner) → end
     const start: DesignerNode = { id: "start", type: "start", label: "发起" };
     const approval: DesignerNode = { id: "n1", type: "approval", label: "审批节点 1", approver: { kind: "role", role: "partner" }, countersign: "any" };
@@ -178,17 +198,21 @@ function initialCanvas(isNew: boolean, flow: FlowRow | null) {
       ],
     });
   }
-  return toFlowState(toDesigner(flow.definitionJson));
+  return toFlowState(toDesigner(definitionJson));
 }
 
-function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null }) {
+function DesignerEditor({ isNew, flow, projectCtx }: { isNew: boolean; flow: FlowRow | null; projectCtx: ProjectDesignerCtx | null }) {
   const navigate = useNavigate();
   const mutations = useFlowMutations();
+  const projectMutations = useProjectFlowMutations(projectCtx?.projectId ?? "");
   const validate = useFlowValidate();
+  /** §20.2 项目级草稿：画布/保存/发布全走项目上下文（activeFlow=项目草稿优先） */
+  const pf = projectCtx?.flow ?? null;
+  const activeFlow = (pf ?? flow) as FlowRow | null;
   // §17.2 A4：小元 DSL 草稿优先于默认骨架（用户校验后发布）。
   // D-14-4-1 验收即修：草稿消费从 useState initializer 移至 mount effect——React 19 StrictMode
   // 双挂载下 initializer 首跑消费+移除后，重跑读到空存储回落默认骨架致预填丢失（dev 形态实证）。
-  const [initial] = useState(() => ({ ...initialCanvas(isNew, flow), __fromAi: false }));
+  const [initial] = useState(() => ({ ...initialCanvas(isNew, pf?.definitionJson ?? flow?.definitionJson ?? null), __fromAi: false }));
   const [nodes, setNodes] = useState<FlowNode[]>(initial.nodes);
   const [edges, setEdges] = useState<Edge[]>(initial.edges);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -210,13 +234,13 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
       sessionStorage.removeItem(AI_FLOW_DRAFT_KEY);
     }
     /* eslint-enable react-hooks/set-state-in-effect */
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载消费一次
+     
   }, []);
   const [error, setError] = useState<string | null>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [draftMeta, setDraftMeta] = useState({ name: "", scope: "global" as "global" | "project", bizBinding: "generic_request" });
 
-  const versions = useFlowVersions(versionsOpen ? (flow?.name ?? null) : null);
+  const versions = useFlowVersions(versionsOpen && !projectCtx ? (flow?.name ?? null) : null);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<FlowNode>[]) => setNodes((ns) => applyNodeChanges(changes, ns)),
@@ -288,6 +312,16 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
       );
       return;
     }
+    if (projectCtx && pf) {
+      projectMutations.updateDraft.mutate(
+        { projectId: projectCtx.projectId, id: pf.id, rowVersion: pf.rowVersion, definitionJson: definition },
+        {
+          onSuccess: () => setNotice("草稿已保存（项目级·服务端结构校验通过）。"),
+          onError: (err) => setError(rootErrorMessage(err)),
+        },
+      );
+      return;
+    }
     if (!flow) return;
     mutations.updateDraft.mutate(
       { id: flow.id, rowVersion: flow.rowVersion, definitionJson: definition },
@@ -309,10 +343,21 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
     setNotice(null);
     const errors = await runValidate();
     if (errors.length > 0) return;
-    if (isNew || !flow) {
+    if (isNew || (!projectCtx && !flow)) {
       setError("请先保存草稿再发布。");
       return;
     }
+    if (projectCtx && pf) {
+      projectMutations.publish.mutate(
+        { projectId: projectCtx.projectId, id: pf.id, idempotencyKey: newIdempotencyKey() },
+        {
+          onSuccess: (r) => setNotice(r.published ? "项目流程已发布并生效。" : "该版本已是启用状态（幂等重放）。"),
+          onError: (err) => setError(rootErrorMessage(err)),
+        },
+      );
+      return;
+    }
+    if (!flow) return;
     mutations.publish.mutate(
       { id: flow.id, idempotencyKey: newIdempotencyKey() },
       {
@@ -322,7 +367,7 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
     );
   };
 
-  const f = flow;
+  const f = activeFlow;
 
   return (
     <div className="screen designer-screen">
@@ -336,14 +381,14 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
           <p>
             {isNew
               ? "创建草稿后进入设计器保存/发布。"
-              : `绑定业务：${FLOW_BIZ_BINDINGS.find(([v]) => v === f?.bizBinding)?.[1] ?? f?.bizBinding} · 输出编译为既有引擎步骤。`}
+              : `绑定业务：${FLOW_BIZ_BINDINGS.find(([v]) => v === f?.bizBinding)?.[1] ?? f?.bizBinding} · ${projectCtx ? "项目级流程（scope 优先于系统默认）" : "输出编译为既有引擎步骤"}。`}
           </p>
         </div>
         <div className="title-actions">
-          <Link to="/admin" className="secondary-action">
+          <Link to={projectCtx ? `/projects/${projectCtx.projectId}/flows` : "/admin"} className="secondary-action">
             返回列表
           </Link>
-          {!isNew && f ? (
+          {!isNew && f && !projectCtx ? (
             <button
               className="secondary-action"
               disabled={mutations.disable.isPending || !f.enabled}
@@ -358,7 +403,7 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
               停用
             </button>
           ) : null}
-          {!isNew && f ? (
+          {!isNew && f && !projectCtx ? (
             <button className="secondary-action" onClick={() => setVersionsOpen((v) => !v)}>
               <History size={15} />
               版本
@@ -367,10 +412,18 @@ function DesignerEditor({ isNew, flow }: { isNew: boolean; flow: FlowRow | null 
           <button className="secondary-action" onClick={() => void runValidate()}>
             校验
           </button>
-          <button className="secondary-action" onClick={saveDraft} disabled={mutations.updateDraft.isPending || mutations.createDraft.isPending}>
+          <button
+            className="secondary-action"
+            onClick={saveDraft}
+            disabled={mutations.updateDraft.isPending || mutations.createDraft.isPending || projectMutations.updateDraft.isPending}
+          >
             保存草稿
           </button>
-          <button className="primary-action" onClick={() => void publish()} disabled={mutations.publish.isPending}>
+          <button
+            className="primary-action"
+            onClick={() => void publish()}
+            disabled={mutations.publish.isPending || projectMutations.publish.isPending}
+          >
             <Rocket size={15} />
             发布流程
           </button>

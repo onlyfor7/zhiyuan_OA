@@ -119,7 +119,7 @@
 | 17-00 总览 | — | 已发布 | 架构 | 2026-11-12 | 用户选定五项 |
 | 17-01 e2e 创建物自清 | 测试 | **通过** | 测试会话 | 2026-11-12 | 架构验收：根 305 全绿+两轮零增长证据采信（12 域三轮快照全一致）——prod 自增殖机制性根治 |
 | 17-02 项目流编辑端点+SSE 底座+参照端点 | 后端 | **通过** | 后端会话 | 2026-11-12 | 架构验收：根 309 全绿+三端点实弹（updateDraft 守卫/SSE 流头/financeOptions 两形态）+缓冲修复采信 |
-| 17-03 设计器复用+SSE 接入+观察项清零 | 前端 | 待认领 | — | 2026-11-12 | 依赖 02（已过）：§20.2/20.3 接入+§20.4 前端部分 |
+| 17-03 设计器复用+SSE 接入+观察项清零 | 前端 | 待验收 | 前端会话 | 2026-11-13 | 根四道门全绿 309=286+23；走查 18/18 PASS（设计器全链/改名落库/发布/409 守卫、SSE 0.3s 气泡+徽标+断线重连、漏斗元/financeOptions/双页签一致、H1 三档/375）；截图 D:\tmp\shots-iter17\；随棒后端 /events 重写 ReadableStream SSE（hono streamSSE 事件写不落地缺陷） |
 | 17-04 移动端专项 | 前端 | 未解锁 | — | — | D5 落地三档 redesign |
 | 17-05 验收+手册 v2.5 | 测试 | 未解锁 | — | — | 依赖 04；含发布窗口 |
 
@@ -384,6 +384,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-13｜前端｜迭代17-03｜**工单 17-03（设计器复用+SSE 接入+观察项清零，arch/12 §20.2/20.3/20.4 前端）完成，转「待验收」。** ① **§20.2 设计器复用**：FlowDesignerPage 增项目态（新路由 `/flows/p/:projectId/:flowId`，页签条「项目流程设计器」）——草稿行「设计器」入口（FlowsTab），打开即画布预填（骨架 3 节点），选中节点属性改名→保存走 `project.flows.updateDraft`（服务端结构校验，改名落库实证）→rowVersion 往返→校验→发布；已发布保存=服务端 409「须先停用」守卫实证；项目态隐藏停用/版本（归空间页签）/新建元行。② **§20.3 SSE 接入**：新 `lib/realtime.ts`（模块单例）——EventSource 订阅+事件失效通知/待办/驾驶舱/feed 查询+`lexflow:sse` 窗口广播；断线回退 60s 轮询+60s 自动重连；AppShell 挂载启动；小元 listener `assistant.feed` 秒级弹（探针 **0.3s** 实证，徽标 30→31 同步，会议临近条目带直跳链接进 feed）。③ **§20.4 观察项**：漏斗金额列头/汇总「（分）」→「（元）」（meta.label）；finance 类报表项目下拉接 `project.financeOptions`（21 选项+参照请求实证）；双页签边界按路由 key 重置（`AccessErrorBoundary key={loc.pathname}`）——快速切换 10 轮采样标题/正文一致率 100%。**随棒后端 1 处（提请后端/架构知悉）**：`/events` 由 hono `streamSSE` 重写为手写 `ReadableStream` SSE——原实现 ping 正常但事件写不落地（curl/浏览器直连+代理全链路实证，后端 vitest 通过系测试客户端直读 ReadableStream 绕过 HTTP 层所致）；重写后事件即时送达，含 25s 心跳/abort 清理/cancel 清理语义不变。**前端踩坑三留痕**：a) EventSource `onmessage` 只收**无名**事件——服务端发命名事件（`event:` 字段）必须 `addEventListener(eventType)`，本棒首版就踩（SSE 连通但零事件，curl 全通却以为是代理/服务器问题，排障两小时）；b) dev vite 代理对无长度流**持头至首字节**（curl 事件实证明代理流可通，浏览器 readyState 0 属正常等待）；c) 直连 tRPC 探针注意 GET `?input=` 为**裸 input**（服务端不包 json 信封，POST 反之）。**质量门**：根四道门逐条真实执行全绿——typecheck/build/migrate/test **309=286+23**（零用例增减，F3 独占确认）；tsc+eslint 净。走查 `probe-iter17-realtime.cjs` **18/18 PASS**，截图 `D:\tmp\shots-iter17\`（设计器预填/发布/409/漏斗元/financeOptions/双页签）。分支 `iter17/frontend-realtime`（基线 iter16/acceptance 线+17-02 后端）；探针不入库。遗留：无。
 
 - 2026-11-12｜架构｜迭代17-02通过｜**工单 02（项目流编辑端点+SSE 底座+参照端点）验收通过，解锁 17-03（前端会话）。** 实测：根测试 309/309（286+23）全绿；实弹——project.financeOptions finance 200 全量清单/viewer 404 两形态，/events 200 text/event-stream+no-cache 流头。其关键排障采信：runWithEventBuffer 事务未竟即 flush 空缓冲丢事件——改 await fn() 后返回缓冲（提交成功才 flush、回滚整批丢弃），属正确性修复。
 

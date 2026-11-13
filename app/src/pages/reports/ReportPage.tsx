@@ -67,7 +67,9 @@ function ReportSkeleton({ reportKey }: { reportKey: string }) {
     ...(meta.filters.view ? { view } : {}),
   };
 
-  const projects = useQuery(trpc.project.list.queryOptions({ limit: 100, filters: {} }, { enabled: !!meta.filters.project }));
+  const projects = useQuery(trpc.project.list.queryOptions({ limit: 100, filters: {} }, { enabled: !!meta.filters.project && meta.category !== "finance" }));
+  /** §20.4 观察项：finance 类报表项目下拉接 financeOptions 参照端点（project.list 对 finance 同形 404 时下拉只剩"全部项目"） */
+  const finProjects = useQuery(trpc.project.financeOptions.queryOptions(undefined, { enabled: !!meta.filters.project && meta.category === "finance" }));
   const customers = useQuery(trpc.crm.customers.list.queryOptions({ limit: 50 }, { enabled: showCustomer }));
   const units = useQuery(trpc.org.units.tree.queryOptions(undefined, { enabled: showOrgUnit }));
 
@@ -152,8 +154,8 @@ function ReportSkeleton({ reportKey }: { reportKey: string }) {
           ) : null}
           {meta.filters.project ? (
             <select value={projectId} aria-label="项目筛选" onChange={(e) => { setProjectId(e.target.value); setPage(0); }}>
-              <option value="">全部项目</option>
-              {(projects.data?.items ?? []).map((p) => (
+              <option value="">{meta.category === "finance" ? "全部项目（财务参照口径）" : "全部项目"}</option>
+              {(meta.category === "finance" ? (finProjects.data ?? []) : (projects.data?.items ?? [])).map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>

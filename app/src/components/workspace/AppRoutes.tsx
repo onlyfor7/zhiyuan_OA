@@ -106,6 +106,7 @@ export function AppRoutes({ location }: { location?: RoutesLocation }) {
       <Route path="/approvals" element={<ApprovalsPage />} />
       <Route path="/admin" element={<MenuGuard menu="/admin"><AdminCenterPage /></MenuGuard>} />
       <Route path="/admin/flows/:flowId" element={<MenuGuard menu="/admin"><FlowDesignerPage /></MenuGuard>} />
+      <Route path="/flows/p/:projectId/:flowId" element={<FlowDesignerPage />} />
       <Route path="/requests" element={<RequestsPage />} />
       <Route path="/requests/:requestId" element={<RequestDetailPage />} />
       <Route path="/settings" element={<SettingsPage />} />

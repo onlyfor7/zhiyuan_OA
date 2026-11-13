@@ -16,6 +16,7 @@ import { FormDialog } from "./FormDialog";
 import FundingNewPage from "../pages/FundingNewPage";
 import { AiPet } from "./ai/AiPet";
 import { isAuthRequired } from "../lib/trpc";
+import { startRealtime } from "../lib/realtime";
 
 function BrandMark() {
   return (
@@ -52,6 +53,11 @@ export default function AppShell() {
     const handler = (e: Event) => setNavDialog((e as CustomEvent<string>).detail ?? null);
     window.addEventListener("lexflow:nav-dialog", handler);
     return () => window.removeEventListener("lexflow:nav-dialog", handler);
+  }, []);
+
+  /** §20.3：/events SSE 订阅（断线自动回退 60s 轮询；单例幂等） */
+  useEffect(() => {
+    startRealtime();
   }, []);
 
   if (me.isPending) {

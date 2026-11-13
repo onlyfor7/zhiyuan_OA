@@ -17,6 +17,7 @@ import {
   type AiTimeDraftEntry,
 } from "./ai-actions";
 import { DomainIconBlock } from "../../lib/DomainIconBlock";
+import { onRealtimeEvent } from "../../lib/realtime";
 
 /**
  * AI 宠物「小元」（arch/12 §19.4 v2.5 修订）：**纯宠物本体**——透明背景只剩圆球生物体
@@ -172,20 +173,32 @@ export function AiPet() {
   const visibleItems = useMemo(() => feedItems.filter((it) => !suppressed.includes(feedKey(it))), [feedItems, suppressed]);
   const visibleCount = visibleItems.length;
 
+  /** §19.4 弹出下一条未播提醒（队列 interval 与 §20.3 SSE 即时弹共用）；播完即止 */
+  const popNext = useCallback(() => {
+    if (document.visibilityState !== "visible") return;
+    const next = visibleItems.find((it) => !shownRef.current.has(feedKey(it)));
+    if (!next) return;
+    shownRef.current.add(feedKey(next));
+    setBubble(null);
+    setQueueItem(next);
+    lastActive.current = Date.now();
+  }, [visibleItems]);
+
   /** §19.4 提醒气泡队列：每 15s 弹一条未播过的提醒；面板开/已有气泡时暂停；播完即止 */
   useEffect(() => {
     if (open || queueItem) return;
-    const t = window.setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      const next = visibleItems.find((it) => !shownRef.current.has(feedKey(it)));
-      if (!next) return;
-      shownRef.current.add(feedKey(next));
-      setBubble(null);
-      setQueueItem(next);
-      lastActive.current = Date.now();
-    }, 15_000);
+    const t = window.setInterval(popNext, 15_000);
     return () => window.clearInterval(t);
-  }, [open, queueItem, visibleItems]);
+  }, [open, queueItem, popNext]);
+
+  /** §20.3 SSE：assistant.feed 事件（审批待办/会议临近等）秒级弹，不等 15s 轮询 */
+  useEffect(
+    () =>
+      onRealtimeEvent((type) => {
+        if (type === "assistant.feed" && !open && !queueItem) popNext();
+      }),
+    [open, queueItem, popNext],
+  );
 
   // 闲置提示：≥3 分钟无互动且未开面板/无气泡时弹一次（30s 巡检；提醒气泡优先）
   useEffect(() => {

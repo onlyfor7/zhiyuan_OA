@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
-import { streamSSE } from "hono/streaming";
 import { trpcServer } from "@hono/trpc-server";
 
 import { db, requestContext } from "./db/client";
@@ -63,25 +62,52 @@ export function buildApp(): Hono<{ Variables: { requestId: string } }> {
       );
     }
     const userId = resolved.user.id;
-    return streamSSE(c, async (stream) => {
-      const unsubscribe = subscribeEvents(userId, (event) => {
-        void stream.writeSSE({ event: event.type, data: JSON.stringify(event) }).catch(() => {});
-      });
-      // 心跳 25s（SSE 注释行 ": ping"——客户端 EventSource 自动忽略，防中间代理断链）
-      const heartbeat = setInterval(() => {
-        void stream.write(": ping\n\n").catch(() => {});
-      }, 25_000);
-      if (typeof heartbeat.unref === "function") heartbeat.unref();
-      const cleanup = () => {
-        clearInterval(heartbeat);
-        unsubscribe();
-      };
-      c.req.raw.signal.addEventListener("abort", cleanup, { once: true });
-      // 保持连接直到客户端断开（真实 HTTP 断开触发 abort；单进程形态无跨实例广播）
-      while (!c.req.raw.signal.aborted) {
-        await stream.sleep(1_000);
-      }
-      cleanup();
+    // 手写 ReadableStream SSE（§20.3）：hono streamSSE 在本运行时事件写不落地（ping 正常），
+    // 改标准 ReadableStream——node 适配器逐块消费，事件/心跳同路即时下发
+    const encoder = new TextEncoder();
+    let unsubscribe: (() => void) | null = null;
+    let heartbeat: ReturnType<typeof setInterval> | null = null;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const send = (chunk: string) => {
+          try {
+            controller.enqueue(encoder.encode(chunk));
+          } catch {
+            /* 连接已关闭后的写入忽略 */
+          }
+        };
+        unsubscribe = subscribeEvents(userId, (event) => {
+          send(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+        });
+        heartbeat = setInterval(() => send(": ping\n\n"), 25_000);
+        if (typeof heartbeat.unref === "function") heartbeat.unref();
+        c.req.raw.signal.addEventListener(
+          "abort",
+          () => {
+            if (heartbeat) clearInterval(heartbeat);
+            unsubscribe?.();
+            try {
+              controller.close();
+            } catch {
+              /* 已关闭 */
+            }
+          },
+          { once: true },
+        );
+      },
+      cancel() {
+        if (heartbeat) clearInterval(heartbeat);
+        unsubscribe?.();
+      },
+    });
+    return new Response(body, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        /** 显式 chunked 分帧：dev 代理（vite/http-proxy）对无长度响应会等完结才转发 */
+        "Transfer-Encoding": "chunked",
+      },
     });
   });
 

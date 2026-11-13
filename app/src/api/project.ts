@@ -75,9 +75,9 @@ export function useCloseProject() {
 }
 
 /** G5：项目内审批流 hooks（project.flows.*；负责人门，服务端同形 404） */
-export function useProjectFlows(projectId: string) {
+export function useProjectFlows(projectId: string | null) {
   const trpc = useTRPC();
-  return useQuery(trpc.project.flows.list.queryOptions({ projectId }));
+  return useQuery(trpc.project.flows.list.queryOptions({ projectId: projectId ?? "" }, { enabled: !!projectId }));
 }
 
 export function useProjectFlowMutations(projectId: string) {
@@ -88,9 +88,10 @@ export function useProjectFlowMutations(projectId: string) {
     void queryClient.invalidateQueries(trpc.flow.pathFilter());
   };
   const createDraft = useMutation(trpc.project.flows.createDraft.mutationOptions({ onSuccess: invalidate }));
+  const updateDraft = useMutation(trpc.project.flows.updateDraft.mutationOptions({ onSuccess: invalidate }));
   const publish = useMutation(trpc.project.flows.publish.mutationOptions({ onSuccess: invalidate }));
   const disable = useMutation(trpc.project.flows.disable.mutationOptions({ onSuccess: invalidate }));
-  return { createDraft, publish, disable, projectId };
+  return { createDraft, updateDraft, publish, disable, projectId };
 }
 
 export function useMemberMutations() {

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { GitBranch, Plus } from "lucide-react";
+import { Link } from "react-router";
+import { GitBranch, Pencil, Plus } from "lucide-react";
 
 import { useProjectFlowMutations, useProjectFlows } from "../../api/project";
 import { FormDialog } from "../../components/FormDialog";
@@ -94,22 +95,28 @@ export default function FlowsTab() {
                     停用
                   </button>
                 ) : (
-                  <button
-                    className="primary-action"
-                    disabled={mutations.publish.isPending}
-                    onClick={() => {
-                      setError(null);
-                      mutations.publish.mutate(
-                        { projectId, id: f.id, idempotencyKey: newIdempotencyKey() },
-                        {
-                          onSuccess: () => setError(null),
-                          onError: (err) => setError(rootErrorMessage(err)),
-                        },
-                      );
-                    }}
-                  >
-                    发布
-                  </button>
+                  <>
+                    <Link className="secondary-action" to={`/flows/p/${projectId}/${f.id}`} title="设计器打开草稿即编辑（§20.2）">
+                      <Pencil size={13} />
+                      设计器
+                    </Link>
+                    <button
+                      className="primary-action"
+                      disabled={mutations.publish.isPending}
+                      onClick={() => {
+                        setError(null);
+                        mutations.publish.mutate(
+                          { projectId, id: f.id, idempotencyKey: newIdempotencyKey() },
+                          {
+                            onSuccess: () => setError(null),
+                            onError: (err) => setError(rootErrorMessage(err)),
+                          },
+                        );
+                      }}
+                    >
+                      发布
+                    </button>
+                  </>
                 )}
               </div>
             </div>

@@ -160,6 +160,8 @@ export const REPORT_META: Array<ReportMeta> = [
     filters: { fromTo: true, customer: true },
     mini: "funnel",
     miniValueKey: "count",
+    /** §20.4 观察项：金额列按元呈现，列头「（分）」标签统一改「（元）」 */
+    label: (l) => l.replace(/（分）$/, "（元）"),
     cell: (k, v) => (FUNNEL_MONEY.has(k) ? cents(v) : num(v)),
     summary: (k, v) => (["openAmount"].includes(k) ? cents(v) : num(v)),
   },

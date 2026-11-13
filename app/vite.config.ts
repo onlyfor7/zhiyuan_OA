@@ -12,6 +12,8 @@ export default defineConfig({
     proxy: {
       "/trpc": "http://localhost:3001",
       "/files": "http://localhost:3001",
+      /** §20.3 SSE 透传（dev）：/events 走 server 事件流，vite 默认 SPA 兜底会吞流 */
+      "/events": "http://localhost:3001",
     },
   },
   build: {

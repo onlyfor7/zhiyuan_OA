@@ -24,6 +24,7 @@ const RULES: Array<[RegExp, TabMeta]> = [
   R(/^\/workbench$/, "workbench", "我的工作台", "notification"),
   R(/^\/approvals$/, "approvals", "审批中心", "approval"),
   R(/^\/admin\/flows\/[^/]+$/, "flow-designer", "审批流设计器", "settings"),
+  R(/^\/flows\/p\/[^/]+\/[^/]+$/, "flow-designer-p", "项目流程设计器", "settings"),
   R(/^\/admin\/org\/company$/, "org-company", "公司信息", "org"),
   R(/^\/admin\/org\/units$/, "org-units", "部门维护", "org"),
   R(/^\/admin\/org\/members$/, "org-members", "员工信息", "org"),
