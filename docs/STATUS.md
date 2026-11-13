@@ -5,7 +5,7 @@
 
 ## 当前迭代
 
-**迭代 18 · 会议纪要业务架构对齐（一期）**（**进行中**——18-01/01b/18-02 通过；18-03 复核发现接口与联动缺口，先发 18-02c 后端补齐，18-04~05 未解锁）
+**迭代 18 · 会议纪要业务架构对齐（一期）**（**进行中**——18-01/01b/18-02/18-02c 通过；当前 18-03 前端复修中，18-04~05 未解锁）
 
 **迭代 17 · 打磨与加固综合包（用户选定五项）**（**已收口** 2026-11-13——五项取证 prod 全绿+根 309 全绿）
 
@@ -127,8 +127,8 @@
 | 18-01 角色层级与商机立项数据模型 | 数据 | **通过** | 数据会话 | 2026-11-13 | 架构复核：319 全绿+迁移/种子/回执独立复验通过；app 类型涟漪仲裁接受 |
 | 18-01b 商机立项幂等键补齐 | 数据 | **通过** | 数据会话 | 2026-11-13 | 架构复核：部分唯一索引 dev 实测就位；同键 23505 用例与根 319 全绿 |
 | 18-02 可见性与商机即立项服务端 | 后端 | **通过** | 后端会话 | 2026-11-13 | 架构复核：D-18-2-1~5 全修；typecheck/build/migrate+根 327 独立复跑全绿；五偏差均关闭 |
-| 18-02c 前端联调接口补齐 | 后端 | **未认领** | — | — | 已解锁（18-03 前置）；契约 `docs/work-orders/迭代18/02c-后端会话-前端联调接口补齐.md` |
-| 18-03 角色页面与项目全周期前端 | 前端 | **进行中（打回复修，待 18-02c）** | 前端会话 | 2026-11-13 | 架构复核发现 D-18-3-1~4；待后端接口补齐后复修 |
+| 18-02c 前端联调接口补齐 | 后端 | **通过** | 后端会话 | 2026-11-13 | 架构复核：三项接口证据成立；typecheck/build/migrate+根 330 独立复跑全绿 |
+| 18-03 角色页面与项目全周期前端 | 前端 | **进行中（复修已下发）** | 前端会话 | 2026-11-13 | 18-02c 已通过；按工单 §8 复修 D-18-3-1~4 并重新待验收 |
 | 18-04 外测迁移发布 | 部署 | 未解锁 | — | — | 待 18-03 验收 |
 | 18-05 验收与手册 | 测试 | 未解锁 | — | — | 待 18-04 完成 |
 
@@ -382,9 +382,9 @@
 | 2026-10-29 | 测试→后端 | **R8**：阈值配置未接入策略匹配 | **已修复关闭**（05b $config 编译期求值；05c prod live 阈值改后 2 步→1 步） | 已关闭 |
 
 |---|---|---|---|---|
-| 2026-11-13 | 架构→后端 | **D-18-3-1**：线索转化新建商机“售前可选”未生效——前端收集 presalesId 但未提交，服务端 convert schema 也不接收，实际 presales_id 恒空 | **裁定：接口缺口阻塞 18-03**，出 18-02c 补 schema/service/测试；前端随后提交并实证 | 待 18-02c |
-| 2026-11-13 | 前端→架构 | **18-03-G1**：org.members.list/admin.userList 不返回 managerId/managerName，主管只能写不能读 | **裁定：接口缺口成立**，出 18-02c 补齐直属主管读取（可选 managerChain）；不得降级为不可见 | 待 18-02c |
-| 2026-11-13 | 前端→架构 | **18-03-G2**：报表 project_costing rows 有三成本字段但列定义缺失，报表页无法展示 | **裁定：接口缺口成立**，出 18-02c 补列定义与测试 | 待 18-02c |
+| 2026-11-13 | 架构→后端 | **D-18-3-1**：线索转化新建商机“售前可选”未生效——前端收集 presalesId 但未提交，服务端 convert schema 也不接收，实际 presales_id 恒空 | **裁定：接口缺口阻塞 18-03**，18-02c 已修复并经架构复核（convert.presalesId 落库+售前可见）；前端提交与走查实证待复修 | 待前端复修 |
+| 2026-11-13 | 前端→架构 | **18-03-G1**：org.members.list/admin.userList 不返回 managerId/managerName，主管只能写不能读 | **裁定：接口缺口成立**，18-02c 已补齐 managerId/managerName/managerChain 并经架构复核；前端预填/展示待复修 | 待前端复修 |
+| 2026-11-13 | 前端→架构 | **18-03-G2**：报表 project_costing rows 有三成本字段但列定义缺失，报表页无法展示 | **裁定：接口缺口成立**，18-02c 已补三列定义与右对齐并经架构复核；前端报表显示复核待复修 | 待前端复修 |
 | 2026-11-13 | 架构→前端 | **D-18-3-4**：数据纠正页客户/项目目标 rowVersion 需手工输入，违背“从详情/列表取”且易误提交 | **打回复修**；18-02c 后前端改用详情查询自动取版本，加载中禁提交，users 对象维持不展示 | 打回中 |
 | 2026-11-13 | 架构→后端 | **D-18-2-5**：线索转化「关联既有商机」缺目标记录权限门——销售 B 可把本人线索挂到销售 A 的无来源商机（实证 200），污染他人归属/项目链 | **二次打回修复**；路径 A 必须先做目标商机范围+管理校验，无权同形 404；补 B 越权 404/A 本人 200/主管下级 200/树外 404 四探针 | **已修复关闭**（路径 A 在存在性 400 之后、写入之前插入 assertRowVisible(商机域范围)+requireCrmManage(ownerId=本人/树下级/partner 通道)；探针断言 404 同形+目标 sourceLeadId 保持 NULL+源线索回 new 零副作用；dev 实弹 B 越权 ACCESS_DENIED_OR_GONE 复证） |
 | 2026-11-13 | 架构→后端 | **D-18-2-1**：线索转化「关联既有商机」路径实证 400——`convertLead` 用线索 `input.id` 查询商机，应使用 `input.opportunityId` | **打回修复**；补关联成功、不新建项目、sourceLeadId/converted_*/projectId 勾稽用例 | **已修复关闭**（改为 input.opportunityId；用例断言 200+项目数不变+三 id 勾稽一致；dev 实弹 200 复证） |
@@ -417,6 +417,10 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-13｜架构｜迭代18-02c通过｜**工单 02c（前端联调接口补齐）验收通过，18-03 前端复修已下发。** 复核边界：后端只动 server/测试/STATUS，未动 schema/迁移/种子/app/部署/prod。三项证据成立：① convert.opportunity.presalesId 透传立项 helper，落库+售前可见+NULL/非法 400；② org.members.list 与 admin.userList 返回 managerId/managerName/managerChain，白名单无敏感字段；③ reports.projectCosting 三成本列定义+右对齐，行值与 fin.projectCosting.get 勾稽。架构独立执行：typecheck/build/db:migrate 全过；根测试 **330/330**（server 301 + app 29）。前端复修指令：按 18-03 工单 §8 提交转化 presalesId 并实证、预填/展示主管、复核报表三列、数据纠正客户/项目 rowVersion 自动取，D-18-3-4 未修前不得再转待验收。
+
+- 2026-11-13｜后端｜迭代18-02c｜**工单 02c（前端联调接口补齐，18-03 前置）完成，转「待验收」。** 三项只补不扩：① `crm.leads.convert` 输入 `opportunity` 增 `presalesId uuid nullable optional`——service 同步接收并透传 `createOpportunityWithProject`（helper 既有 active 校验生效：不存在 400/停用 400 均带 fieldErrors.presalesId；同键异载荷比对本已覆盖 presalesId 无回归）；用例断言落库 presales_id=传入值+售前账号 getById 200、不传保持 NULL。② 主管读取：`org.members.list` 与 `admin.userList` 增 `managerId/managerName/managerChain`（直接主管向上最多 10 级循环截断）——共享 helper `attachManagerFields`（org.ts 导出，admin 复用）：单次全量取 id/name/manager_id 建图内存走链；白名单断言不含口令散列/会话/token（`mustChangePassword` 为既有布尔标记非秘密，单独断言类型）；org-management.test 最小字段键集断言连带更新（新增三字段入白名单键集）。③ `reports.projectCosting` 列定义补 `presalesCostCents/deliveryCostCents/totalCostCents`（数值列统一 `align:"right"`——ReportResult 列类型增可选 align，additive 不破坏既有消费方；值与兄弟列同为分口径，元展示归 18-03 前端格式化避免同表双口径）；用例断言三列键+右对齐+行值分段和=总成本=直接成本（不双算）+与 `fin.projectCosting.get` 逐值一致+member 200 口径不破。**质量门逐条真实执行**：typecheck✓/build✓/db:migrate✓/server **301=298+3**（D-18-2-1~5 全保持）/根 test **330=301+29**。**dev 实弹复证**（:3001）：苏明轩 managerName=郑浩然+链[郑/高/宋]、CEO null/[]；核算三列 align=right；convert 带 presalesId 后售前何志远 getById 200。**遗留**：无新增；managerChain 为低成本顺带给出（工单可选项），若 18-03 只需直属主管可忽略链字段。交 18-03：转化表单提交 presalesId、主管列/展示直用 managerName（链可选）、核算表三成本列接 columns 自动渲染+元格式化。
 
 - 2026-11-13｜架构｜迭代18-03打回复修｜**工单 03 验收不通过，已发布前置微工单 18-02c（后端接口补齐）。** 除前端登记的 G1/G2，复核新增两项：① **D-18-3-1 假功能**——转化新建商机弹窗收集售前但 submitNew 未提交，服务端 convert schema 也不接收，实际 presales_id 恒空；② **D-18-3-4**——数据纠正页客户/项目目标 rowVersion 为空需手工输入，违背“从详情/列表取”。G1（主管读取）与 G2（报表三列）均裁定为接口缺口成立。串行安排：先发 `18-02c` 后端补 convert.presalesId、managerId/managerName、报表三列；通过后前端复修提交售前、预填主管、报表复核与 rowVersion 自动取。当前可执行工单只有 18-02c；18-04 继续锁定。
 
