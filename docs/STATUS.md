@@ -5,7 +5,7 @@
 
 ## 当前迭代
 
-**迭代 18 · 会议纪要业务架构对齐（一期）**（**进行中**——18-01~18-04 与 18-02d 通过；18-04b 外测 server 补发待执行，完成后 18-05 复跑 prod T5 再收口）
+**迭代 18 · 会议纪要业务架构对齐（一期）**（**进行中**——18-01~18-04、18-02d、18-04b 通过；18-05 正在复跑外测 prod T5，完成后收口）
 
 **迭代 17 · 打磨与加固综合包（用户选定五项）**（**已收口** 2026-11-13——五项取证 prod 全绿+根 309 全绿）
 
@@ -131,8 +131,8 @@
 | 18-02d 受控纠正与金额口径修复 | 后端 | **通过** | 后端会话 | 2026-11-14 | 架构复核：user 快照锁与合同金额深剥离证据成立；typecheck/build/migrate+根 332 独立复跑全绿 |
 | 18-03 角色页面与项目全周期前端 | 前端 | **通过** | 前端会话 | 2026-11-13 | 架构复核：D-18-3-1~4 全闭环；typecheck/build/migrate+根 330 独立复跑全绿；截图与探针采信 |
 | 18-04 外测迁移发布 | 部署 | **通过** | 部署会话 | 2026-11-13 | 架构外网复核：品牌/八角色口径/财务分界/主管链/报表三列/节点甘特/AI 105ms 全过；发布证据采信 |
-| 18-04b 18-02d server 镜像补发 | 部署 | **待验收** | 部署会话 | 2026-11-14 | server-only 补发完成：备份 04b-pre-065814Z/digest 67f8d9b2 两端一致/迁移 16 行零漂移/web+postgres 未动/外网冒烟 7/7；18-02d 修复(5a6c684)已上外测，可下发 18-05 prod T5 复跑 |
-| 18-05 验收与手册 | 测试 | **进行中（待 18-04b 后 prod T5）** | 测试会话 | 2026-11-14 | dev 复验全绿；外测 prod T5 需 server 镜像含 18-02d 后复跑 |
+| 18-04b 18-02d server 镜像补发 | 部署 | **通过** | 部署会话 | 2026-11-14 | 架构外网复核：/health+首页+sysadmin 登录+auth.me/crm.summary/org.members/AI config 只读全 200；备份与 digest/迁移零漂移证据采信 |
+| 18-05 验收与手册 | 测试 | **进行中（prod T5 复跑已下发）** | 测试会话 | 2026-11-14 | 18-04b 已通过；复跑外测 prod T5 并更新报告后重新待验收 |
 
 ## 迭代 17 工单状态（arch/12 §20 v2.6）
 
@@ -424,6 +424,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-14｜架构｜迭代18-04b通过｜**工单 04b（18-02d server 镜像外测补发）验收通过，18-05 prod T5 复跑已下发。** 发布证据采信：04b 备份目录完整、远端 server digest 与本地 tar config 一致、旧镜像保留可回滚、迁移 16 行零漂移、web/postgres 零触碰。架构从本机外网复核：`/health` 200、首页 200+品牌、sysadmin 登录/auth.me/crm.summary/org.members/ai.config.get 只读全 200；未执行业务纠正写动作（该实证归 18-05 prod T5）。**当前唯一任务：测试会话复跑外测 prod T5**，通过后更新报告并重新提请收口。
 
 - 2026-11-14｜部署｜迭代18-04b｜**工单 04b（18-02d server 镜像外测补发）完成，转「待验收」。** ① **预检**：本地基线 iter18/test-acceptance@6e2ecb9（HEAD 29e40c5 纯 docs 提交，代码一致，tracked 干净）；远端三服务 healthy、磁盘余 69G、8080 在位；升级前基线 migrations=16/users=29/projects=18（外测数据自 18-04 后自然增长，全量保留）。② **备份（镜像替换前完成）**：`/opt/lexflow/backups/iter18-04b-pre-20261114T065814Z/`——pg_dump（475K/65 CREATE TABLE，可读性核验）、uploads 卷 tar.gz（仍为空档，gzip 校验过）、compose+.env.production 副本（**600** 不回显）、旧镜像 ID 与 server 容器摘要。③ **构建**（DOCKER_BUILDKIT=0、server **--no-cache**，基线含 18-02d `5a6c684` 修复）：本地标签 d451658a0026。④ **分发**：docker save→scp→远端 load，tar sha256 两端一致（bb47e403…c4826）；**远端 load 后 digest `67f8d9b29b5d…6c0f9a` 与本地 tar config digest 逐字一致**；**旧 server 镜像 382c0991…（18-04 版）保留 dangling 可回滚**（同留 787c814b/5035c35f 历史版）。⑤ **起栈**：`--env-file .env.production` + `up -d --no-deps server` **只重建 server（18s healthy）；web（16h）/postgres（47h）容器零触碰**；server 启动 `migrate: done`；`__drizzle_migrations`=**16 行零漂移**（0014/0015 已在 18-04 落位，本棒无新增迁移，符合预期）；compose/env 未动，远端 .env.production 与 AI 配置原样。⑥ **外网冒烟（本机实发，只读不替代 18-05 prod T5）**：`/health` 200 `{"ok":true}`（经 nginx 反代）；首页 200+品牌；sysadmin 赵凯登录+auth.me 会话有效；admin.storageOrphans 只读可达（dryRun/orphans/deleted/storageRoot 四键）；ai.config.get 原样（system_config/deepseek-chat/脱敏 ****8c0b 未动）；crm.summary 只读可达——**7/7 全过**；**未执行业务纠正写动作**（admin.correctRecord user 路径 200 修复的实证归 18-05 prod T5，本棒以镜像 provenance+digest 核对为交付证据）。⑦ **遗留**：无；凭据文件 D:\tmp\deploy-cred.txt 按用户指示保留不删（未入 git 未回显）。提请架构会话验收，通过后下发 18-05 prod T5 复跑指令。
 - 2026-11-14｜架构｜迭代18-05复验复核｜**dev 侧复验证据采信，但不接受「prod T5 不阻塞收口」：外测用户实际仍会命中 user 纠正 500，必须先补发含 18-02d 的 server 镜像。** 已发布 18-04b（只重建 server、不动 web/postgres、不清库、不覆盖 env/AI 配置），当前唯一可执行工单为 18-04b；18-05 转「进行中（待 18-04b 后 prod T5）」。部署通过后再下发 prod T5 复跑指令，全部闭环后才收口迭代 18。
