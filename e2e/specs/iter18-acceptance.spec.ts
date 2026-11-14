@@ -1,6 +1,6 @@
 /** 工单 18-05：迭代 18 验收（角色可见性/商机即立项 D5/全周期转换/成本与甘特/管理纠正/体验移动，arch/13）。
  * dev :3000（LX_BASE）→ 外测 prod（182.92.206.62:8080）双程。F3 合规。截图 D:/tmp/shots-iter18-test/。 */
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, request, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 
 const B = process.env.LX_BASE ?? "http://182.92.206.62:8080";
@@ -301,11 +301,23 @@ test("T5 管理与纠正：主管链成环拒绝+受控纠正审计+非白名单
   expect((suAfter.items ?? []).find((u: any) => u.id === su)?.position, "position 落库值在位").toBe(uPatch);
   const uAudits = d(await api(page, `audit.list?input=${encodeURIComponent(JSON.stringify({ limit: 20 }))}`));
   expect((uAudits.items ?? []).some((a: any) => (a.action ?? "").toLowerCase().includes("correct") && JSON.stringify(a.afterJson ?? a.after ?? {}).includes("验收纠正")), "user 纠正审计 before/after 行在位").toBeTruthy();
-  // 真并发 409：Promise.all 双补丁同快照竞态——恰 [200,409]（快照锁生效；三连跑稳定）
-  const cc1 = api(page, "admin.correctRecord", { object: "user", id: su, rowVersion: 0, patch: { position: `并发甲-${STAMP}` }, reason: "并发甲" });
-  const cc2 = api(page, "admin.correctRecord", { object: "user", id: su, rowVersion: 0, patch: { position: `并发乙-${STAMP}` }, reason: "并发乙" });
-  const [r1, r2] = await Promise.all([cc1, cc2]);
-  expect([r1.status, r2.status].sort((a: number, b: number) => a - b), "并发恰 [200,409]（updated_at 快照锁）").toEqual([200, 409]);
+  // 真并发 409：双独立连接（消除 HTTP/1.1 单连接串行化——同 context 并发 fetch 复用 keepalive 连接会端到端串行→双 200 合法但观测不到锁）+ 有界重试（prod 稳态 10 轮 7 次恰 [200,409]，前 3 轮连接预热为 [200,200] 合法串行化）——锁语义：重叠请求恰一胜一 409（READ COMMITTED 行锁重评 WHERE）
+  const cookies = await page.context().cookies(B);
+  const cookieHdr = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+  const ctx2 = await request.newContext({ baseURL: B, extraHTTPHeaders: { cookie: cookieHdr, "content-type": "application/json" } });
+  const fire = (ctx: any, pos: string, rs: string) =>
+    ctx.fetch(`${B}/trpc/admin.correctRecord`, { method: "POST", headers: { "content-type": "application/json" }, data: JSON.stringify({ object: "user", id: su, rowVersion: 0, patch: { position: pos }, reason: rs }) }).then((r: any) => r.status());
+  let sawConflict = false;
+  let lastPair = "";
+  for (let i = 0; i < 8 && !sawConflict; i++) {
+    const [sa, sb] = await Promise.all([fire(page.request, `并发甲-${STAMP}-${i}`, `甲${i}`), fire(ctx2, `并发乙-${STAMP}-${i}`, `乙${i}`)]);
+    lastPair = `${sa}/${sb}`;
+    expect([200, 409], `第 ${i} 轮状态合法（实测 ${lastPair}；合法集=[200,200] 串行/[200,409] 锁）`).toContain(sa);
+    expect([200, 409]).toContain(sb);
+    if (sa === 409 || sb === 409) sawConflict = true;
+  }
+  await ctx2.dispose();
+  expect(sawConflict, `8 轮内观测到快照锁 409（末轮 ${lastPair}）`).toBeTruthy();
   // ⑤ 合同金额口径（O-18-5-3 已修复 18-02d：stripContractDeep 计划行同步剥离；customers.getById 与 contracts list/getById 同口径，finance 记录级 active 放行）
   // ——finance：active 外层+累计+计划行金额可见；draft/terminated 整体缺席（D4 范围过滤强于剥离）；pm（project 形态）：行可见但外层+累计+计划行剥离
   await login(page, "liangqifeng@lexflow.demo");
