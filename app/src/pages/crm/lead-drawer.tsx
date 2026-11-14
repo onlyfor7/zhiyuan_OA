@@ -9,7 +9,7 @@ import { LEAD_STATUS_LABEL } from "../../lib/labels";
 import { FormDialog } from "../../components/FormDialog";
 import { UserPicker } from "../../components/UserPicker";
 import { DomainIconBlock } from "../../lib/DomainIconBlock";
-import { rootErrorMessage } from "../../lib/form";
+import { newClientKey, rootErrorMessage } from "../../lib/form";
 
 export type LeadRow = RouterOutputs["crm"]["leads"]["list"]["items"][number];
 
@@ -35,7 +35,7 @@ export function LeadConvertDialog({ lead, onClose }: { lead: { id: string; rowVe
   const opps = useOpportunityList({});
   const [oppId, setOppId] = useState("");
   /** 幂等键：打开表单生成一次；校验失败重试沿用同键（同键同载荷重放返回既有商机/项目） */
-  const [idemKey] = useState(() => crypto.randomUUID());
+  const [idemKey] = useState(() => newClientKey());
   const [error, setError] = useState<string | null>(null);
 
   const submitNew = () => {

@@ -25,7 +25,7 @@ import { DomainIconBlock } from "../lib/DomainIconBlock";
 import { AI_TIME_DRAFT_KEY, type AiTimeDraftEntry } from "../components/ai/ai-actions";
 import { HelpIcon } from "../components/HelpIcon";
 import { businessDetailsOf, useTRPC } from "../lib/trpc";
-import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
+import { newClientKey, newIdempotencyKey, rootErrorMessage } from "../lib/form";
 import { formatHours, TIMESHEET_STATUS_LABEL, TIME_ACTIVITY_LABEL, TIME_SOURCE_LABEL } from "../lib/labels";
 
 function mondayOf(date: Date): string {
@@ -798,7 +798,7 @@ function DayEditor({
     setDrafts((prev) => [
       ...prev,
       {
-        key: crypto.randomUUID(),
+        key: newClientKey(),
         projectId: meProjects[0]?.id ?? null,
         activityType: "professional_work",
         workDate: selectedDate,

@@ -4,6 +4,7 @@ import { GitBranch, Play, X } from "lucide-react";
 import type { PlanAdjustment } from "../../api/plan";
 import { PLAN_ITEM_TYPE_LABEL } from "../../lib/labels";
 import type { RouterOutputs } from "../../lib/trpc";
+import { newClientKey } from "../../lib/form";
 
 type PlanItem = RouterOutputs["plan"]["current"]["items"][number];
 type SimResult = RouterOutputs["plan"]["simulate"] | undefined;
@@ -99,7 +100,7 @@ export function SimulatePanel({
           onClick={() =>
             setRows((prev) => [
               ...prev,
-              { key: crypto.randomUUID(), ref_id: "", item_type: "task", new_start: "", new_end: "" },
+              { key: newClientKey(), ref_id: "", item_type: "task", new_start: "", new_end: "" },
             ])
           }
         >

@@ -11,7 +11,7 @@ import { UserPicker } from "../../components/UserPicker";
 import { DomainIconBlock } from "../../lib/DomainIconBlock";
 import { ListSkeleton } from "../../components/feedback";
 import { formatYuan } from "../../api/reference";
-import { rootErrorMessage } from "../../lib/form";
+import { newClientKey, rootErrorMessage } from "../../lib/form";
 
 /** 新建商机（arch/13 §5.3：客户+PM 必填+售前可选+幂等键开表单一次生成，重试沿用） */
 function OpportunityCreateDialog({ onClose }: { onClose: () => void }) {
@@ -23,7 +23,7 @@ function OpportunityCreateDialog({ onClose }: { onClose: () => void }) {
   const [winRate, setWinRate] = useState(30);
   const [pmId, setPmId] = useState("");
   const [presalesId, setPresalesId] = useState("");
-  const [idemKey] = useState(() => crypto.randomUUID());
+  const [idemKey] = useState(() => newClientKey());
   const [error, setError] = useState<string | null>(null);
   return (
     <FormDialog title="新建商机" eyebrow="CRM · 商机成立即立项（同事务/幂等）" onClose={onClose}>

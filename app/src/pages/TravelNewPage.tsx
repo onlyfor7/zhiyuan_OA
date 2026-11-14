@@ -5,7 +5,7 @@ import { SEGMENT_TYPE } from "@lexflow/shared";
 
 import { useTravelMutations } from "../api/travel";
 import { ProjectSelect } from "../components/DecisionCenter";
-import { rootErrorMessage } from "../lib/form";
+import { newClientKey, rootErrorMessage } from "../lib/form";
 import { SEGMENT_TYPE_LABEL } from "../lib/labels";
 
 interface SegmentDraft {
@@ -21,7 +21,7 @@ interface SegmentDraft {
 
 function emptySegment(seq: number): SegmentDraft {
   return {
-    key: crypto.randomUUID(),
+    key: newClientKey(),
     seq,
     type: "transport",
     startAt: "",

@@ -1,4 +1,5 @@
 /** 参与人草稿与 meeting.create/update 入参的互转（ParticipantsEditor 配套） */
+import { newClientKey } from "../lib/form";
 
 export interface ParticipantDraft {
   key: string;
@@ -11,7 +12,7 @@ export interface ParticipantDraft {
 
 export function emptyParticipant(): ParticipantDraft {
   return {
-    key: crypto.randomUUID(),
+    key: newClientKey(),
     kind: "user",
     userId: "",
     externalName: "",
@@ -45,7 +46,7 @@ export function fromMeetingParticipants(
   }[],
 ): ParticipantDraft[] {
   return participants.map((p) => ({
-    key: crypto.randomUUID(),
+    key: newClientKey(),
     kind: p.userId ? "user" : "external",
     userId: p.userId ?? "",
     externalName: p.externalName ?? "",

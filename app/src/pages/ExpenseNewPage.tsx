@@ -10,7 +10,7 @@ import { useTRPC } from "../lib/trpc";
 import { uploadProjectFile } from "../api/archive";
 import { parseYuanToCents, formatYuan } from "../api/reference";
 import { useMe } from "../api/auth";
-import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
+import { newClientKey, newIdempotencyKey, rootErrorMessage } from "../lib/form";
 import { EXPENSE_CATEGORY_LABEL } from "../lib/labels";
 
 interface ItemDraft {
@@ -28,7 +28,7 @@ interface ItemDraft {
 
 function emptyItem(projectId: string): ItemDraft {
   return {
-    key: crypto.randomUUID(),
+    key: newClientKey(),
     projectId,
     fundingRequestId: "",
     date: new Date().toISOString().slice(0, 10),
