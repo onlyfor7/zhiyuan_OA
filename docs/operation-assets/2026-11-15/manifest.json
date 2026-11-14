@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-11-14T17:45:02.254Z",
+  "capturedAt": "2026-11-14T18:29:38.117Z",
   "base": "http://182.92.206.62:8080",
   "shots": [
     {
@@ -205,11 +205,11 @@
       "file": "op-01-通用-03.png",
       "flow": "通用操作",
       "step": "3",
-      "page": "多页签两签并存",
+      "page": "多页签并存（驾驶舱+项目全周期两签，导航累积页签条）",
       "role": "member",
       "viewport": "desktop-1440x900",
       "anchor": "入门§2.5",
-      "capturedAt": "2026-11-14T17:31:24.290Z"
+      "capturedAt": "2026-11-14T18:29:38.117Z"
     },
     {
       "id": "op-01-会话-01",
@@ -227,154 +227,154 @@
       "file": "op-02-partner-01.png",
       "flow": "角色首屏",
       "step": "1",
-      "page": "合伙人 登录首屏（工作台/驾驶舱）",
+      "page": "合伙人 登录真实首屏（/cockpit）",
       "role": "partner",
       "viewport": "desktop-1440x900",
       "anchor": "速查§3-合伙人",
-      "capturedAt": "2026-11-14T17:31:30.321Z"
+      "capturedAt": "2026-11-14T18:25:22.553Z"
     },
     {
       "id": "op-02-project_manager-01",
       "file": "op-02-project_manager-01.png",
       "flow": "角色首屏",
       "step": "1",
-      "page": "项目负责人 登录首屏（工作台/驾驶舱）",
+      "page": "项目负责人 登录真实首屏（/cockpit）",
       "role": "project_manager",
       "viewport": "desktop-1440x900",
       "anchor": "速查§3-项目负责人",
-      "capturedAt": "2026-11-14T17:31:40.381Z"
+      "capturedAt": "2026-11-14T18:25:30.835Z"
     },
     {
       "id": "op-02-member-01",
       "file": "op-02-member-01.png",
       "flow": "角色首屏",
       "step": "1",
-      "page": "项目成员 登录首屏（工作台/驾驶舱）",
+      "page": "项目成员 登录真实首屏（/cockpit）",
       "role": "member",
       "viewport": "desktop-1440x900",
       "anchor": "速查§3-项目成员",
-      "capturedAt": "2026-11-14T17:31:43.566Z"
+      "capturedAt": "2026-11-14T18:25:47.089Z"
     },
     {
       "id": "op-02-quality_lead-01",
       "file": "op-02-quality_lead-01.png",
       "flow": "角色首屏",
       "step": "1",
-      "page": "质量负责人(合伙人兼) 登录首屏（工作台/驾驶舱）",
+      "page": "质量负责人(合伙人兼) 登录真实首屏（/cockpit）",
       "role": "quality_lead",
       "viewport": "desktop-1440x900",
       "anchor": "速查§3-质量负责人(合伙人兼)",
-      "capturedAt": "2026-11-14T17:31:47.362Z"
+      "capturedAt": "2026-11-14T18:26:03.349Z"
     },
     {
       "id": "op-02-finance-01",
       "file": "op-02-finance-01.png",
       "flow": "角色首屏",
       "step": "1",
-      "page": "财务 登录首屏（工作台/驾驶舱）",
+      "page": "财务 登录真实首屏（/cockpit）",
       "role": "finance",
       "viewport": "desktop-1440x900",
       "anchor": "速查§3-财务",
-      "capturedAt": "2026-11-14T17:31:50.423Z"
+      "capturedAt": "2026-11-14T18:26:05.366Z"
     },
     {
       "id": "op-02-archivist-01",
       "file": "op-02-archivist-01.png",
       "flow": "角色首屏",
       "step": "1",
-      "page": "档案管理员 登录首屏（工作台/驾驶舱）",
+      "page": "档案管理员 登录真实首屏（/cockpit）",
       "role": "archivist",
       "viewport": "desktop-1440x900",
       "anchor": "速查§3-档案管理员",
-      "capturedAt": "2026-11-14T17:31:53.524Z"
+      "capturedAt": "2026-11-14T18:26:21.619Z"
     },
     {
       "id": "op-02-sysadmin-01",
       "file": "op-02-sysadmin-01.png",
       "flow": "角色首屏",
       "step": "1",
-      "page": "系统管理员 登录首屏（工作台/驾驶舱）",
+      "page": "系统管理员 登录真实首屏（/cockpit）",
       "role": "sysadmin",
       "viewport": "desktop-1440x900",
       "anchor": "速查§3-系统管理员",
-      "capturedAt": "2026-11-14T17:31:56.571Z"
+      "capturedAt": "2026-11-14T18:26:37.879Z"
     },
     {
       "id": "op-02-viewer-01",
       "file": "op-02-viewer-01.png",
       "flow": "角色首屏",
       "step": "1",
-      "page": "只读查阅人 登录首屏（工作台/驾驶舱）",
+      "page": "只读查阅人 登录真实首屏（/cockpit）",
       "role": "viewer",
       "viewport": "desktop-1440x900",
       "anchor": "速查§3-只读查阅人",
-      "capturedAt": "2026-11-14T17:31:59.638Z"
+      "capturedAt": "2026-11-14T18:26:46.137Z"
     },
     {
       "id": "op-02-sales-01",
       "file": "op-02-sales-01.png",
       "flow": "角色首屏",
       "step": "1",
-      "page": "销售 登录首屏（工作台/驾驶舱）",
+      "page": "销售 登录真实首屏（/cockpit）",
       "role": "sales",
       "viewport": "desktop-1440x900",
       "anchor": "速查§3-销售",
-      "capturedAt": "2026-11-14T17:32:02.715Z"
+      "capturedAt": "2026-11-14T18:27:02.445Z"
     },
     {
       "id": "op-02-sales_manager-01",
       "file": "op-02-sales_manager-01.png",
       "flow": "角色首屏",
       "step": "1",
-      "page": "销售主管 登录首屏（工作台/驾驶舱）",
+      "page": "销售主管 登录真实首屏（/cockpit）",
       "role": "sales_manager",
       "viewport": "desktop-1440x900",
       "anchor": "速查§3-销售主管",
-      "capturedAt": "2026-11-14T17:32:05.296Z"
+      "capturedAt": "2026-11-14T18:27:10.703Z"
     },
     {
       "id": "op-02-presales-01",
       "file": "op-02-presales-01.png",
       "flow": "角色首屏",
       "step": "1",
-      "page": "售前 登录首屏（工作台/驾驶舱）",
+      "page": "售前 登录真实首屏（/cockpit）",
       "role": "presales",
       "viewport": "desktop-1440x900",
       "anchor": "速查§3-售前",
-      "capturedAt": "2026-11-14T17:32:08.383Z"
+      "capturedAt": "2026-11-14T18:27:18.954Z"
     },
     {
       "id": "op-02-operations-01",
       "file": "op-02-operations-01.png",
       "flow": "角色首屏",
       "step": "1",
-      "page": "运营 登录首屏（工作台/驾驶舱）",
+      "page": "运营 登录真实首屏（/cockpit）",
       "role": "operations",
       "viewport": "desktop-1440x900",
       "anchor": "速查§3-运营",
-      "capturedAt": "2026-11-14T17:32:11.020Z"
+      "capturedAt": "2026-11-14T18:27:27.260Z"
     },
     {
       "id": "op-02-regional_vp-01",
       "file": "op-02-regional_vp-01.png",
       "flow": "角色首屏",
       "step": "1",
-      "page": "大区VP 登录首屏（工作台/驾驶舱）",
+      "page": "大区VP 登录真实首屏（/cockpit）",
       "role": "regional_vp",
       "viewport": "desktop-1440x900",
       "anchor": "速查§3-大区VP",
-      "capturedAt": "2026-11-14T17:32:14.121Z"
+      "capturedAt": "2026-11-14T18:27:35.509Z"
     },
     {
       "id": "op-02-ceo-01",
       "file": "op-02-ceo-01.png",
       "flow": "角色首屏",
       "step": "1",
-      "page": "CEO 登录首屏（工作台/驾驶舱）",
+      "page": "CEO 登录真实首屏（/cockpit）",
       "role": "ceo",
       "viewport": "desktop-1440x900",
       "anchor": "速查§3-CEO",
-      "capturedAt": "2026-11-14T17:32:16.712Z"
+      "capturedAt": "2026-11-14T18:27:43.778Z"
     },
     {
       "id": "op-03-驾驶舱-01",
@@ -414,11 +414,11 @@
       "file": "op-03-工作台-02.png",
       "flow": "工作台",
       "step": "2",
-      "page": "树卡联动跳转报表页签",
+      "page": "工作台待办卡点击跳转纪要详情",
       "role": "member",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.1",
-      "capturedAt": "2026-11-14T17:32:35.348Z"
+      "capturedAt": "2026-11-14T18:22:57.455Z"
     },
     {
       "id": "op-04-线索-01",
@@ -447,11 +447,11 @@
       "file": "op-04-线索-03.png",
       "flow": "线索池",
       "step": "3",
-      "page": "写跟进弹窗打开",
+      "page": "跟进记录页·选对象后新建跟进弹窗",
       "role": "sales",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.2.1",
-      "capturedAt": "2026-11-14T17:32:48.169Z"
+      "capturedAt": "2026-11-14T18:23:03.605Z"
     },
     {
       "id": "op-04-线索-04",
@@ -524,11 +524,11 @@
       "file": "op-04-商机-03.png",
       "flow": "商机",
       "step": "3",
-      "page": "商机抽屉（含项目入口）",
+      "page": "商机抽屉（含项目入口，表格态行点击）",
       "role": "sales",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.2.3",
-      "capturedAt": "2026-11-14T17:33:39.110Z"
+      "capturedAt": "2026-11-14T18:02:56.995Z"
     },
     {
       "id": "op-04-商机-04",
@@ -557,11 +557,11 @@
       "file": "op-04-客户-02.png",
       "flow": "客户",
       "step": "2",
-      "page": "客户详情·合同页签",
+      "page": "客户详情·合同页签（经行内详情链接）",
       "role": "partner",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.2.4",
-      "capturedAt": "2026-11-14T17:33:58.532Z"
+      "capturedAt": "2026-11-14T18:23:22.048Z"
     },
     {
       "id": "op-04-合同-01",
@@ -590,33 +590,33 @@
       "file": "op-05-立项-02.png",
       "flow": "新建项目",
       "step": "2",
-      "page": "向导第2步·模板",
+      "page": "创建项目·模板卡片选中态（售前项目模板）",
       "role": "partner",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.3.1",
-      "capturedAt": "2026-11-14T17:34:12.374Z"
+      "capturedAt": "2026-11-14T18:23:25.305Z"
     },
     {
       "id": "op-05-立项-03",
       "file": "op-05-立项-03.png",
       "flow": "新建项目",
       "step": "3",
-      "page": "向导第3步·团队与负责人",
+      "page": "创建项目·客户下拉展开过程态",
       "role": "partner",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.3.1",
-      "capturedAt": "2026-11-14T17:34:19.932Z"
+      "capturedAt": "2026-11-14T18:23:26.704Z"
     },
     {
       "id": "op-05-立项-04",
       "file": "op-05-立项-04.png",
       "flow": "新建项目",
       "step": "4",
-      "page": "向导第4步·计划预览",
+      "page": "创建项目·必填缺省提交防呆（底部提交区）",
       "role": "partner",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.3.1",
-      "capturedAt": "2026-11-14T17:34:27.500Z"
+      "capturedAt": "2026-11-14T18:23:28.062Z"
     },
     {
       "id": "op-05-空间-01",
@@ -799,11 +799,11 @@
       "file": "op-05-结项-01.png",
       "flow": "项目关闭",
       "step": "1",
-      "page": "关闭项目确认弹窗",
+      "page": "项目总览头部（partner 视角，结项入口因项目进行中未显示——以实际为准）",
       "role": "project_manager",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.3.4",
-      "capturedAt": "2026-11-14T17:35:22.514Z"
+      "capturedAt": "2026-11-14T18:23:32.509Z"
     },
     {
       "id": "op-05-终态-01",
@@ -898,11 +898,11 @@
       "file": "op-06-审批-03.png",
       "flow": "审批中心",
       "step": "3",
-      "page": "驳回理由弹窗（未点确认）",
+      "page": "驳回内联表单（理由必填，未点确认）",
       "role": "member",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.4.2",
-      "capturedAt": "2026-11-14T17:44:55.779Z"
+      "capturedAt": "2026-11-14T18:05:01.278Z"
     },
     {
       "id": "op-06-审批-04",
@@ -953,11 +953,11 @@
       "file": "op-06-设计器-02.png",
       "flow": "流程设计器",
       "step": "2",
-      "page": "画布节点选中态",
+      "page": "画布节点选中态（右侧属性面板可编辑）",
       "role": "sysadmin",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.4.5",
-      "capturedAt": "2026-11-14T17:36:37.183Z"
+      "capturedAt": "2026-11-14T18:23:38.941Z"
     },
     {
       "id": "op-06-项目流-01",
@@ -997,11 +997,11 @@
       "file": "op-07-经费-02.png",
       "flow": "经费",
       "step": "2",
-      "page": "缺必填校验失败 fieldErrors 落位",
+      "page": "经费必填缺省提交按钮置灰禁用（客户端防呆）",
       "role": "member",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.5.2",
-      "capturedAt": "2026-11-14T17:37:07.826Z"
+      "capturedAt": "2026-11-14T18:03:00.446Z"
     },
     {
       "id": "op-07-费用-01",
@@ -1063,11 +1063,11 @@
       "file": "op-07-应收-02.png",
       "flow": "应收",
       "step": "2",
-      "page": "应收内登记收款联动弹窗",
+      "page": "应收行内登记收款直跳收款台账（合同/计划行预填弹窗）",
       "role": "finance",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.5.5",
-      "capturedAt": "2026-11-14T17:37:31.862Z"
+      "capturedAt": "2026-11-14T18:04:48.344Z"
     },
     {
       "id": "op-07-发票-01",
@@ -1162,11 +1162,11 @@
       "file": "op-08-报表-receivable_aging.png",
       "flow": "十张报表",
       "step": "receivable_aging",
-      "page": "收款账龄",
+      "page": "收款账龄分析（finance 视角）",
       "role": "operations",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.6.2-收款账龄",
-      "capturedAt": "2026-11-14T17:37:59.121Z"
+      "capturedAt": "2026-11-14T18:23:43.078Z"
     },
     {
       "id": "op-08-报表-expense_category",
@@ -1184,33 +1184,33 @@
       "file": "op-08-报表-monthly_cashflow.png",
       "flow": "十张报表",
       "step": "monthly_cashflow",
-      "page": "月度收支",
+      "page": "月度收支汇总（finance 视角）",
       "role": "operations",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.6.2-月度收支",
-      "capturedAt": "2026-11-14T17:38:03.331Z"
+      "capturedAt": "2026-11-14T18:23:45.603Z"
     },
     {
       "id": "op-08-报表-time_summary",
       "file": "op-08-报表-time_summary.png",
       "flow": "十张报表",
       "step": "time_summary",
-      "page": "工时汇总",
+      "page": "工时汇总（partner 全域视角）",
       "role": "operations",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.6.2-工时汇总",
-      "capturedAt": "2026-11-14T17:38:05.446Z"
+      "capturedAt": "2026-11-14T18:23:49.695Z"
     },
     {
       "id": "op-08-报表-utilization",
       "file": "op-08-报表-utilization.png",
       "flow": "十张报表",
       "step": "utilization",
-      "page": "人员利用率",
+      "page": "人员利用率（partner 全域视角）",
       "role": "operations",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.6.2-人员利用率",
-      "capturedAt": "2026-11-14T17:38:07.561Z"
+      "capturedAt": "2026-11-14T18:23:52.230Z"
     },
     {
       "id": "op-08-报表-opportunity_funnel",
@@ -1338,11 +1338,11 @@
       "file": "op-09-参数-01.png",
       "flow": "系统参数",
       "step": "1",
-      "page": "系统参数白名单键",
+      "page": "系统参数白名单键（加载完成态）",
       "role": "sysadmin",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.7.5",
-      "capturedAt": "2026-11-14T17:38:46.273Z"
+      "capturedAt": "2026-11-14T18:24:29.678Z"
     },
     {
       "id": "op-09-编号-01",
@@ -1404,22 +1404,22 @@
       "file": "op-10-宠物-01.png",
       "flow": "小元宠物",
       "step": "1",
-      "page": "桌面宠物与红点徽标",
+      "page": "桌面宠物（面板打开态，圆球四态表情）",
       "role": "member",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.8.1",
-      "capturedAt": "2026-11-14T17:39:00.006Z"
+      "capturedAt": "2026-11-14T18:24:11.799Z"
     },
     {
       "id": "op-10-气泡-01",
       "file": "op-10-气泡-01.png",
       "flow": "小元气泡",
       "step": "1",
-      "page": "提醒气泡展开（去处理/知道了）",
+      "page": "小元提醒气泡（轮播自动出现，去处理/知道了）",
       "role": "member",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.8.2",
-      "capturedAt": "2026-11-14T17:39:01.472Z"
+      "capturedAt": "2026-11-14T18:24:09.904Z"
     },
     {
       "id": "op-10-面板-01",
@@ -1437,11 +1437,11 @@
       "file": "op-10-面板-02.png",
       "flow": "小元对话",
       "step": "2",
-      "page": "提问回答过程态",
+      "page": "小元提问回答过程态（真实 AI 回答）",
       "role": "member",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.8.3",
-      "capturedAt": "2026-11-14T17:39:10.085Z"
+      "capturedAt": "2026-11-14T18:24:24.554Z"
     },
     {
       "id": "op-11-驾驶舱-01",
@@ -1536,11 +1536,11 @@
       "file": "op-12-409-01.png",
       "flow": "异常FAQ",
       "step": "409",
-      "page": "乐观锁冲突提示",
+      "page": "乐观锁冲突 409（过期 rowVersion 提交被拦）",
       "role": "sysadmin",
       "viewport": "desktop-1440x900",
       "anchor": "FAQ§5.4",
-      "capturedAt": "2026-11-14T17:39:44.129Z"
+      "capturedAt": "2026-11-14T18:05:11.823Z"
     },
     {
       "id": "op-12-401-01",
@@ -1580,22 +1580,22 @@
       "file": "op-04-商机-05.png",
       "flow": "商机",
       "step": "5",
-      "page": "赢单挂合同弹窗",
+      "page": "赢单挂合同弹窗（打开中商机抽屉）",
       "role": "sales",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.2.3",
-      "capturedAt": "2026-11-14T17:40:24.887Z"
+      "capturedAt": "2026-11-14T18:23:13.878Z"
     },
     {
       "id": "op-04-商机-06",
       "file": "op-04-商机-06.png",
       "flow": "商机",
       "step": "6",
-      "page": "商机关闭确认",
+      "page": "商机关闭确认（理由必填）",
       "role": "sales",
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.2.3",
-      "capturedAt": "2026-11-14T17:40:26.376Z"
+      "capturedAt": "2026-11-14T18:23:16.072Z"
     },
     {
       "id": "op-05-周报-01",
@@ -1668,11 +1668,11 @@
       "file": "op-12-幂等-01.png",
       "flow": "异常FAQ",
       "step": "幂等",
-      "page": "提交中按钮防重态说明",
+      "page": "经费填写完成态（提交中按钮防重+服务端幂等键）",
       "role": "member",
       "viewport": "desktop-1440x900",
       "anchor": "FAQ§5.5",
-      "capturedAt": "2026-11-14T17:41:07.898Z"
+      "capturedAt": "2026-11-14T18:24:33.294Z"
     },
     {
       "id": "op-07-导出-01",
