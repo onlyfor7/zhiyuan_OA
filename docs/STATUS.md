@@ -129,7 +129,7 @@
 | 工单 | 会话 | 状态 | 认领人 | 日期 | 备注 |
 |---|---|---|---|---|---|
 | 19-01 randomUUID 兼容修复 | 前端 | **通过** | 前端会话 | 2026-11-14 | 架构复核：统一三级生成入口+9 处清零+单测 5/5+HTTP 无 flag 走查 9/9；根 337 独立复跑全绿 |
-| 19-02 外测 web 补发 | 部署 | **未认领** | — | — | 已解锁；契约 `docs/work-orders/迭代19/02-部署会话-外测web镜像补发.md` |
+| 19-02 外测 web 补发 | 部署 | **待验收** | 部署会话 | 2026-11-14 | web-only 补发完成：备份 19-02-pre-160039Z/digest 0d3619d7 两端一致/迁移 16 行零漂移/server+postgres 未动/新资产 hash 已切换（index-BShsaTmR）/外网冒烟 7/7；randomUUID 场景复验归 19-03 |
 | 19-03 手册受影响截图复拍与回归 | 测试 | 未解锁 | — | — | 待 19-02 后执行，并收口手册专项 |
 
 ## 迭代 18 工单状态（arch/13 v1.0 · 用户确认冻结）
@@ -444,6 +444,7 @@
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
+- 2026-11-14｜部署｜迭代19-02｜**工单 02（19-01 randomUUID 兼容修复外测 web 补发）完成，转「待验收」。** ① **预检**：本地基线 iter19/frontend-crypto-compat@0c22213（HEAD 9071384 纯 docs 提交，代码一致，tracked 干净）；远端三服务 healthy（web 25h=18-04 旧镜像 ed6a090165ec / server 9h=04b / postgres 2 天）、磁盘余 69G、8080 在位、migrations=16 基线。② **备份（工单轻量口径）**：`/opt/lexflow/backups/iter19-02-pre-20261114T160039Z/`——compose+.env.production 副本（**600** 不回显）、web 镜像摘要（nginx 1.27.5 / ed6a090165ec 49.9MB）、web 容器摘要；DB 沿用现有日备（本棒无后端变更，未做额外 pg_dump，符合工单）。③ **构建**（DOCKER_BUILDKIT=0、web **--no-cache**，基线含 19-01 三级生成入口修复）：本地标签 f933f27b89d0。④ **分发**：docker save→scp→远端 load，tar sha256 两端一致（b850bf37…aeac7b）；**远端 load 后 digest `0d3619d73…073847e` 与本地 tar config digest 逐字一致**；**旧 web 镜像 ed6a0901… 保留 dangling 可回滚**。⑤ **起栈**：`--env-file .env.production` + `up -d --no-deps web` **只重建 web（12s healthy）；server（9h）/postgres（2 天）容器零触碰**；`__drizzle_migrations`=**16 行零漂移**（本棒无后端变更，符合预期）；compose/env/AI 配置未动。⑥ **外网冒烟（本机实发，只读不替代 19-03）**：`/health` 200、首页 200+品牌、**新静态资产 hash 已切换（index-6gI-RJrG.js → index-BShsaTmR.js，新 bundle 200）**、sysadmin 赵凯登录+auth.me 会话有效、crm.summary 只读可达——**7/7 全过**；**未执行业务写动作**；HTTP 非安全上下文 randomUUID 实际场景复验归 19-03 测试会话（普通 Chrome 无 insecure-origin flag）。⑦ **遗留**：无；凭据文件 D:	mp\deploy-cred.txt 按用户指示保留不删（未入 git 未回显）。提请架构会话验收，通过后下发 19-03。
 - 2026-11-14｜架构｜迭代19-01通过｜**工单 01（外测 HTTP 环境 randomUUID 兼容修复）验收通过，发布并解锁 19-02（部署会话）。** 复核边界：只动 app/STATUS；`newClientKey()` 三级策略成立（randomUUID 优先、getRandomValues 构造 RFC4122 v4、计数器+时间戳+随机混合兜底不单独依赖 Math.random），9 处直接调用清零；app 单测 34 含新增 5；HTTP 非安全上下文无 flag 走查 9/9 零崩溃。架构独立复跑：typecheck/build/db:migrate 全过；根测试 **337/337**（server 303 + app 34）。新契约 `docs/work-orders/迭代19/02-部署会话-外测web镜像补发.md`：只重建 web、不动 server/postgres、迁移零漂移；发布后测试会话在普通 Chrome 无 flag 复验并复拍手册受影响截图。
 
 - 2026-11-14｜架构｜D-MAN-4平台缺陷转迭代19-01｜手册 D-MAN-3 已复验通过（两张替换图正常、66 张全量排查与链接校验全绿），但测试会话新登记的 D-MAN-4 经架构核实成立：app/src 9 处直接 `crypto.randomUUID()`，外测 HTTP+IP 非安全上下文会缺 API，线索转化等入口可崩溃。采集侧用 Chrome flag 规避只是取证手段，不能当用户态修复。已发布迭代 19-01（前端兼容生成 UUID v4/清零直接调用点），手册专项暂停到 19-01+19-02 外测发布后复拍受影响截图再收口。当前唯一可执行任务：19-01 前端。
