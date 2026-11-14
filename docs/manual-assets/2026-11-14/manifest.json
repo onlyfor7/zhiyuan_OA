@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-11-14T15:17:10.544Z",
+  "capturedAt": "2026-11-14T16:32:00.709Z",
   "base": "http://182.92.206.62:8080",
   "shots": [
     {
@@ -81,7 +81,7 @@
       "page": "线索转化 Stepper（打开未提交）",
       "role": "sales",
       "viewport": "desktop-1440x900",
-      "capturedAt": "2026-11-14T15:17:10.544Z"
+      "capturedAt": "2026-11-14T16:32:00.709Z"
     },
     {
       "id": "03-04-opps-table",
@@ -514,7 +514,7 @@
       "page": "档案",
       "role": "project_manager",
       "viewport": "desktop-1440x900",
-      "capturedAt": "2026-11-14T15:17:10.544Z"
+      "capturedAt": "2026-11-14T16:32:00.709Z"
     },
     {
       "id": "04-15-members",
