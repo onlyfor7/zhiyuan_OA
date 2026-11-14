@@ -128,7 +128,7 @@
 | 18-01b 商机立项幂等键补齐 | 数据 | **通过** | 数据会话 | 2026-11-13 | 架构复核：部分唯一索引 dev 实测就位；同键 23505 用例与根 319 全绿 |
 | 18-02 可见性与商机即立项服务端 | 后端 | **通过** | 后端会话 | 2026-11-13 | 架构复核：D-18-2-1~5 全修；typecheck/build/migrate+根 327 独立复跑全绿；五偏差均关闭 |
 | 18-02c 前端联调接口补齐 | 后端 | **通过** | 后端会话 | 2026-11-13 | 架构复核：三项接口证据成立；typecheck/build/migrate+根 330 独立复跑全绿 |
-| 18-02d 受控纠正与金额口径修复 | 后端 | **未认领** | — | — | 已解锁（迭代收口前置）；契约 `docs/work-orders/迭代18/02d-后端会话-受控纠正与金额口径修复.md` |
+| 18-02d 受控纠正与金额口径修复 | 后端 | **待验收** | 后端会话 | 2026-11-14 | 分支 iter18/server-defect-fix；①user 纠正独立路径（SET 绝不引用 row_version，updated_at 快照锁，并发 409）②金额口径统一（finance 仅 active 放行外层+累计+计划行，stripContractDeep 计划行同步剥离）；根 332 全绿；dev 实弹两项复证 |
 | 18-03 角色页面与项目全周期前端 | 前端 | **通过** | 前端会话 | 2026-11-13 | 架构复核：D-18-3-1~4 全闭环；typecheck/build/migrate+根 330 独立复跑全绿；截图与探针采信 |
 | 18-04 外测迁移发布 | 部署 | **通过** | 部署会话 | 2026-11-13 | 架构外网复核：品牌/八角色口径/财务分界/主管链/报表三列/节点甘特/AI 105ms 全过；发布证据采信 |
 | 18-05 验收与手册 | 测试 | **进行中（待 18-02d 复验）** | 测试会话 | 2026-11-14 | 六组矩阵/回归证据已交；O-18-5-1/5-3 后端缺陷待修复复验，暂不收口 |
@@ -383,8 +383,8 @@
 | 2026-10-29 | 测试→后端 | **R8**：阈值配置未接入策略匹配 | **已修复关闭**（05b $config 编译期求值；05c prod live 阈值改后 2 步→1 步） | 已关闭 |
 
 |---|---|---|---|---|
-| 2026-11-14 | 测试→后端 | **O-18-5-1**：admin.correctRecord object=user 返回 500——架构读码证实通用 UPDATE 对 users 强行引用不存在的 row_version | **裁定：真实后端缺陷，迭代收口阻塞**；18-02d 按 users.updated_at 服务端快照做内部乐观校验并补并发 409/成环/审计用例 | 待 18-02d |
-| 2026-11-14 | 测试→后端 | **O-18-5-3**：客户详情 finance 合同金额剥离与 D4 不一致，active 合同仍隐藏外层金额；plan 行金额存在未同步剥离风险 | **裁定：真实后端缺陷，迭代收口阻塞**；18-02d 统一 customers.getById 与 contracts 口径，active 放行、draft/terminated 外层与计划行均剥离 | 待 18-02d |
+| 2026-11-14 | 测试→后端 | **O-18-5-1**：admin.correctRecord object=user 返回 500——架构读码证实通用 UPDATE 对 users 强行引用不存在的 row_version | **裁定：真实后端缺陷，迭代收口阻塞**；18-02d 按 users.updated_at 服务端快照做内部乐观校验并补并发 409/成环/审计用例 | **已修复关闭**（user 对象独立 UPDATE：SET 仅白名单+updated_at 绝不引用 row_version，WHERE updated_at=before 快照锁 0 行 409；用例 200 落库+审计/成环 400/非白名单 400/Promise.all 双请求恰 [200,409] 三连跑稳定；dev 实弹 200 复证） |
+| 2026-11-14 | 测试→后端 | **O-18-5-3**：客户详情 finance 合同金额剥离与 D4 不一致，active 合同仍隐藏外层金额；plan 行金额存在未同步剥离风险 | **裁定：真实后端缺陷，迭代收口阻塞**；18-02d 统一 customers.getById 与 contracts 口径，active 放行、draft/terminated 外层与计划行均剥离 | **已修复关闭**（stripContractDeep：外层不可见时 plan 行 amountCents 同步剥离；customers.getById 合同子表 finance 记录级 active 放行外层+累计+计划行；contracts.list/getById 同步；用例覆盖 active 可见/draft 过滤/terminated 剥离/pm 形态全剥离/partner·operations 不回归/member 404；dev 实弹 active 外层+计划行可见复证） |
 | 2026-11-14 | 测试→前端 | **O-18-5-4**：报表客户筛选下拉固定 50 条且无检索，客户更多时老客户不可选 | **裁定：体验观察项，不阻塞迭代 18**；列迭代 19 报表选择器改造（搜索+游标分页），当前测试已用同源可选数据规避且未掩盖 | 转迭代 19 |
 | 2026-11-14 | 架构 | **O-18-3-1**：DataCorrectTab 非项目对象空 id 调项目详情，无用户可见错误 | **维持非阻断观察**；T5 已取证无 UI 错误，列迭代 19 前端 hook enabled 清零 | 转迭代 19 |
 | 2026-11-13 | 架构 | **O-18-3-1（观察项）**：DataCorrectTab 使用 `useProject("")`，非项目对象时也会产生一次无效项目详情请求；不影响数据与功能，root 330 全绿 | **裁定：非阻断技术债**，18-05 验收或迭代 19 打磨时给项目详情 hook 加 enabled/可选 id 清零；不阻塞 18-04 发布 | 观察中 |
@@ -423,6 +423,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-14｜后端｜迭代18-02d｜**工单 02d（O-18-5-1/5-3 修复，只修两项）完成，转「待验收」。** ① **O-18-5-1**：根因坐实——18-02 棒的 user「修复」把 bump 写成 `row_version = row_version`（no-op 但仍引用不存在的列），且当时测试只覆盖了成环 400 校验路径、从未打通过 200 路径，缺陷漏网至 18-05 复核。本次按工单独立路径落地：user 对象 UPDATE 的 SET 仅白名单字段+`updated_at=now`（**绝不引用 row_version**），WHERE `id AND updated_at = before 快照`（服务端内部乐观校验，0 行 409）；lead/opportunity/client/project 四对象 row_version 乐观锁原样不动。用例：200 落库+审计 before/after/理由/patchedFields 齐全、成环 400（构造改为「郑浩然→苏明轩」，注：苏→郑属同值 no-op 非环）、非白名单 400、**Promise.all 双补丁并发恰 [200,409]**（快照锁生效，三连跑稳定）。② **O-18-5-3**：新增 `stripContractDeep`——外层金额不可见时 plan 行 amountCents 同步剥离（不能只隐藏外层）；`customers.getById` 合同子表 finance 记录级 active 放行（外层 amountCents/cumulativeReceivedCents+计划行金额），与 contracts.list/getById 完全同口径（两处同步接 stripContractDeep）。用例：finance 视角 active 合同外层+累计+计划行可见、draft 合同整体缺席（D4 过滤强于剥离）；pm（project 形态）A/B 合同外层+计划行全剥离且 contracts.list/getById 同步；partner/operations 不回归；member 同形 404；B 激活→finance 可见→终止→缺席全链。**质量门逐条真实执行**：typecheck✓/build✓/db:migrate✓/server **303=301+2**（D-18-2-1~5、18-02c 等全部保持）/根 test **332=303+29**。**dev 实弹复证**（:3001 已重启）：user 纠正原 500 路径 200 落值；finance 客户详情 active 合同外层+计划行可见。**遗留**：无新增；O-18-5-4（报表客户筛选下拉）维持架构裁定转迭代 19。18-05 可复验。
 
 - 2026-11-14｜架构｜迭代18-05复核｜**测试证据整体扎实，但迭代 18 暂不能收口：O-18-5-1/5-3 经架构读码均证实为真实后端缺陷，已发布 18-02d。** O-18-5-1 根因=`correctRecord` 对 users 强行引用不存在的 row_version；O-18-5-3 根因=customers.getById 缺 finance&&active 合同金额例外且 plan 行剥离需统一。18-05 的六组矩阵、双 16/16、两轮零增长和手册 v2.6 暂存待复验；O-18-5-4 与 O-18-3-1 裁定为非阻断观察项转迭代 19。串行安排：后端修 18-02d → 架构验收 → 测试复跑 iter18 T5/相关回归 → 架构/用户收口。当前唯一可执行工单：18-02d。
 
