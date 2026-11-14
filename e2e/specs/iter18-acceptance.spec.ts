@@ -258,7 +258,7 @@ test("T4 成本分段与节点甘特：售前/交付/总成本勾稽+plan.gantt 
   expect(bars, "任务三态计数（done/overdue/delayed）在位").toMatch(/done.*overdue.*delayed|taskStats|三态/s);
 });
 
-test("T5 管理与纠正：主管链成环拒绝+sysadmin 受控纠正审计+非白名单拒绝+users rowVersion 裁定", async ({ page }) => {
+test("T5 管理与纠正：主管链成环拒绝+受控纠正审计+非白名单拒绝+users 快照锁 200/并发 409（O-18-5-1 复验）+合同金额 active/draft/terminated 口径（O-18-5-3 复验）", async ({ page }) => {
   await login(page, "zhaokai@lexflow.demo");
   const zheng = await userId(page, "zhenghaoran");
   const su = await userId(page, "sumingxuan");
@@ -290,12 +290,65 @@ test("T5 管理与纠正：主管链成环拒绝+sysadmin 受控纠正审计+非
     patch: { status: "disqualified" }, reason: "非白名单探测",
   });
   expect(bad.status, "非白名单字段拒绝（实测 " + bad.status + "）").toBe(400);
-  // ④ users rowVersion 裁定：user 对象无 row_version 列——客户端 rowVersion 被忽略、服务端内部校验（仲裁口径：接受且不落假锁）
+  // ④ users 受控纠正（O-18-5-1 已修复 18-02d：user 独立 UPDATE 路径——SET 绝不引用 row_version，WHERE updated_at=before 快照锁）——复验：200/落库/审计/真并发 409
+  const uPatch = `销售（验收纠正-${STAMP}）`;
   const uCorr = await api(page, "admin.correctRecord", {
-    object: "user", id: su, rowVersion: 0,
-    patch: { position: "销售（验收纠正）" }, reason: "users rowVersion 裁定验证",
+    object: "user", id: su, rowVersion: 0, // user 忽略客户端 rowVersion（仲裁口径）
+    patch: { position: uPatch }, reason: "users 纠正 200 复验",
   });
-  console.log("user-correct status:", uCorr.status);
+  expect(uCorr.status, "user 纠正 200（原 500 路径已修复）").toBe(200);
+  const suAfter = d(await api(page, `org.members.list?input=${encodeURIComponent(JSON.stringify({ keyword: "sumingxuan", limit: 5 }))}`));
+  expect((suAfter.items ?? []).find((u: any) => u.id === su)?.position, "position 落库值在位").toBe(uPatch);
+  const uAudits = d(await api(page, `audit.list?input=${encodeURIComponent(JSON.stringify({ limit: 20 }))}`));
+  expect((uAudits.items ?? []).some((a: any) => (a.action ?? "").toLowerCase().includes("correct") && JSON.stringify(a.afterJson ?? a.after ?? {}).includes("验收纠正")), "user 纠正审计 before/after 行在位").toBeTruthy();
+  // 真并发 409：Promise.all 双补丁同快照竞态——恰 [200,409]（快照锁生效；三连跑稳定）
+  const cc1 = api(page, "admin.correctRecord", { object: "user", id: su, rowVersion: 0, patch: { position: `并发甲-${STAMP}` }, reason: "并发甲" });
+  const cc2 = api(page, "admin.correctRecord", { object: "user", id: su, rowVersion: 0, patch: { position: `并发乙-${STAMP}` }, reason: "并发乙" });
+  const [r1, r2] = await Promise.all([cc1, cc2]);
+  expect([r1.status, r2.status].sort((a: number, b: number) => a - b), "并发恰 [200,409]（updated_at 快照锁）").toEqual([200, 409]);
+  // ⑤ 合同金额口径（O-18-5-3 已修复 18-02d：stripContractDeep 计划行同步剥离；customers.getById 与 contracts list/getById 同口径，finance 记录级 active 放行）
+  // ——finance：active 外层+累计+计划行金额可见；draft/terminated 整体缺席（D4 范围过滤强于剥离）；pm（project 形态）：行可见但外层+累计+计划行剥离
+  await login(page, "liangqifeng@lexflow.demo");
+  const ctsOfCust = d(await api(page, `crm.contracts.list?input=${encodeURIComponent(JSON.stringify({ customerId: shared.customerId, limit: 20 }))}`));
+  const actC = (ctsOfCust.items ?? []).find((c: any) => /激活合同/.test(c.title ?? ""));
+  const draftC = (ctsOfCust.items ?? []).find((c: any) => /草稿合同/.test(c.title ?? ""));
+  expect(actC?.id, "T3 激活合同在位").toBeTruthy();
+  expect(draftC?.id, "T3 草稿合同在位").toBeTruthy();
+  const planUp = await api(page, "crm.paymentPlans.upsert", { contractId: actC.id, rows: [{ seq: 1, dueDate: "2027-01-01", amountCents: 2000000 }] });
+  expect(planUp.status, "付款计划行 upsert 200").toBe(200);
+  // 造第二份激活合同走终止链（保持客户名下始终有 active 合同，finance 客户范围不塌——对齐后端用例结构）
+  const oppT = d(await api(page, "crm.opportunities.create", { customerId: shared.customerId, name: `${STAMP}-终止链商机`, expectedAmountCents: 4000000, stage: "negotiation", projectManagerId: shared.pmId, idempotencyKey: crypto.randomUUID() }));
+  const oppTFull = d(await api(page, `crm.opportunities.getById?input=${encodeURIComponent(JSON.stringify({ id: oppT.id }))}`));
+  const wonT = d(await api(page, "crm.opportunities.markWon", { id: oppT.id, rowVersion: oppTFull.rowVersion ?? 0, contract: { title: `${STAMP}-终止链合同`, amountCents: 4000000, activate: true } }));
+  const termCid = wonT?.contract?.id ?? wonT?.contractId;
+  expect(termCid, "终止链合同激活在位").toBeTruthy();
+  const planUpT = await api(page, "crm.paymentPlans.upsert", { contractId: termCid, rows: [{ seq: 1, dueDate: "2027-02-01", amountCents: 1500000 }] });
+  expect(planUpT.status, "终止链合同计划行 upsert 200").toBe(200);
+  const termFresh = d(await api(page, `crm.contracts.getById?input=${encodeURIComponent(JSON.stringify({ id: termCid }))}`));
+  const term = await api(page, "crm.contracts.terminate", { id: termCid, rowVersion: termFresh.rowVersion ?? 0, reason: `${STAMP} 复验终态` });
+  expect(term.status, "合同终止 200（终态闭环）").toBe(200);
+  // finance 视角：active 金额可见；draft/terminated 整体缺席（D4 过滤强于剥离）
+  await login(page, "guojingwen@lexflow.demo");
+  const custD = d(await api(page, `crm.customers.getById?input=${encodeURIComponent(JSON.stringify({ id: shared.customerId }))}`));
+  const ctrs = custD?.contracts ?? [];
+  const actD = ctrs.find((c: any) => /激活合同/.test(c.title ?? ""));
+  const draftD = ctrs.find((c: any) => /草稿合同/.test(c.title ?? ""));
+  const termD = ctrs.find((c: any) => (c.title ?? "").includes("终止链合同"));
+  expect(typeof actD?.amountCents, "finance active 外层金额可见").toBe("number");
+  expect(typeof actD?.cumulativeReceivedCents, "finance active 累计金额可见").toBe("number");
+  expect(actD?.plans?.length ?? 0, "finance active 计划行在位").toBeGreaterThanOrEqual(1);
+  expect("amountCents" in (actD?.plans?.[0] ?? {}), "finance active 计划行金额可见").toBeTruthy();
+  expect(!draftD, "finance draft 合同整体缺席（D4 过滤强于剥离）").toBeTruthy();
+  expect(!termD, "finance terminated 合同整体缺席（D4 过滤强于剥离）").toBeTruthy();
+  // pm 视角（project 形态=王宝茁，T3/T5 两商机项目负责人）：行可见但外层+累计+计划行金额同步剥离
+  await login(page, "wangbaozhuo@lexflow.demo");
+  const custPm = d(await api(page, `crm.customers.getById?input=${encodeURIComponent(JSON.stringify({ id: shared.customerId }))}`));
+  const actPm = (custPm?.contracts ?? []).find((c: any) => (c.title ?? "").includes("终止链合同"));
+  expect(actPm, "pm terminated 合同行可见").toBeTruthy();
+  expect(!("amountCents" in actPm), "pm 外层金额剥离").toBeTruthy();
+  expect(!("cumulativeReceivedCents" in actPm), "pm 累计金额剥离").toBeTruthy();
+  expect((actPm.plans ?? []).length, "pm 计划行在场").toBeGreaterThanOrEqual(1);
+  expect((actPm.plans ?? []).every((p: any) => !("amountCents" in p)), "pm 计划行金额同步剥离").toBeTruthy();
   await shot(page, "T5-数据纠正");
 });
 
