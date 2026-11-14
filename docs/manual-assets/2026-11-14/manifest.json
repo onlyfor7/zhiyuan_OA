@@ -1,0 +1,542 @@
+{
+  "capturedAt": "2026-11-14T14:40:50.477Z",
+  "base": "http://182.92.206.62:8080",
+  "shots": [
+    {
+      "id": "01-01-login",
+      "file": "01-01-login.png",
+      "chapter": "1 账号与通用操作",
+      "page": "登录页",
+      "role": "未登录",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "01-02-cockpit",
+      "file": "01-02-cockpit.png",
+      "chapter": "1 账号与通用操作",
+      "page": "管理驾驶舱",
+      "role": "partner",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "01-03-workbench",
+      "file": "01-03-workbench.png",
+      "chapter": "1 账号与通用操作",
+      "page": "项目工作台",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "01-04-cascade-nav",
+      "file": "01-04-cascade-nav.png",
+      "chapter": "1 账号与通用操作",
+      "page": "八组级联导航（经营组展开）",
+      "role": "operations",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "01-05-tabs",
+      "file": "01-05-tabs.png",
+      "chapter": "1 账号与通用操作",
+      "page": "多页签工作区（两页签并存）",
+      "role": "operations",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "01-06-notifications",
+      "file": "01-06-notifications.png",
+      "chapter": "1 账号与通用操作",
+      "page": "通知中心",
+      "role": "member",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "01-07-search",
+      "file": "01-07-search.png",
+      "chapter": "1 账号与通用操作",
+      "page": "全局搜索（关键词=项目）",
+      "role": "operations",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "03-01-leads",
+      "file": "03-01-leads.png",
+      "chapter": "3 CRM 全链",
+      "page": "线索池列表",
+      "role": "sales",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "03-02-lead-drawer",
+      "file": "03-02-lead-drawer.png",
+      "chapter": "3 CRM 全链",
+      "page": "线索详情抽屉（含跟进区）",
+      "role": "sales",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "03-03-lead-convert",
+      "file": "03-03-lead-convert.png",
+      "chapter": "3 CRM 全链",
+      "page": "线索转化 Stepper（打开未提交）",
+      "role": "sales",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "03-04-opps-table",
+      "file": "03-04-opps-table.png",
+      "chapter": "3 CRM 全链",
+      "page": "商机列表（表格视图）",
+      "role": "sales",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "03-06-opp-drawer",
+      "file": "03-06-opp-drawer.png",
+      "chapter": "3 CRM 全链",
+      "page": "商机详情抽屉（含项目入口）",
+      "role": "sales",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "03-05-opps-board",
+      "file": "03-05-opps-board.png",
+      "chapter": "3 CRM 全链",
+      "page": "商机看板（拖拽改阶段）",
+      "role": "sales",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "03-07-customers",
+      "file": "03-07-customers.png",
+      "chapter": "3 CRM 全链",
+      "page": "客户列表",
+      "role": "partner",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "03-08-customer-contracts",
+      "file": "03-08-customer-contracts.png",
+      "chapter": "3 CRM 全链",
+      "page": "客户详情·合同页签",
+      "role": "partner",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "03-09-contracts",
+      "file": "03-09-contracts.png",
+      "chapter": "3 CRM 全链",
+      "page": "合同台账",
+      "role": "partner",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "03-10-followups",
+      "file": "03-10-followups.png",
+      "chapter": "3 CRM 全链",
+      "page": "跟进记录列表",
+      "role": "partner",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "04-01-projects",
+      "file": "04-01-projects.png",
+      "chapter": "4 项目全周期",
+      "page": "项目全周期列表",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "04-02-project-new",
+      "file": "04-02-project-new.png",
+      "chapter": "4 项目全周期",
+      "page": "新建项目向导（F4 整页，未提交）",
+      "role": "partner",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "04-17-funding-new",
+      "file": "04-17-funding-new.png",
+      "chapter": "4 项目全周期",
+      "page": "经费申请单（新建表单，未提交）",
+      "role": "member",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "05-01-approval-center",
+      "file": "05-01-approval-center.png",
+      "chapter": "5 协同与审批",
+      "page": "审批中心",
+      "role": "partner",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "05-02-approval-detail",
+      "file": "05-02-approval-detail.png",
+      "chapter": "5 协同与审批",
+      "page": "审批详情（业务快照内联展开）",
+      "role": "partner",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "05-03-flow-designer",
+      "file": "05-03-flow-designer.png",
+      "chapter": "5 协同与审批",
+      "page": "审批流设计器（画布）",
+      "role": "sysadmin",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "05-04-project-flows",
+      "file": "05-04-project-flows.png",
+      "chapter": "5 协同与审批",
+      "page": "项目内审批流页签",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "05-05-generic-request",
+      "file": "05-05-generic-request.png",
+      "chapter": "5 协同与审批",
+      "page": "通用申请单（发起弹窗，未提交）",
+      "role": "member",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "06-01-receipts",
+      "file": "06-01-receipts.png",
+      "chapter": "6 经营与财务",
+      "page": "收款台账",
+      "role": "finance",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "06-02-receivables",
+      "file": "06-02-receivables.png",
+      "chapter": "6 经营与财务",
+      "page": "应收管理（账龄分桶）",
+      "role": "finance",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "06-03-invoices",
+      "file": "06-03-invoices.png",
+      "chapter": "6 经营与财务",
+      "page": "发票中心",
+      "role": "finance",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "06-04-project-costing",
+      "file": "06-04-project-costing.png",
+      "chapter": "6 经营与财务",
+      "page": "项目核算（成本三段）",
+      "role": "finance",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "06-05-system-params",
+      "file": "06-05-system-params.png",
+      "chapter": "6 经营与财务",
+      "page": "系统参数（成本率等白名单键）",
+      "role": "sysadmin",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "06-06-expense-check",
+      "file": "06-06-expense-check.png",
+      "chapter": "6 经营与财务",
+      "page": "费用报销检查（财务视角）",
+      "role": "finance",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "07-01-reports-home",
+      "file": "07-01-reports-home.png",
+      "chapter": "7 报表中心",
+      "page": "报表工作台目录树",
+      "role": "operations",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "07-02-report-costing",
+      "file": "07-02-report-costing.png",
+      "chapter": "7 报表中心",
+      "page": "项目收支核算表",
+      "role": "operations",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "07-03-report-time",
+      "file": "07-03-report-time.png",
+      "chapter": "7 报表中心",
+      "page": "工时汇总（三视角）",
+      "role": "operations",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "07-04-report-funnel",
+      "file": "07-04-report-funnel.png",
+      "chapter": "7 报表中心",
+      "page": "商机漏斗",
+      "role": "operations",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "07-05-report-export",
+      "file": "07-05-report-export.png",
+      "chapter": "7 报表中心",
+      "page": "报表导出（下载样例另存）",
+      "role": "operations",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "08-01-org-company",
+      "file": "08-01-org-company.png",
+      "chapter": "8 组织与系统治理",
+      "page": "公司信息",
+      "role": "sysadmin",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "08-02-org-units",
+      "file": "08-02-org-units.png",
+      "chapter": "8 组织与系统治理",
+      "page": "部门树（拖拽调级）",
+      "role": "sysadmin",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "08-03-org-members",
+      "file": "08-03-org-members.png",
+      "chapter": "8 组织与系统治理",
+      "page": "员工与主管链",
+      "role": "sysadmin",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "08-04-admin-flows",
+      "file": "08-04-admin-flows.png",
+      "chapter": "8 组织与系统治理",
+      "page": "审批流中心（系统级）",
+      "role": "sysadmin",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "08-05-ai-config",
+      "file": "08-05-ai-config.png",
+      "chapter": "8 组织与系统治理",
+      "page": "AI 配置与全局用量（密钥脱敏）",
+      "role": "sysadmin",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "08-06-data-correct",
+      "file": "08-06-data-correct.png",
+      "chapter": "8 组织与系统治理",
+      "page": "数据纠正（白名单字段）",
+      "role": "sysadmin",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "09-01-ai-pet",
+      "file": "09-01-ai-pet.png",
+      "chapter": "9 AI 助手小元",
+      "page": "小元宠物与提醒红点徽标（桌面，气泡轮播间隙）",
+      "role": "member",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "09-02-ai-panel",
+      "file": "09-02-ai-panel.png",
+      "chapter": "9 AI 助手小元",
+      "page": "小元对话面板（上下文预览）",
+      "role": "member",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "10-01-mobile-projects",
+      "file": "10-01-mobile-projects.png",
+      "chapter": "10 移动端",
+      "page": "移动端项目卡片列表（375px）",
+      "role": "member",
+      "viewport": "mobile-375x812"
+    },
+    {
+      "id": "10-02-mobile-dialog",
+      "file": "10-02-mobile-dialog.png",
+      "chapter": "10 移动端",
+      "page": "移动端全屏弹窗（375px）",
+      "role": "member",
+      "viewport": "mobile-375x812"
+    },
+    {
+      "id": "11-01-member-404",
+      "file": "11-01-member-404.png",
+      "chapter": "11 角色权限矩阵",
+      "page": "member 直链 CRM 同形 404",
+      "role": "member",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "11-02-member-no-money",
+      "file": "11-02-member-no-money.png",
+      "chapter": "11 角色权限矩阵",
+      "page": "member 月度收支=无财务可见权口径卡",
+      "role": "member",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "11-03-finance-no-crm",
+      "file": "11-03-finance-no-crm.png",
+      "chapter": "11 角色权限矩阵",
+      "page": "finance 商机漏斗=无 CRM 可见权口径卡",
+      "role": "finance",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "13-01-not-found",
+      "file": "13-01-not-found.png",
+      "chapter": "13 异常与常见问题",
+      "page": "业务对象同形 404（不存在或无权访问）",
+      "role": "operations",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "13-02-no-permission",
+      "file": "13-02-no-permission.png",
+      "chapter": "13 异常与常见问题",
+      "page": "系统页无权限（角色徽标）",
+      "role": "member",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "07-05-export",
+      "file": "07-05-export-monthly_cashflow.csv",
+      "chapter": "7 报表中心",
+      "page": "月度收支导出 CSV 样例",
+      "role": "operations",
+      "viewport": "file"
+    },
+    {
+      "id": "04-03-overview",
+      "file": "04-03-overview.png",
+      "chapter": "4 项目全周期",
+      "page": "项目空间·总览",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "04-04-plan-gantt",
+      "file": "04-04-plan-gantt.png",
+      "chapter": "4 项目全周期",
+      "page": "计划与节点甘特",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "04-05-tasks",
+      "file": "04-05-tasks.png",
+      "chapter": "4 项目全周期",
+      "page": "任务",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "04-06-meetings",
+      "file": "04-06-meetings.png",
+      "chapter": "4 项目全周期",
+      "page": "会议",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "04-07-travel",
+      "file": "04-07-travel.png",
+      "chapter": "4 项目全周期",
+      "page": "出差",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "04-08-budget",
+      "file": "04-08-budget.png",
+      "chapter": "4 项目全周期",
+      "page": "预算",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "04-09-expenses",
+      "file": "04-09-expenses.png",
+      "chapter": "4 项目全周期",
+      "page": "费用",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "04-10-timesheet",
+      "file": "04-10-timesheet.png",
+      "chapter": "4 项目全周期",
+      "page": "工时",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "04-11-quality",
+      "file": "04-11-quality.png",
+      "chapter": "4 项目全周期",
+      "page": "质量",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "04-12-decisions",
+      "file": "04-12-decisions.png",
+      "chapter": "4 项目全周期",
+      "page": "决策",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "04-13-weekly-report",
+      "file": "04-13-weekly-report.png",
+      "chapter": "4 项目全周期",
+      "page": "周报",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "04-14-archive",
+      "file": "04-14-archive.png",
+      "chapter": "4 项目全周期",
+      "page": "档案",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "04-15-members",
+      "file": "04-15-members.png",
+      "chapter": "4 项目全周期",
+      "page": "成员与权限",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "04-16-project-flows",
+      "file": "04-16-project-flows.png",
+      "chapter": "4 项目全周期",
+      "page": "项目内审批流",
+      "role": "project_manager",
+      "viewport": "desktop-1440x900"
+    },
+    {
+      "id": "13-03-page-not-found",
+      "file": "13-03-page-not-found.png",
+      "chapter": "13 异常与常见问题",
+      "page": "真 404（页面不存在，路由兜底）",
+      "role": "operations",
+      "viewport": "desktop-1440x900"
+    }
+  ]
+}
