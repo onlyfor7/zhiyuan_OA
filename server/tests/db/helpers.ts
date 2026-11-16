@@ -78,6 +78,7 @@ export const ALL_TABLES = [
   "fin_receivables",
   "fin_invoices",
   "fin_cost_rates",
+  "custom_form_defs",
 ] as const;
 
 export async function migrateToLatest(url: string = TEST_DATABASE_URL): Promise<void> {

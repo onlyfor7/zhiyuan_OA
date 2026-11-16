@@ -32,6 +32,8 @@ export const CODE_PREFIX = {
   // AR/INV：2026-11-05 由架构会话正式增补进注册表（arch/00 §3.5 v1.5，arch/12 §7.2）。
   AR: "AR", // 应收单
   INV: "INV", // 发票
+  // CF：2026-11-15 由架构会话正式增补进注册表（arch/00 §3.5 v1.6，arch/14 §5 自定义表单）。
+  CF: "CF", // 自定义表单
 } as const;
 export type CodePrefix = (typeof CODE_PREFIX)[keyof typeof CODE_PREFIX];
 

@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
+  smallint,
   check,
   date,
   index,
@@ -18,6 +19,7 @@ import {
 import { flowScopeEnum, genericRequestStatusEnum, receiptStatusEnum } from "./enums";
 import { fileVersions } from "./files";
 import { users } from "./org";
+import { customFormDefs } from "./approval-ext";
 import { clients, projects } from "./business";
 import { approvalInstances } from "./governance";
 /** 通用审计四件套字段（arch/01 §2） */
@@ -84,6 +86,8 @@ export const flowDefinitions = pgTable(
     projectId: uuid("project_id").references(() => projects.id, { onDelete: "restrict" }),
     versionNo: integer("version_no").notNull(),
     definitionJson: jsonb("definition_json").$type<Record<string, unknown>>().notNull(),
+    /** arch/14 §12：1=旧 nodes+edges 自由图（只读兼容）；2=竖向有序模型（新写恒为 2） */
+    definitionVersion: smallint("definition_version").notNull().default(1),
     enabled: boolean("enabled").notNull().default(false),
     ...auditFour,
     rowVersion: integer("row_version").notNull().default(0),
@@ -114,6 +118,10 @@ export const genericRequests = pgTable(
     endOn: date("end_on"),
     amountCents: bigint("amount_cents", { mode: "number" }),
     attachmentFileVersionId: uuid("attachment_file_version_id").references(() => fileVersions.id, { onDelete: "restrict" }),
+    /** arch/14 §4.3：自定义表单实例——字段值快照（可空；按 form_schema 校验后写入，校验在 20-02） */
+    payload: jsonb("payload").$type<Record<string, unknown>>(),
+    formId: uuid("form_id").references(() => customFormDefs.id, { onDelete: "restrict" }),
+    formVersion: integer("form_version"),
     applicantId: uuid("applicant_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -124,6 +132,7 @@ export const genericRequests = pgTable(
   },
   (t) => [
     index("generic_requests_applicant_id_idx").on(t.applicantId),
+    index("generic_requests_form_id_idx").on(t.formId),
     index("generic_requests_request_type_idx").on(t.requestType),
     index("generic_requests_status_idx").on(t.status),
   ],

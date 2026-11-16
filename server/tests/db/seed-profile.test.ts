@@ -88,6 +88,7 @@ const MINIMAL_ZERO_TABLES = [
   "fin_receivables",
   "fin_invoices",
   "fin_cost_rates",
+  "custom_form_defs",
 ];
 
 describe("SEED_PROFILE=minimal 清库种子档（工单 07）", () => {
@@ -106,7 +107,7 @@ describe("SEED_PROFILE=minimal 清库种子档（工单 07）", () => {
     expect(counts.project_templates).toBe(3);
     expect(counts.company_profile).toBe(1); // 公司信息为 foundation（单记录，双档同在）
     expect(counts.flow_definitions).toBe(10); // 10 默认（含 09b 补的 travel_change/generic_request）
-    expect(counts.code_sequences).toBe(19); // minimal 仅基础水位（LD/OPP/CTR 为 full 档 seedCrm 所加）
+    expect(counts.code_sequences).toBe(20); // minimal 基础水位 + CF（20 foundation）
     // 零演示业务数据
     for (const table of MINIMAL_ZERO_TABLES) {
       expect(counts[table], `${table} 应为 0`).toBe(0);
@@ -145,7 +146,7 @@ describe("SEED_PROFILE=minimal 清库种子档（工单 07）", () => {
     expect(counts.flow_definitions).toBe(11); // 10 默认 + 1 演示
     expect(counts.project_templates).toBe(3); // +售前项目模板（18-01，minimal 亦已含）
     expect(counts.company_profile).toBe(1); // 公司信息为 foundation（单记录，双档同在） // 模板不重复建行
-    expect(counts.code_sequences).toBe(24); // 19 + LD/OPP/CTR + AR/INV（9c/9d）
+    expect(counts.code_sequences).toBe(25); // + CF（20）
     expect(counts.system_config).toBe(21);
     // users 不重复（22 名单 + 7 演示账号）
     expect(counts.users).toBe(29);

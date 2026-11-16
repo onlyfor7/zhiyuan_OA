@@ -310,6 +310,7 @@ const WATER_FLOORS: Array<[string, number]> = [
   ["TS", 4],
   ["RCV", 4],
   ["REQ", 1],
+  ["CF", 1],
 ];
 
 async function seedWaterLevels(tx: DbOrTx): Promise<void> {

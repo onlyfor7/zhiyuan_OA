@@ -14,6 +14,7 @@ import {
   CONFIDENTIALITY_LEVEL,
   COUNTERSIGN_RULE,
   CONTRACT_STATUS,
+  CUSTOM_FORM_STATUS,
   DECISION_STATUS,
   DELIVERABLE_STATUS,
   EXPENSE_CATEGORY,
@@ -171,3 +172,6 @@ export const followupTargetTypeEnum = pgEnum("followup_target_type", FOLLOWUP_TA
 export const receivableStatusEnum = pgEnum("receivable_status", RECEIVABLE_STATUS);
 
 export const invoiceStatusEnum = pgEnum("invoice_status", INVOICE_STATUS);
+
+/** 迭代 20 自定义表单状态（arch/14 §4.1：draft→published/disabled） */
+export const customFormStatusEnum = pgEnum("custom_form_status", CUSTOM_FORM_STATUS);
