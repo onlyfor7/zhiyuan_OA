@@ -5,7 +5,7 @@
 
 ## 当前迭代
 
-**迭代 20 · 审批流飞书化重构**（**20-02 后端工单已发布**——20-01 数据棒验收通过（迁移回执 71/71/0/71、脚本二次零变更、根 307 全绿）；后端会话认领 `docs/work-orders/迭代20/02-后端会话-编译器v2与引擎扩展.md`）
+**迭代 20 · 审批流飞书化重构**（**20-03 前端工单已发布**——20-02 后端棒验收通过（编译器 v2+引擎扩展+forms 模块，根 345 复跑全绿，G-20-2-1/2 裁定关闭）；前端会话认领 `docs/work-orders/迭代20/03-前端会话-四步向导与竖向设计器.md`）
 
 **迭代 19 · 外测 HTTP 兼容修复**（**已收口** 2026-11-14——19-01/19-02/19-03 全部通过；普通 Chrome 无 flag 七入口零崩溃复验全绿，D-MAN-4 关闭，根 337 全绿）
 
@@ -135,8 +135,8 @@
 |---|---|---|---|---|---|
 | 20-00 总览与基线裁定 | 架构 | **通过（用户确认）** | 架构会话 | 2026-11-15 | 基线冻结；缓做清单（明细表格/加减签/手写签名/效率统计/打印模板/固定表单 edit）用户照准 |
 | 20-01 数据模型与 v1→v2 迁移 | 数据 | **通过** | 数据会话 | 2026-11-15 | 架构复核：边界干净（db/shared/tests）；迁移函数三色斑点/汇合点检测成立；回执 71/71/0/71+二次零变更架构复跑实证；根 307 复跑全绿；§6.3 裁定并入 20-02（D-20-1-1） |
-| 20-02 编译器 v2 与引擎扩展+自定义表单服务端 | 后端 | **已发布** | 待认领 | 2026-11-15 | `docs/work-orders/迭代20/02-后端会话-编译器v2与引擎扩展.md`：编译器双读/引擎新策略·退回·去重·auto·抄送·字段权限/forms 模块/种子转 v2 翻转 |
-| 20-03 四步向导与竖向设计器前端 | 前端 | 未认领 | | | 待 20-02 通过 |
+| 20-02 编译器 v2 与引擎扩展+自定义表单服务端 | 后端 | **通过** | 后端会话 | 2026-11-16 | 架构复核：编译器 v2 读码成立（分支第一命中/else/嵌套限制/cc 不产步骤/链逐级展开）；引擎红线机制（默认剔除本人+空 403、self 显式豁免）读码+用例钉住；typecheck/build/migrate/根 345 复跑全绿；G-20-2-1/2 裁定关闭并修订 arch/14 |
+| 20-03 四步向导与竖向设计器前端 | 前端 | **已发布** | 待认领 | 2026-11-16 | `docs/work-orders/迭代20/03-前端会话-四步向导与竖向设计器.md`：四步向导/表单设计器/竖向流程设计器+节点抽屉/自定义表单运行时/后台分组列表/审批中心适配/旧画布下线 |
 | 20-04 外测发布 | 部署 | 未认领 | | | 待 20-03 通过 |
 | 20-05 验收与两册手册同步 | 测试 | 未认领 | | | 待 20-04 通过 |
 
@@ -411,6 +411,8 @@
 ## 偏差与仲裁
 
 | 日期 | 会话 | 事项 | 架构裁定 | 状态 |
+| 2026-11-16 | 后端→架构 | **G-20-2-1**：arch/14 §6 假定 `org_units.leader_id` 18-01 已就位，实测无此列——dept_head/to_dept_head 无存储 | **裁定：接受**（0017 追加式迁移合规，归属后端棒无碍；基线假定错误责任在架构，arch/14 §6 已修订标注 0017 落地） | **已关闭** |
+| 2026-11-16 | 后端→架构 | **G-20-2-2**：sameAsInitiator=skip 对「全候选人=提交人本人」的独步场景——按 arch/14 字面「自动跳过」则与 arch/03 自审禁止红线（既有冻结用例 自审拦截/B6 期望 403）冲突 | **裁定：接受红线优先实现**（默认/skip=剔除本人、空则 403；self=显式配置豁免红线；arch/14 §6 已修订为精确语义） | **已关闭** |
 | 2026-11-13 | 后端→架构 | **18-02 users rowVersion 缺口**：users 表无 row_version，受控纠正员工对象无法提交客户端 rowVersion；后端按服务端 before 快照 updated_at 内部乐观校验落地 | **裁定接受方案 ②**：管理域无 row_version 属既有 9b 留痕，当前快照校验+理由+全快照审计合规；若未来需客户端令牌另行评估 | **已关闭** |
 
 | 2026-11-05 | 架构 | **F3**：code.test「20 次并发取号」确定性失败——根因双叠：① 该用例用 migrateToLatest（不重置库）却断言绝对序号 1–20，非幂等；② 两会话套件并发跑共享 lexflow_test 互相 DROP/行锁（ECONNRESET 为锁等待 30s 被 docker 代理断连）致计数器抬至 111，此后处处挂 | **裁定：测试缺陷非产品缺陷**（next_code 生产逻辑无问题，库内唯一约束兜底无重号）。架构落地修复：用例起始自清 TST 行（幂等），连跑两轮+全量复跑确认。**规则增补：四道门全量套件同机同时刻只允许一个运行实例** |
@@ -465,6 +467,10 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-16｜架构｜迭代20-02通过·20-03发布｜**20-02 后端棒验收通过，20-03 前端工单已发布（当前唯一可执行任务）。** 复核：编译器 v2 读码成立（结构强约束全项/分支第一命中+else 兜底/exploreBoth/嵌套≤3/总节点≤100/cc 产事件不产步骤/manager_chain 逐级展开/双读分发）；引擎红线机制读码+测试钉住（默认与 skip=一律剔除提交人、剔除后空 403 SELF_APPROVAL_BLOCKED；self=显式配置豁免；to_manager/to_dept_head 未配置 400）；策略快照存 policy_snapshot 兼容在途实例不加列；forms 模块 CRUD+绑定流联动+payload 逐字段校验。架构复跑四道门全绿：typecheck/build/db:migrate/根 **345/345**（server 311+app 34，既有审批用例全绿=双读不回归铁证）。**两偏差裁定关闭**：G-20-2-1 接受 0017 追加 leader_id（基线假定错误在架构，arch/14 §6 已修订）；G-20-2-2 接受红线优先（arch/14 §6 sameAsInitiator 语义已修订精确化）。**20-03 要点**（本迭代最大棒）：四步向导（系统级四步/项目级三步）+表单设计器（11 控件+预览画布+字段抽屉）+竖向流程设计器（＋插入/条件分支列/节点抽屉：9 审批人策略+ops+表单权限矩阵）+自定义表单运行时（发起/详情渲染）+后台分组列表+审批中心适配（退回/cc 只读/hidden 过滤）+旧画布下线（FlowProgressGraph 保留适配 v2）。dev :3000/:3001 可直接联调（后端全链已实弹）。
+
+- 2026-11-16｜后端｜迭代20-02｜**工单 02（编译器 v2 与引擎扩展+自定义表单服务端，arch/14）完成，转「待验收」。** dev 审批提交已恢复（编译器双读就位，种子全 v2）。① **编译器 v2**（`services/approval/flow-v2.ts`）：validateFlowStructureV2（schemaVersion=2/节点类型/approval 参数齐/approvalType/sameAsInitiator/ops/condition 分支≥2+else 必最后+name 非空+expr 白名单（custom_form 允许 form.<key>）+嵌套≤3+总节点≤100/cc receivers 非空）+compileFlowV2（顺序遍历/第一命中+else 兜底/exploreBoth 全展开/cc 产事件不产步骤/manager_chain 逐级展开/字段透传）+**双读分发**（designer 保存/发布按 schemaVersion 分派；custom_form 绑定流携表单字段集校验）。② **引擎**（无步骤结构加列——stepMeta/ccEvents/settings 存 policy_snapshot，兼容在途实例）：五新策略解析（initiator_self/dept_head(0017 leader_id)/manager_chain 逐级成步链不足终止/form_contact 仅 custom_form 且取 form.<key>/initiator_choice 增强选择范围 all-roles-users）+sameAsInitiator 四态（**skip 语义收窄**=剔除申请人，全自步仍红线 403，G-20-2-2 登记）+dedupe once（批准后同审批人后续 pending 自动 skipped 留痕）+auto_pass/auto_reject（到步系统落 actedBy=NULL/comment=auto/审计 approval.auto 级联）+**return**（prev=上一 approved 步重置 pending+当前步 [returned] 留痕；initiator=实例 withdrawn+onReturned 钩子业务单回草稿；N4 幂等键照常消费）+requireCommentOnApprove/Reject 按节点 ops+cc（提交时/到步/完成经 notify+emitEvent+审计 approval.cc，ccRecipients 入快照）+custom_form:* handlerFor 兜底复用 generic_request 业务处理器+extraStepRoles escalate 追加。③ **详情**：cc 接收人只读可见（viewerRole=cc）+fieldPerms 过滤（hidden 不进序列化；edit 本期不落运行时=P2 注释）。④ **forms 模块**：CRUD+绑定流联动（create 同事务建 CF+flow 草稿；publish 联动 assertFlowPublishable+publishFlowRow；published 冻结 409；delete 仅草稿）+listPublic visibility 过滤+payload 逐字段校验（必填/类型/选项域/数值范围/person 存在且启用/file 引用）400 fieldErrors 落位；提交链 genericRequest（payload 快照 form_version/form.<key> 并入快照求值/bizType=custom_form:<code>）。⑤ **管理后台**：flows.list byGroup（业务审批+表单各组）+duplicateAsDraft/deleteDraft（表单绑定流拦截）。⑥ **种子转 v2**（§5/D-20-1-1）：seed 默认流经 migrateFlowV1toV2 落库 definition_version=2（幂等语义不变；自愈分支同步）。⑦ **旧用例适配 3 处**（§5 允许）：flow-v2.test 纯函数改内联 v1 fixtures+迁移脚本改「种子已 v2+合成 v1 行实证」；extensions 策略等价性 resolveFlow 双读（v2 走 compileFlowV2）。**排障实录**：journal 未登记 0017 致测试库缺列（已补）；publishFlowRow 内嵌 v1 校验拦截 v2 发布；assertFlowPublishable/compileFlowV2 需表单字段上下文（v2OptsForBinding）；dedupe 先于 auto 会跳过同审批人 auto 步（语义正确，测试改不同审批人）；会签 all 展开子步 approverRole 须置空（carryover-n4 钉住）。**质量门逐条真实执行**：typecheck✓/build✓/db:migrate✓/server **311=307+4**/根 test **345=311+34**（既有审批用例全绿=双读不回归铁证）。**dev 实弹**（:3001）：建表单单同事务建流→配 v2 流（cc+approval returnBack=prev）→发布→member 提交→return prev 409（无上一审批步如实）→批准→**抄送通知 1+approval.cc 审计 1+请求 approved/form_version 快照 1**。遗留：edit 字段权限运行时 P2；forms 新版本（form_version 递增）端点未出（冻结语义 409 已够 P1）；多实例 cc/feed 事件总线仍单进程形态（17 棒留坑）。交 20-03 前端：四步向导/竖向设计器/fieldPerms 渲染/cc 展示/listPublic 发起入口。
 
 - 2026-11-15｜架构｜迭代20-01通过·20-02发布｜**20-01 数据棒验收通过，20-02 后端工单已发布（当前唯一可执行任务）。** 复核：边界干净（server/db+shared+tests，无 app/e2e 越界）；迁移函数环检测/条件双边/汇合点 join 算法读码成立；`db:migrate:flow-v2` 架构复跑回执 processed=0/converted=0/anomalies=0/backupRows=71（二次零变更幂等实证，与数据棒首跑 71/71/0/71 勾稽）；typecheck/build/db:migrate 绿；根测试架构复跑 **307/307**（63 文件）。诚实留痕：架构复跑首轮 server 测试 exit 1（grep 未见具体失败用例，疑时序/资源抖动），第二轮 307/307 全绿——若后续棒再现同类抖动须排查而非忽略。**两项裁定入仲裁表**：D-20-1-1 种子转 v2 接受暂缓并入 20-02（dev 审批提交在 20-02 前不可用属计划内暂态）；code_sequences 水位 off-by-one 转观察项。**20-02 要点**（`docs/work-orders/迭代20/02-后端会话-编译器v2与引擎扩展.md`）：编译器 v2（有序数组/分支第一命中/else 兜底/嵌套≤3/cc 事件）+双读分发、引擎新审批人四策略+sameAsInitiator+去重 skipped+auto_pass/reject+退回两形态+字段权限矩阵（read/hidden）、modules/forms 自定义表单服务端（CRUD/visibility/payload 校验/generic_request 提交链）、种子转 v2 翻转（D-20-1-1）、回归全绿。
 
