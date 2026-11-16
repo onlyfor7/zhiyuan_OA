@@ -32,7 +32,8 @@ export const approvalRouter = router({
       z.object({
         instanceId: z.uuid(),
         stepSeq: z.number().int().min(1),
-        action: z.enum(["approve", "reject", "transfer"]),
+        /** 20-02 退回（arch/14 §7）：节点 ops.returnBack≠none 时可用 */
+        action: z.enum(["approve", "reject", "transfer", "return"]),
         comment: z.string().max(2000).optional(),
         transferTo: z.uuid().optional(),
         idempotencyKey: z.uuid().optional(),

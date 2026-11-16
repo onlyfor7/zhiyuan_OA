@@ -4,6 +4,12 @@ import type { NodePgDatabase, NodePgTransaction } from "drizzle-orm/node-postgre
 
 import * as schema from "../schema";
 import { clients, flowDefinitions, matters, paymentReceipts, projects, users } from "../schema";
+import { migrateFlowV1toV2 } from "../migrate/flow-v2";
+
+/** 20-02 §5（D-20-1-1 并入）：种子默认流程转 v2——v1 spec 经迁移纯函数转 schemaVersion=2 落库（幂等语义不变） */
+function specToV2(spec: FlowSpec): Record<string, unknown> {
+  return migrateFlowV1toV2(spec as never) as unknown as Record<string, unknown>;
+}
 
 export type SeedTx =
   | NodePgDatabase<typeof schema>
@@ -232,7 +238,8 @@ async function ensureFlow(
       scope: "global",
       bizBinding: flow.bizBinding,
       versionNo: 1,
-      definitionJson: flow.spec as unknown as Record<string, unknown>,
+      definitionJson: specToV2(flow.spec),
+      definitionVersion: 2,
       enabled: flow.enabled ?? true,
       createdBy: actorId,
       updatedBy: actorId,
@@ -262,7 +269,8 @@ export async function seedDefaultFlows(tx: SeedTx): Promise<void> {
         await tx
           .update(flowDefinitions)
           .set({
-            definitionJson: flow.spec as unknown as Record<string, unknown>,
+            definitionJson: specToV2(flow.spec),
+            definitionVersion: 2,
             updatedBy: pmId,
             updatedAt: new Date().toISOString(),
           })

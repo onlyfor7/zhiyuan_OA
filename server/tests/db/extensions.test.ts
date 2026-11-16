@@ -7,6 +7,7 @@ import { runSeed } from "../../src/db/seed";
 import * as schema from "../../src/db/schema";
 import { clients, flowDefinitions, genericRequests, matters, paymentReceipts, projects, users } from "../../src/db/schema";
 import { resolveConfigValue } from "../../src/services/approval/flow";
+import { compileFlowV2 } from "../../src/services/approval/flow-v2";
 import { ALL_TABLES, migrateFresh, TEST_DATABASE_URL } from "./helpers";
 
 const YEAR = new Date().getFullYear();
@@ -99,8 +100,20 @@ function evalExpr(expr: Record<string, unknown>, form: Form, configRows: ConfigR
   return expr.op === ">=" ? Number(value ?? 0) >= Number(expected) : value === expected;
 }
 
-/** 新语义：从 start 沿 edges 走，条件节点按 when 求值，收集 approval 节点 */
+
+
+/** 新语义：从 start 沿 edges 走，条件节点按 when 求值，收集 approval 节点；
+ * 20-02 §5 种子翻转后默认流程为 v2——v2 定义经编译器 v2 解析（与引擎同口径），v1 保留旧解析 */
 function resolveFlow(flow: FlowRow, form: Form, configRows: ConfigRow[]): StepSpec[] {
+  if ((flow.definitionJson as { schemaVersion?: number }).schemaVersion === 2) {
+    const compiled = compileFlowV2(flow.definitionJson, form as Record<string, unknown>, false, (key) =>
+      resolveConfigValue(configRows as Array<{ key: string; valueJson: Record<string, unknown> }>, key),
+    );
+    return compiled.steps.map((st) => ({
+      approver: { kind: st.kind, ...(st.role ? { role: st.role } : {}), ...(st.userId ? { userId: st.userId } : {}) },
+      countersign: st.countersign,
+    }));
+  }
   const { nodes, edges } = flow.definitionJson;
   let nodeId = "start";
   const steps: StepSpec[] = [];

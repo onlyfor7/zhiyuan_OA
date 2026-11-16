@@ -44,6 +44,12 @@ export const flowRouter = router({
     .input(z.object({ id: z.uuid(), rowVersion: z.number().int().min(0) }))
     .mutation(({ ctx, input }) => designer.disableFlow(ctx.db, ctx.user, input)),
 
+  duplicateAsDraft: authedMutation
+    .input(z.object({ id: z.uuid() }))
+    .mutation(({ ctx, input }) => designer.duplicateFlowAsDraft(ctx.db, ctx.user, input, ctx.ip, ctx.session.id)),
+  deleteDraft: authedMutation
+    .input(z.object({ id: z.uuid() }))
+    .mutation(({ ctx, input }) => designer.deleteFlowDraft(ctx.db, ctx.user, input, ctx.ip, ctx.session.id)),
   versions: authedProcedure
     .input(z.object({ name: z.string().min(1).max(100) }))
     .query(({ ctx, input }) => designer.flowVersions(ctx.db, ctx.user, input.name)),

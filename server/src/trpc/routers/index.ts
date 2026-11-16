@@ -26,6 +26,7 @@ import { adminRouter } from "./admin";
 import { flowRouter } from "./flow";
 import { receiptsRouter } from "./receipts";
 import { genericRequestRouter } from "./generic-request";
+import { formsRouter } from "./forms";
 import { orgRouter } from "./org";
 import { crmRouter } from "./crm";
 import { finRouter } from "./fin";
@@ -63,6 +64,7 @@ export const appRouter = router({
   flow: flowRouter,
   receipts: receiptsRouter,
   genericRequest: genericRequestRouter,
+  forms: formsRouter,
   org: orgRouter,
   crm: crmRouter,
   fin: finRouter,

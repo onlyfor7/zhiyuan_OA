@@ -4,7 +4,7 @@ import pg from "pg";
 import { describe, expect, it } from "vitest";
 
 import { nextCode } from "../../src/db/code";
-import { migrateFlowV1toV2, FlowMigrateAnomaly, type FlowV1Definition } from "../../src/db/migrate/flow-v2";
+import { migrateFlowV1toV2, FlowMigrateAnomaly, type FlowV1Definition, type FlowV1Node } from "../../src/db/migrate/flow-v2";
 import { runFlowV2Migration } from "../../src/db/migrate/run-flow-v2";
 import { runSeed } from "../../src/db/seed";
 import * as schema from "../../src/db/schema";
@@ -59,12 +59,101 @@ describe("迭代 20 · 数据模型与 v1→v2 迁移（arch/14）", () => {
   });
 
   it("migrateFlowV1toV2 纯函数：线性链/含条件双边/嵌套条件/$config 表达式原样保留；异常形态进 anomalies", async () => {
-    await migrateFresh();
-    await runSeed(TEST_DATABASE_URL);
-    const { db, pool } = await openDb();
-    try {
+    // 20-02 §5 种子翻转后种子库不再含 v1 定义——纯函数用例改内联 v1 fixtures（等价旧种子形态）
+    {
+      const V = (id: string, label: string, approver: object): FlowV1Node => ({ id, type: "approval", label, approver } as FlowV1Node);
+      const fixtures: Record<string, FlowV1Definition> = {
+        "budget 默认流程": {
+          nodes: [{ id: "start", type: "start" }, V("n1", "管理层审批", { kind: "role", role: "partner" }), { id: "end", type: "end" }],
+          edges: [{ from: "start", to: "n1" }, { from: "n1", to: "end" }],
+        },
+        "change_request 默认流程": {
+          nodes: [
+            { id: "start", type: "start" },
+            { id: "c1", type: "condition", label: "关键级延期", expr: { field: "level", op: "==", value: "key" } },
+            V("n1", "管理层审批", { kind: "role", role: "partner" }),
+            V("n2", "项目负责人审批", { kind: "project_manager" }),
+            { id: "end", type: "end" },
+          ],
+          edges: [
+            { from: "start", to: "c1" },
+            { from: "c1", to: "n1", when: true },
+            { from: "c1", to: "n2", when: false },
+            { from: "n1", to: "end" },
+            { from: "n2", to: "end" },
+          ],
+        },
+        "travel 默认流程": {
+          nodes: [
+            { id: "start", type: "start" },
+            { id: "c1", type: "condition", label: "借款出差", expr: { field: "borrow", op: "eq", value: true } },
+            V("n1", "项目负责人审批", { kind: "project_manager" }),
+            V("n2", "财务审批", { kind: "role", role: "finance" }),
+            { id: "c2", type: "condition", label: "高额升级", expr: { field: "amount_cents", op: ">=", value: { $config: "approval.amount_thresholds.fundingManagementReviewCents" } } },
+            V("n3", "项目负责人审批", { kind: "project_manager" }),
+            V("n4", "管理层审批", { kind: "role", role: "partner" }),
+            V("n5", "项目负责人审批", { kind: "project_manager" }),
+            { id: "end", type: "end" },
+          ],
+          edges: [
+            { from: "start", to: "c1" },
+            { from: "c1", to: "n1", when: true },
+            { from: "c1", to: "c2", when: false },
+            { from: "n1", to: "n2" },
+            { from: "n2", to: "end" },
+            { from: "c2", to: "n3", when: true },
+            { from: "c2", to: "n5", when: false },
+            { from: "n3", to: "n4" },
+            { from: "n4", to: "end" },
+            { from: "n5", to: "end" },
+          ],
+        },
+        "funding 高额双审演示流程": {
+          nodes: [
+            { id: "start", type: "start" },
+            { id: "c1", type: "condition", label: "高额双审", expr: { field: "amount_cents", op: ">=", value: 5000000 } },
+            V("n1", "项目负责人审批", { kind: "project_manager" }),
+            V("n2", "管理层审批", { kind: "role", role: "partner" }),
+            { id: "end", type: "end" },
+          ],
+          edges: [
+            { from: "start", to: "c1" },
+            { from: "c1", to: "n1", when: true },
+            { from: "c1", to: "end", when: false },
+            { from: "n1", to: "n2" },
+            { from: "n2", to: "end" },
+          ],
+        },
+        "funding 默认流程": {
+          nodes: [
+            { id: "start", type: "start" },
+            { id: "c1", type: "condition", label: "高额升级", expr: { field: "amount_cents", op: ">=", value: { $config: "approval.amount_thresholds.fundingManagementReviewCents" } } },
+            V("n1", "项目负责人审批", { kind: "project_manager" }),
+            V("n2", "管理层审批", { kind: "role", role: "partner" }),
+            V("n3", "项目负责人审批", { kind: "project_manager" }),
+            { id: "end", type: "end" },
+          ],
+          edges: [
+            { from: "start", to: "c1" },
+            { from: "c1", to: "n1", when: true },
+            { from: "c1", to: "n3", when: false },
+            { from: "n1", to: "n2" },
+            { from: "n2", to: "end" },
+            { from: "n3", to: "end" },
+          ],
+        },
+        "timesheet 默认流程": {
+          nodes: [{ id: "start", type: "start" }, V("n1", "负责人审批", { kind: "initiator_manager" }), { id: "end", type: "end" }],
+          edges: [{ from: "start", to: "n1" }, { from: "n1", to: "end" }],
+        },
+        "generic_request 默认流程": {
+          nodes: [{ id: "start", type: "start" }, V("n1", "指定审批人", { kind: "initiator_choice" }), { id: "end", type: "end" }],
+          edges: [{ from: "start", to: "n1" }, { from: "n1", to: "end" }],
+        },
+      };
+      const readV1Flow = (name: string): FlowV1Definition => fixtures[name];
       // 线性链：budget 默认流程（partner 单步）
-      const budget = migrateFlowV1toV2(await readV1Flow(db, "budget 默认流程"));
+      const budget = migrateFlowV1toV2(readV1Flow("budget 默认流程"));
       expect(budget.schemaVersion).toBe(2);
       expect(budget.settings).toMatchObject({ allowWithdrawPending: true, dedupeApprover: "once" });
       expect(budget.nodes).toHaveLength(1);
@@ -78,7 +167,7 @@ describe("迭代 20 · 数据模型与 v1→v2 迁移（arch/14）", () => {
       });
 
       // 含条件双边：change_request（level=key→partner，else→pm）
-      const change = migrateFlowV1toV2(await readV1Flow(db, "change_request 默认流程"));
+      const change = migrateFlowV1toV2(readV1Flow("change_request 默认流程"));
       expect(change.nodes).toHaveLength(1);
       const changeCond = change.nodes[0] as Extract<(typeof change.nodes)[number], { type: "condition" }>;
       expect(changeCond.type).toBe("condition");
@@ -90,7 +179,7 @@ describe("迭代 20 · 数据模型与 v1→v2 迁移（arch/14）", () => {
       expect(changeCond.branches[1].expr).toBeUndefined(); // else 无 expr
 
       // 嵌套条件（else 内继续条件）：travel 默认流程
-      const travel = migrateFlowV1toV2(await readV1Flow(db, "travel 默认流程"));
+      const travel = migrateFlowV1toV2(readV1Flow("travel 默认流程"));
       const travelCond = travel.nodes[0] as Extract<(typeof travel.nodes)[number], { type: "condition" }>;
       expect(travelCond.branches[0].nodes.map((n) => (n as { approver?: { role?: string } }).approver?.role)).toEqual([
         undefined, // project_manager kind
@@ -107,11 +196,11 @@ describe("迭代 20 · 数据模型与 v1→v2 迁移（arch/14）", () => {
       expect(nested.branches[1].name).toBe("其他情况");
 
       // 字面量阈值原样保留：funding 高额双审演示流程（5000000 字面量）
-      const demo = migrateFlowV1toV2(await readV1Flow(db, "funding 高额双审演示流程"));
+      const demo = migrateFlowV1toV2(readV1Flow("funding 高额双审演示流程"));
       const demoCond = demo.nodes[0] as Extract<(typeof demo.nodes)[number], { type: "condition" }>;
       expect(demoCond.branches[0].expr).toMatchObject({ field: "amount_cents", op: ">=", value: 5000000 });
       // $config 表达式原样保留：funding 默认流程
-      const funding = migrateFlowV1toV2(await readV1Flow(db, "funding 默认流程"));
+      const funding = migrateFlowV1toV2(readV1Flow("funding 默认流程"));
       const fundingCond = funding.nodes[0] as Extract<(typeof funding.nodes)[number], { type: "condition" }>;
       expect(fundingCond.branches[0].expr).toMatchObject({
         field: "amount_cents",
@@ -120,9 +209,9 @@ describe("迭代 20 · 数据模型与 v1→v2 迁移（arch/14）", () => {
       });
 
       // timesheet（initiator_manager 平移）+ generic_request（initiator_choice 平移）
-      const timesheet = migrateFlowV1toV2(await readV1Flow(db, "timesheet 默认流程"));
+      const timesheet = migrateFlowV1toV2(readV1Flow("timesheet 默认流程"));
       expect(timesheet.nodes[0]).toMatchObject({ type: "approval", approver: { kind: "initiator_manager" } });
-      const generic = migrateFlowV1toV2(await readV1Flow(db, "generic_request 默认流程"));
+      const generic = migrateFlowV1toV2(readV1Flow("generic_request 默认流程"));
       expect(generic.nodes[0]).toMatchObject({ type: "approval", approver: { kind: "initiator_choice" } });
 
       // 异常形态：缺 false 分支 → 抛 FlowMigrateAnomaly 且 anomalies 有细节
@@ -147,39 +236,54 @@ describe("迭代 20 · 数据模型与 v1→v2 迁移（arch/14）", () => {
       }
       expect(caught).toBeInstanceOf(FlowMigrateAnomaly);
       expect(caught!.anomalies.some((a) => a.includes("双边分支不齐"))).toBe(true);
-    } finally {
-      await pool.end();
     }
   });
 
-  it("迁移脚本：种子库全量转换（备份表+回执+二次零变更）", async () => {
+  it("迁移脚本：种子已 v2（20-02 §5 翻转）+ 合成 v1 存量行转换实证（备份+回执+二次零变更）", async () => {
     await migrateFresh();
     await runSeed(TEST_DATABASE_URL);
-    const flowCount = 11; // 10 默认 + 1 演示
-
-    const receipt = await runFlowV2Migration(TEST_DATABASE_URL);
-    expect(receipt.processed).toBe(flowCount);
-    expect(receipt.converted).toBe(flowCount);
-    expect(receipt.anomalies).toBe(0);
-    expect(receipt.backupRows).toBe(flowCount);
-    expect(receipt.lines).toHaveLength(flowCount);
-
     const { db, pool } = await openDb();
     try {
-      const remaining = await db.select({ id: flowDefinitions.id }).from(flowDefinitions).where(eq(flowDefinitions.definitionVersion, 1));
-      expect(remaining).toHaveLength(0);
+      // 种子翻转后：全部种子流已 v2（脚本零待迁移）
       const all = await db.select({ definitionVersion: flowDefinitions.definitionVersion, definitionJson: flowDefinitions.definitionJson }).from(flowDefinitions);
+      expect(all.length).toBeGreaterThanOrEqual(11);
       expect(all.every((f) => f.definitionVersion === 2)).toBe(true);
       expect(all.every((f) => (f.definitionJson as { schemaVersion?: number }).schemaVersion === 2)).toBe(true);
+
+      // 合成一条 v1 存量行（模拟历史库）→ 脚本转换实证
+      await db.insert(flowDefinitions).values({
+        name: "legacy v1 flow",
+        scope: "global",
+        bizBinding: "legacy_biz",
+        versionNo: 1,
+        definitionJson: {
+          nodes: [
+            { id: "start", type: "start" },
+            { id: "n1", type: "approval", label: "旧审批", approver: { kind: "role", role: "partner" } },
+            { id: "end", type: "end" },
+          ],
+          edges: [{ from: "start", to: "n1" }, { from: "n1", to: "end" }],
+        },
+        definitionVersion: 1,
+        enabled: false,
+      });
+      const receipt = await runFlowV2Migration(TEST_DATABASE_URL);
+      expect(receipt.processed).toBe(1);
+      expect(receipt.converted).toBe(1);
+      expect(receipt.anomalies).toBe(0);
+      expect(receipt.backupRows).toBe(all.length + 1); // 备份为全量快照（含种子 v2 行）
+      expect(receipt.lines).toHaveLength(1);
+      const converted = await db.select({ definitionJson: flowDefinitions.definitionJson }).from(flowDefinitions).where(eq(flowDefinitions.name, "legacy v1 flow"));
+      expect((converted[0].definitionJson as { schemaVersion?: number }).schemaVersion).toBe(2);
+
+      // 二次运行零变更（幂等）
+      const second = await runFlowV2Migration(TEST_DATABASE_URL);
+      expect(second.processed).toBe(0);
+      expect(second.converted).toBe(0);
+      expect(second.anomalies).toBe(0);
     } finally {
       await pool.end();
     }
-
-    // 二次运行零变更（幂等）
-    const second = await runFlowV2Migration(TEST_DATABASE_URL);
-    expect(second.processed).toBe(0);
-    expect(second.converted).toBe(0);
-    expect(second.anomalies).toBe(0);
   });
 
   it("CF 编号：next_code('CF') 连续两号不重（水位=1 起步）", async () => {

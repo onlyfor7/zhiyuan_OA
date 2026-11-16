@@ -67,6 +67,8 @@ export const NOTIFICATION_EVENT_TYPE = [
   "report_draft_ready",
   "minutes_pending_confirm",
   "manager_transferred",
+  /** 20-02 抄送到达（arch/14 §8；v2 cc 节点/提交抄送/结束抄送） */
+  "approval_cc",
 ] as const;
 export type NotificationEventType = (typeof NOTIFICATION_EVENT_TYPE)[number];
 

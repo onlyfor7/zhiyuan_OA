@@ -2,10 +2,29 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { ERROR_CODE } from "@lexflow/shared";
 
-import { flowDefinitions } from "../../db/schema";
+import { customFormDefs, flowDefinitions } from "../../db/schema";
 import { BusinessError } from "../../lib/errors";
 import { can } from "../../services/access";
+import { recordAudit } from "../../services/audit";
 import { assertFlowPublishable, validateFlowStructure } from "../../services/approval/flow";
+import { isFlowV2Def, validateFlowStructureV2 } from "../../services/approval/flow-v2";
+
+/** 保存校验双读分发（20-02）：schemaVersion=2 走 v2 结构校验，否则 v1；
+ *  custom_form 绑定流允许 form.<fieldKey> 条件字段与 form_contact 审批人（带表单字段集） */
+async function validateFlowStructureDispatch(db: DbOrTx, raw: unknown, bizBinding: string): Promise<void> {
+  if (!isFlowV2Def(raw)) {
+    validateFlowStructure(raw);
+    return;
+  }
+  if (bizBinding.startsWith("custom_form:")) {
+    const code = bizBinding.slice("custom_form:".length);
+    const [form] = await db.select({ formSchema: customFormDefs.formSchema }).from(customFormDefs).where(eq(customFormDefs.code, code)).limit(1);
+    const keys = ((form?.formSchema as { fields?: Array<{ key?: string }> } | undefined)?.fields ?? []).map((f) => f.key ?? "");
+    validateFlowStructureV2(raw, { allowFormFields: true, formFieldKeys: keys });
+    return;
+  }
+  validateFlowStructureV2(raw);
+}
 import type { DbOrTx } from "../../trpc/context";
 import type { SessionUser } from "../../modules/auth/session";
 
@@ -25,13 +44,60 @@ export async function listFlows(db: DbOrTx, user: SessionUser) {
   await requireFlowAdmin(db, user);
   const rows = await db.select().from(flowDefinitions).orderBy(flowDefinitions.bizBinding, desc(flowDefinitions.versionNo));
   // G5：/admin 列表分「系统级 / 项目内」两区（前端按 byScope 分区展示）
+  // 20-02 §4：固定组「业务审批」+ 自定义表单各组（按 custom_form_defs.group_name 聚合）
+  const cfRows = await db.select({ code: customFormDefs.code, groupName: customFormDefs.groupName }).from(customFormDefs);
+  const groupByCode = new Map(cfRows.map((r) => [r.code, r.groupName || "通用"]));
+  const groupOf = (r: (typeof rows)[number]): string => {
+    if (!r.bizBinding.startsWith("custom_form:")) return "业务审批";
+    const code = r.bizBinding.slice("custom_form:".length);
+    return groupByCode.get(code) ?? "通用";
+  };
+  const byGroupMap = new Map<string, typeof rows>();
+  for (const r of rows) {
+    const g = groupOf(r);
+    byGroupMap.set(g, [...(byGroupMap.get(g) ?? []), r]);
+  }
   return {
     items: rows,
     byScope: {
       system: rows.filter((r) => r.scope === "global"),
       project: rows.filter((r) => r.scope === "project"),
     },
+    byGroup: [...byGroupMap.entries()].map(([groupName, items]) => ({ groupName, items })),
   };
+}
+
+/** 复制为新草稿（20-02 §4）：深拷贝 definitionJson、版本号新起；custom_form 绑定流须走 forms 复制语义 */
+export async function duplicateFlowAsDraft(db: DbOrTx, user: SessionUser, input: { id: string }, ip: string | null, sessionId: string | null) {
+  await requireFlowAdmin(db, user);
+  const [row] = await db.select().from(flowDefinitions).where(eq(flowDefinitions.id, input.id)).limit(1);
+  if (!row) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "流程不存在或无权访问");
+  if (row.bizBinding.startsWith("custom_form:")) {
+    throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "表单绑定流程请复制表单（1:1 绑定不可独立复制）", { id: ["表单流程不可复制"] });
+  }
+  const draft = await insertFlowDraftRow(db, user.id, {
+    name: `${row.name} 副本`,
+    scope: row.scope as "global" | "project",
+    bizBinding: row.bizBinding,
+    projectId: row.projectId,
+    definitionJson: JSON.parse(JSON.stringify(row.definitionJson)) as Record<string, unknown>,
+  });
+  await recordAudit(db, { actorId: user.id, sessionId, action: "flow.duplicateAsDraft", targetType: "flow_definition", targetId: draft.id, result: "success", afterJson: { fromId: row.id, name: draft.name }, ip });
+  return draft;
+}
+
+/** 删除流程（20-02 §4）：仅草稿（未启用）；表单绑定流走 forms.delete */
+export async function deleteFlowDraft(db: DbOrTx, user: SessionUser, input: { id: string }, ip: string | null, sessionId: string | null) {
+  await requireFlowAdmin(db, user);
+  const [row] = await db.select().from(flowDefinitions).where(eq(flowDefinitions.id, input.id)).limit(1);
+  if (!row) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "流程不存在或无权访问");
+  if (row.enabled) throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "仅草稿（未启用）流程可删除");
+  if (row.bizBinding.startsWith("custom_form:")) {
+    throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "表单绑定流程请删除表单（1:1 绑定）", { id: ["表单流程不可独立删除"] });
+  }
+  await db.delete(flowDefinitions).where(eq(flowDefinitions.id, row.id));
+  await recordAudit(db, { actorId: user.id, sessionId, action: "flow.deleteDraft", targetType: "flow_definition", targetId: row.id, result: "success", beforeJson: { name: row.name, bizBinding: row.bizBinding }, ip });
+  return { id: row.id, deleted: true as const };
 }
 
 export async function getFlowById(db: DbOrTx, user: SessionUser, id: string) {
@@ -48,7 +114,7 @@ export async function insertFlowDraftRow(
   actorId: string,
   input: { name: string; scope: "global" | "project"; bizBinding: string; projectId?: string | null; definitionJson: Record<string, unknown> },
 ): Promise<FlowRow> {
-  validateFlowStructure(input.definitionJson); // FLOW_INVALID（400）
+  await validateFlowStructureDispatch(db, input.definitionJson, input.bizBinding); // FLOW_INVALID（400，v1/v2 双读）
   const [maxVersion] = await db
     .select({ max: sql<number>`coalesce(max(${flowDefinitions.versionNo}), 0)` })
     .from(flowDefinitions)
@@ -79,7 +145,7 @@ export async function publishFlowRow(
 ): Promise<{ flow: FlowRow; published: boolean }> {
   void idempotencyKey; // 行 enabled 态即幂等语义（已启用重放 published=false）
   if (row.enabled) return { flow: row, published: false }; // 幂等重放
-  validateFlowStructure(row.definitionJson);
+  await validateFlowStructureDispatch(db, row.definitionJson, row.bizBinding);
   // 发布语义校验：全部可达审批节点可解析（角色零用户 → FLOW_UNPUBLISHABLE）
   const { db: globalDb } = await import("../../db/client");
   const resolveKind = async (kind: string, role: string | null, userId: string | null): Promise<string[]> => {
@@ -100,7 +166,7 @@ export async function publishFlowRow(
     }
     return ["__runtime__"]; // initiator_manager / initiator_choice 运行时解析，发布只校验结构
   };
-  await assertFlowPublishable(globalDb, row.definitionJson, resolveKind);
+  await assertFlowPublishable(globalDb, row.definitionJson, resolveKind, row.bizBinding);
 
   // R7 修复：每 (biz_binding, 项目) 恰一 enabled（部分唯一索引）——发布先释放同 binding 同 scope
   // 的全部启用流程（含「xxx 默认流程」，否则唯一索引 23505 → 500）；按 name 释放会让
@@ -154,7 +220,10 @@ export async function updateFlowDraft(
   const [row] = await db.select().from(flowDefinitions).where(eq(flowDefinitions.id, input.id)).limit(1);
   if (!row) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "流程不存在或无权访问");
   if (row.enabled) throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "已发布流程不可修改（须先停用再产新版本）");
-  if (input.definitionJson) validateFlowStructure(input.definitionJson);
+  if (input.definitionJson) {
+    const [row] = await db.select({ bizBinding: flowDefinitions.bizBinding }).from(flowDefinitions).where(eq(flowDefinitions.id, input.id)).limit(1);
+    await validateFlowStructureDispatch(db, input.definitionJson, row?.bizBinding ?? "");
+  }
   const [updated] = await db
     .update(flowDefinitions)
     .set({

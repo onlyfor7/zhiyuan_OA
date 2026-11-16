@@ -57,6 +57,8 @@ export const genericRequestRouter = router({
         endOn: date.optional(),
         amountCents: z.number().int().min(1).nullable().optional(),
         attachmentFileVersionId: z.uuid().optional(),
+        /** 20-02 自定义表单：字段值（按 form_schema 校验；传此则 requestType=表单 code） */
+        payload: z.record(z.string(), z.unknown()).nullable().optional(),
       }),
     )
     .mutation(({ ctx, input }) => service.createRequest(ctx.db, ctx.user, input)),

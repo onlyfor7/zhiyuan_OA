@@ -133,6 +133,44 @@ export async function listMineApplied(
   };
 }
 
+
+/** 20-02：cc 接收人只读可见（policy_snapshot.ccRecipients）+ 表单权限矩阵过滤（arch/14 §8/§9） */
+function ccRecipientsOf(instance: { policySnapshot: unknown }): string[] {
+  const snap = (instance.policySnapshot ?? {}) as { ccRecipients?: string[] };
+  return Array.isArray(snap.ccRecipients) ? snap.ccRecipients : [];
+}
+
+async function viewerFieldPerms(
+  db: DbOrTx,
+  instance: { id: string; policySnapshot: unknown; currentStepSeq: number; status: string },
+  userId: string,
+): Promise<Record<string, { read?: boolean; edit?: boolean; hidden?: boolean }> | null> {
+  if (instance.status !== "pending") return null;
+  const [step] = await db
+    .select({ seq: approvalSteps.seq })
+    .from(approvalSteps)
+    .where(and(eq(approvalSteps.instanceId, instance.id), eq(approvalSteps.status, "pending"), eq(approvalSteps.approverId, userId)))
+    .orderBy(approvalSteps.seq)
+    .limit(1);
+  if (!step) return null;
+  const meta = (instance.policySnapshot as { stepMeta?: Record<string, { fieldPerms?: Record<string, { read?: boolean; edit?: boolean; hidden?: boolean }> }> }).stepMeta?.[String(step.seq)];
+  return meta?.fieldPerms ?? null;
+}
+
+function filterSnapshotByFieldPerms(
+  snapshot: Record<string, unknown>,
+  fieldPerms: Record<string, { read?: boolean; edit?: boolean; hidden?: boolean }> | null,
+): Record<string, unknown> {
+  if (!fieldPerms) return snapshot;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(snapshot)) {
+    const perm = fieldPerms[key] ?? fieldPerms[key.replace(/^form\./, "")];
+    if (perm?.hidden === true) continue; // hidden 字段不进序列化
+    out[key] = value; // read 只读；edit 本期不落运行时（P2，arch/14 §9）
+  }
+  return out;
+}
+
 export async function getApprovalById(db: DbOrTx, user: SessionUser, id: string) {
   const [instance] = await db.select().from(approvalInstances).where(eq(approvalInstances.id, id)).limit(1);
   if (!instance) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "审批不存在或无权访问");
@@ -141,9 +179,11 @@ export async function getApprovalById(db: DbOrTx, user: SessionUser, id: string)
     .from(approvalSteps)
     .where(and(eq(approvalSteps.instanceId, id), eq(approvalSteps.approverId, user.id)))
     .limit(1);
+  const isCcRecipient = ccRecipientsOf(instance).includes(user.id);
   const allowed =
     instance.applicantId === user.id ||
     isApprover.length > 0 ||
+    isCcRecipient ||
     user.globalRoles.includes("partner") ||
     user.globalRoles.includes("sysadmin");
   if (!allowed) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "审批不存在或无权访问");
@@ -175,7 +215,9 @@ export async function getApprovalById(db: DbOrTx, user: SessionUser, id: string)
     const current = steps.find((s) => s.seq === instance.currentStepSeq);
     if (current) flowProgress.currentNodeLabel = seqByIndex.get(current.seq)?.label ?? null;
   }
-  return { ...instance, steps, flowProgress };
+  const perms = await viewerFieldPerms(db, instance, user.id);
+  const filteredInstance = perms ? { ...instance, formSnapshot: filterSnapshotByFieldPerms(instance.formSnapshot, perms) } : instance;
+  return { ...filteredInstance, viewerRole: isCcRecipient && instance.applicantId !== user.id && isApprover.length === 0 ? ("cc" as const) : undefined, steps, flowProgress };
 }
 
 /* ===== approval.detail（arch/12 §16.2：审批中心业务详情聚合） ===== */
@@ -203,12 +245,15 @@ export async function getApprovalDetail(db: DbOrTx, user: SessionUser, id: strin
         return (await resolveRoleCandidates(db, step.approverRole, instance.projectId)).includes(user.id);
       }),
     )).some(Boolean);
-  if (instance.applicantId !== user.id && !isCurrentApprover) {
+  const isCcRecipient = ccRecipientsOf(instance).includes(user.id);
+  if (instance.applicantId !== user.id && !isCurrentApprover && !isCcRecipient) {
     throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "审批不存在或无权访问");
   }
 
   const names = await approvalNameMaps(db, [instance]);
-  const snapshot = await buildBizSnapshot(db, instance.bizType, instance.bizId, instance.formSnapshot);
+  const perms = await viewerFieldPerms(db, instance, user.id);
+  const filteredFormSnapshot = filterSnapshotByFieldPerms(instance.formSnapshot, perms);
+  const snapshot = await buildBizSnapshot(db, instance.bizType, instance.bizId, filteredFormSnapshot);
   return {
     id: instance.id,
     code: instance.code,

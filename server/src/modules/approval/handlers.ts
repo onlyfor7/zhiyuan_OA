@@ -767,6 +767,14 @@ registerHandler("generic_request", {
       .set({ status: "withdrawn", updatedAt: new Date().toISOString(), rowVersion: sql`${genericRequests.rowVersion} + 1` })
       .where(and(eq(genericRequests.id, instance.bizId), eq(genericRequests.status, "pending_approval")));
   },
+  async onReturned(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
+    // 20-02 退回提交人：业务单回草稿语义（arch/14 §7），提交人修改后重新提交从头走
+    const { genericRequests } = await import("../../db/schema");
+    await tx
+      .update(genericRequests)
+      .set({ status: "draft", approvalInstanceId: null, updatedBy: instance.applicantId, updatedAt: new Date().toISOString(), rowVersion: sql`${genericRequests.rowVersion} + 1` })
+      .where(eq(genericRequests.id, instance.bizId));
+  },
 });
 
 /** 引擎处理器注册入口（server 启动与测试 setup 各调用一次，幂等覆盖） */

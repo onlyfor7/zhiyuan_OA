@@ -1,14 +1,16 @@
-import { and, asc, eq, gt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, sql } from "drizzle-orm";
 
 import { ERROR_CODE } from "@lexflow/shared";
 
-import { approvalInstances, approvalPolicies, approvalSteps, projects, systemConfig, userRoles, users } from "../../db/schema";
+import { approvalInstances, approvalPolicies, approvalSteps, orgUnits, projects, systemConfig, userRoles, users } from "../../db/schema";
 import { nextCode } from "../../db/code";
 import { BusinessError } from "../../lib/errors";
 import type { DbOrTx } from "../../trpc/context";
 import { notify } from "../../modules/notify";
 import { emitEvent } from "../../lib/events";
-import { compileFlow, findEnabledFlow, resolveConfigValue } from "./flow";
+import { compileFlow, findEnabledFlow, resolveConfigValue, v2OptsForBinding } from "./flow";
+import { compileFlowV2, isFlowV2Def, type CcEventV2, type CompiledStepV2, type FlowV2Settings } from "./flow-v2";
+import { recordAudit } from "../audit";
 
 /**
  * 统一审批引擎（arch/04 §4 接口逐字；arch/03 §6：唯一审批实现，禁止各模块自建）。
@@ -31,15 +33,24 @@ export interface ApprovalInstanceRow {
   status: "pending" | "approved" | "rejected" | "withdrawn";
   idempotencyKey: string;
   formSnapshot: Record<string, unknown>;
+  /** 20-02：v2 步骤元数据/抄送事件/设置存于 policy_snapshot（无步骤结构加列，兼容在途实例） */
+  policySnapshot: unknown;
 }
 
 export interface ApprovalHandlers {
   onApproved(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void>;
   onRejected(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void>;
   onWithdrawn(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void>;
+  /** 20-02 退回提交人：业务单回草稿语义（arch/14 §7 returnBack=initiator） */
+  onReturned?(tx: DbOrTx, instance: ApprovalInstanceRow): Promise<void>;
 }
 
 const handlers = new Map<string, ApprovalHandlers>();
+
+/** 20-02：custom_form:* 实例复用 generic_request 业务处理器（业务回写语义同源） */
+function handlerFor(bizType: string): ApprovalHandlers | undefined {
+  return handlers.get(bizType) ?? (bizType.startsWith("custom_form:") ? handlers.get("generic_request") : undefined);
+}
 
 /** 注册业务处理器；返回反注册函数（恢复前一个注册项，测试可临时替换） */
 export function registerHandler(bizType: string, h: ApprovalHandlers): () => void {
@@ -64,6 +75,7 @@ function bizSourceType(bizType: string): string {
   if (bizType === "expense" || bizType === "expense_adjustment") return "expense";
   if (bizType === "timesheet") return "time_entry";
   if (bizType === "generic_request") return "generic_request";
+  if (bizType.startsWith("custom_form:")) return "generic_request";
   return "access_grant";
 }
 function groupKey(seq: number): number {
@@ -196,7 +208,8 @@ async function resolveSteps(
 /* ===== 接口（arch/04 §4 逐字） ===== */
 
 export interface SubmitInput {
-  bizType: BizType;
+  /** 20-02：自定义表单走 `custom_form:<code>`（findEnabledFlow 按绑定命中） */
+  bizType: BizType | (string & {});
   bizId: string;
   projectId?: string | null;
   applicantId: string;
@@ -220,6 +233,9 @@ export async function submit(db: DbOrTx, input: SubmitInput): Promise<ApprovalIn
   // 流程编译器优先（arch/09 §3.1）：enabled flow_definitions → 条件按表单快照求值展开步骤；
   // 无自定义流程回退 approval_policies（E4 既有 biz_type 零回归）
   const flow = await findEnabledFlow(db, input.bizType, input.projectId ?? null);
+  if (flow && isFlowV2Def(flow.definitionJson)) {
+    return submitWithV2Flow(db, input, flow);
+  }
   let policySnapshot: Record<string, unknown>;
   let steps: ResolvedStep[];
   if (flow) {
@@ -375,7 +391,8 @@ export interface ActInput {
   instanceId: string;
   stepSeq: number;
   actorId: string;
-  action: "approve" | "reject" | "transfer";
+  /** 20-02 退回（arch/14 §7）：节点 ops.returnBack≠none 时可用 */
+  action: "approve" | "reject" | "transfer" | "return";
   comment?: string | null;
   transferTo?: string | null;
   /** N4（arch/05 §9）：审批动作幂等键；同键重放返回现状 200，异键重放已处理步骤 409 */
@@ -455,10 +472,57 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
     return { instance, applied: true };
   }
 
-  if (input.action === "reject" && (!input.comment || input.comment.trim() === "")) {
+  const meta = stepMetaOf(instance, input.stepSeq);
+  if (input.action === "reject" && meta?.ops.requireCommentOnReject !== false && (!input.comment || input.comment.trim() === "")) {
     throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "驳回必须填写理由", {
       comment: ["驳回必须填写理由"],
     });
+  }
+  if (input.action === "approve" && meta?.ops.requireCommentOnApprove === true && (!input.comment || input.comment.trim() === "")) {
+    throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "通过必须填写意见（节点要求）", {
+      comment: ["通过必须填写意见（节点要求）"],
+    });
+  }
+  // 20-02 退回（arch/14 §7）：节点 ops.returnBack≠none 时可用；prev=回拨上一审批步 / initiator=退回提交人
+  if (input.action === "return") {
+    const mode = meta?.ops.returnBack ?? "none";
+    if (mode === "none") {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "该节点未开启退回", { action: ["该节点未开启退回"] });
+    }
+    const now0 = new Date().toISOString();
+    if (mode === "prev") {
+      const [prevStep] = await db
+        .select()
+        .from(approvalSteps)
+        .where(and(eq(approvalSteps.instanceId, instance.id), eq(approvalSteps.status, "approved"), sql`${approvalSteps.seq} < ${step.seq}`))
+        .orderBy(desc(approvalSteps.seq))
+        .limit(1);
+      if (!prevStep) throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "无上一审批步可退回");
+      await db
+        .update(approvalSteps)
+        .set({ status: "skipped", comment: `[returned] ${input.comment ?? ""}`.trim(), actedBy: input.actorId, actedAt: now0, actedIdempotencyKey: input.idempotencyKey ?? null })
+        .where(and(eq(approvalSteps.id, step.id), eq(approvalSteps.status, "pending")));
+      await db
+        .update(approvalSteps)
+        .set({ status: "pending", actedBy: null, actedAt: null, actedIdempotencyKey: null, comment: null })
+        .where(eq(approvalSteps.id, prevStep.id));
+      await db.update(approvalInstances).set({ currentStepSeq: prevStep.seq, updatedAt: now0 }).where(eq(approvalInstances.id, instance.id));
+      if (prevStep.approverId) {
+        await notify(db, { eventType: "approval_pending", recipientId: prevStep.approverId, sourceType: bizSourceType(instance.bizType), sourceId: instance.bizId, payload: { approvalInstanceId: instance.id, code: instance.code, returned: true } });
+      }
+      await recordAudit(db, { actorId: input.actorId, sessionId: null, action: "approval.return", targetType: "approval_instance", targetId: instance.id, result: "success", afterJson: { mode: "prev", fromSeq: step.seq, toSeq: prevStep.seq }, ip: null });
+      return { instance: await loadInstance(db, instance.id), applied: true };
+    }
+    // initiator：业务单回草稿（onReturned 钩子）；实例置 withdrawn 并留痕（枚举无 returned，audit 区分）
+    await db
+      .update(approvalSteps)
+      .set({ status: "skipped", comment: `[returned_to_initiator] ${input.comment ?? ""}`.trim(), actedBy: input.actorId, actedAt: now0, actedIdempotencyKey: input.idempotencyKey ?? null })
+      .where(and(eq(approvalSteps.id, step.id), eq(approvalSteps.status, "pending")));
+    await finalize(db, instance, "withdrawn");
+    const returnedHandler = handlerFor(instance.bizType);
+    if (returnedHandler?.onReturned) await returnedHandler.onReturned(db, instance);
+    await recordAudit(db, { actorId: input.actorId, sessionId: null, action: "approval.return", targetType: "approval_instance", targetId: instance.id, result: "success", afterJson: { mode: "initiator", fromSeq: step.seq }, ip: null });
+    return { instance: await loadInstance(db, instance.id), applied: true };
   }
 
   // 条件更新（并发/重试安全；N4：同键重放返回现状 200，异键重放已处理步骤 409）
@@ -479,7 +543,7 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
 
   if (input.action === "reject") {
     await finalize(db, instance, "rejected");
-    const handler = handlers.get(instance.bizType);
+    const handler = handlerFor(instance.bizType);
     if (handler) await handler.onRejected(db, instance);
     emitEvent({ type: "assistant.feed", userId: instance.applicantId, reason: "approval_result" });
     return { instance: await loadInstance(db, instance.id), applied: true };
@@ -518,6 +582,13 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
       .update(approvalInstances)
       .set({ currentStepSeq: nextPending[0].seq, updatedAt: now })
       .where(eq(approvalInstances.id, instance.id));
+    // 20-02：去重 once + 抄送触发 + auto_pass/auto_reject 到步级联
+    {
+      const fresh = await loadInstance(db, instance.id);
+      const passedCount = Object.keys(v2Snapshot(fresh).stepMeta ?? {}).filter((k) => Number(k) <= nextPending[0].seq).length;
+      await postAdvanceV2(db, fresh as ApprovalInstanceRow, step.approverId, passedCount);
+      await autoCascadeV2(db, (await loadInstance(db, instance.id)) as ApprovalInstanceRow);
+    }
     // 通知下一组审批人
     const groupSteps = await db
       .select()
@@ -545,9 +616,15 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
     return { instance: await loadInstance(db, instance.id), applied: true };
   }
 
+  // 20-02 终审：补发剩余抄送（afterStepIndex ≤ 总步数）
+  {
+    const fresh = await loadInstance(db, instance.id);
+    const total = Object.keys(v2Snapshot(fresh).stepMeta ?? {}).length;
+    await postAdvanceV2(db, fresh as ApprovalInstanceRow, step.approverId, total);
+  }
   // 终审通过 → 同事务调用业务处理器（arch/04 §4）
   await finalize(db, instance, "approved");
-  const handler = handlers.get(instance.bizType);
+  const handler = handlerFor(instance.bizType);
   if (handler) await handler.onApproved(db, instance);
   if (!BIZ_WITH_DOMAIN_RESULT_EVENT.has(instance.bizType)) {
     // 域专属终态事件由业务 handler 发送（如 travel_approval）；引擎只发无专属事件的业务
@@ -637,4 +714,455 @@ async function loadInstance(db: DbOrTx, instanceId: string): Promise<ApprovalIns
     .limit(1);
   if (!rows[0]) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "审批实例不存在或无权访问");
   return rows[0] as ApprovalInstanceRow;
+}
+
+/* ===== 20-02 引擎运行时扩展（arch/14 §6/§7/§8/§9/§10；v2 流程定义） ===== */
+
+interface StepMetaV2 {
+  nodeId: string;
+  label: string;
+  approvalType: "manual" | "auto_pass" | "auto_reject";
+  ops: { transfer: boolean; returnBack: "none" | "prev" | "initiator"; requireCommentOnReject: boolean; requireCommentOnApprove: boolean };
+  sameAsInitiator: string;
+  fieldPerms?: Record<string, { read?: boolean; edit?: boolean; hidden?: boolean }>;
+}
+
+interface V2Snapshot {
+  stepMeta?: Record<string, StepMetaV2>;
+  ccEvents?: CcEventV2[];
+  ccFired?: string[];
+  ccRecipients?: string[];
+  settings?: FlowV2Settings;
+  compiledSteps?: Array<{ nodeId: string; label: string; conditionTrace: unknown[] }>;
+}
+
+function v2Snapshot(instance: { policySnapshot: unknown }): V2Snapshot {
+  return (instance.policySnapshot ?? {}) as V2Snapshot;
+}
+
+function stepMetaOf(instance: { policySnapshot: unknown }, seq: number): StepMetaV2 | undefined {
+  return v2Snapshot(instance).stepMeta?.[String(seq)];
+}
+
+/** 提交人直属上级 */
+async function managerOf(db: DbOrTx, userId: string): Promise<string | null> {
+  const [r] = await db.select({ managerId: users.managerId }).from(users).where(eq(users.id, userId)).limit(1);
+  return r?.managerId ?? null;
+}
+
+/** 提交人所在部门负责人（0017 leader_id；无负责人→调用方如实报错） */
+async function deptHeadOf(db: DbOrTx, userId: string): Promise<string | null> {
+  const [r] = await db
+    .select({ leaderId: orgUnits.leaderId })
+    .from(users)
+    .innerJoin(orgUnits, eq(orgUnits.id, users.orgUnitId))
+    .where(eq(users.id, userId))
+    .limit(1);
+  return r?.leaderId ?? null;
+}
+
+/** v2 审批人解析（arch/14 §6）：返回候选人；manager_chain 链不足返回 []（调用方提前终止） */
+async function resolveApproverV2(
+  db: DbOrTx,
+  cs: CompiledStepV2,
+  input: SubmitInput,
+  bizBinding: string,
+): Promise<string[]> {
+  const kind = cs.kind;
+  if (kind === "role") return resolveRoleCandidates(db, cs.role ?? "", input.projectId ?? null);
+  if (kind === "user") return cs.userId ? [cs.userId] : [];
+  if (kind === "project_manager") {
+    if (input.projectId) return resolveRoleCandidates(db, "project_manager", input.projectId);
+    return resolveRoleCandidates(db, "project_manager", "__global_pm_pool__");
+  }
+  if (kind === "initiator_manager") {
+    if (input.runtimeApproverId) return [input.runtimeApproverId];
+    const m = await managerOf(db, input.applicantId);
+    return m ? [m] : [];
+  }
+  if (kind === "initiator_choice") {
+    const chosen = input.formSnapshot.chosenApproverId;
+    if (typeof chosen !== "string" || !chosen.trim()) {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "该流程节点要求发起人指定审批人", { chosenApproverId: ["请选择审批人"] });
+    }
+    if (chosen === input.applicantId) {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "指定审批人不能为发起人本人", { chosenApproverId: ["指定审批人不能为发起人本人"] });
+    }
+    const [u] = await db.select({ id: users.id }).from(users).where(and(eq(users.id, chosen), eq(users.status, "active"))).limit(1);
+    if (!u) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "指定审批人不存在或已停用", { chosenApproverId: ["指定审批人不存在或已停用"] });
+    if (cs.choiceScope) {
+      const scope = cs.choiceScope;
+      if (scope.mode === "roles") {
+        const rows = await db.select({ roleKey: userRoles.roleKey }).from(userRoles).where(eq(userRoles.userId, chosen));
+        if (!rows.some((r) => scope.roleKeys?.includes(r.roleKey))) {
+          throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "指定审批人不在选择范围（角色）内", { chosenApproverId: ["指定审批人不在选择范围内"] });
+        }
+      } else if (scope.mode === "users" && !scope.userIds?.includes(chosen)) {
+        throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "指定审批人不在选择范围（成员）内", { chosenApproverId: ["指定审批人不在选择范围内"] });
+      }
+    }
+    return [chosen];
+  }
+  if (kind === "initiator_self") return [input.applicantId];
+  if (kind === "dept_head") {
+    const head = await deptHeadOf(db, input.applicantId);
+    if (!head) {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "提交人所在部门未配置负责人（dept_head 无法解析）", {
+        approver: ["请管理员在组织架构维护部门负责人（org_units.leader_id）"],
+      });
+    }
+    return [head];
+  }
+  if (kind === "manager_chain") {
+    const level = cs.chainLevel ?? 1;
+    let cur = await managerOf(db, input.applicantId);
+    for (let i = 1; i < level && cur; i++) cur = await managerOf(db, cur);
+    return cur ? [cur] : [];
+  }
+  if (kind === "form_contact") {
+    if (!bizBinding.startsWith("custom_form:")) {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "form_contact 审批人仅自定义表单流程可用", { approver: ["form_contact 仅 custom_form:* 可用"] });
+    }
+    const fieldKey = (cs as unknown as { fieldKey?: string }).fieldKey;
+    const v = input.formSnapshot[`form.${fieldKey ?? ""}`];
+    if (typeof v !== "string" || !v.trim()) {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, `表单内联系人字段为空：form.${fieldKey ?? ""}`, {
+        [`form.${fieldKey ?? ""}`]: ["人员控件未选择"],
+      });
+    }
+    return [v];
+  }
+  return [];
+}
+
+/** sameAsInitiator 四态（arch/14 §6）：返回 {candidates, skipStep} */
+async function applySameAsInitiator(
+  db: DbOrTx,
+  cs: CompiledStepV2,
+  input: SubmitInput,
+  candidates: string[],
+): Promise<{ candidates: string[]; skipStep: boolean }> {
+  if (!candidates.includes(input.applicantId)) return { candidates, skipStep: false };
+  switch (cs.sameAsInitiator) {
+    case "self":
+      return { candidates, skipStep: false };
+    case "skip":
+      // 与默认一致：剔除申请人本人；若剔除后为空，由调用方按自审禁止红线拒绝（arch/03，G-20-2-2 登记）
+      return { candidates: candidates.filter((c) => c !== input.applicantId), skipStep: false };
+    case "to_manager": {
+      const m = await managerOf(db, input.applicantId);
+      if (!m) {
+        throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, `节点「${cs.label}」sameAsInitiator=to_manager 但提交人未配置直属上级`);
+      }
+      return { candidates: [...new Set(candidates.filter((c) => c !== input.applicantId).concat(m))], skipStep: false };
+    }
+    case "to_dept_head": {
+      const head = await deptHeadOf(db, input.applicantId);
+      if (!head) {
+        throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, `节点「${cs.label}」sameAsInitiator=to_dept_head 但提交人所在部门未配置负责人`);
+      }
+      return { candidates: [...new Set(candidates.filter((c) => c !== input.applicantId).concat(head))], skipStep: false };
+    }
+    default:
+      return { candidates, skipStep: false };
+  }
+}
+
+/** 抄送触发：解析接收人 → notify + emitEvent + 审计；ccFired/ccRecipients 记入 policySnapshot */
+async function fireCcEvent(
+  db: DbOrTx,
+  instance: ApprovalInstanceRow,
+  event: CcEventV2,
+  projectId: string | null,
+): Promise<void> {
+  const recipients = new Set<string>();
+  for (const r of event.receivers) {
+    let ids: string[] = [];
+    if (r.kind === "role") ids = await resolveRoleCandidates(db, r.role ?? "", projectId);
+    else if (r.kind === "user" && r.userId) ids = [r.userId];
+    else if (r.kind === "initiator_manager") {
+      const m = await managerOf(db, instance.applicantId);
+      ids = m ? [m] : [];
+    } else if (r.kind === "project_manager") {
+      ids = projectId ? await resolveRoleCandidates(db, "project_manager", projectId) : await resolveRoleCandidates(db, "project_manager", "__global_pm_pool__");
+    } else if (r.kind === "initiator_self") ids = [instance.applicantId];
+    else if (r.kind === "dept_head") {
+      const head = await deptHeadOf(db, instance.applicantId);
+      ids = head ? [head] : [];
+    }
+    for (const id of ids) recipients.add(id);
+  }
+  const list = [...recipients].filter(Boolean);
+  for (const uid of list) {
+    await notify(db, {
+      eventType: "approval_cc",
+      recipientId: uid,
+      sourceType: bizSourceType(instance.bizType),
+      sourceId: instance.bizId,
+      payload: { approvalInstanceId: instance.id, code: instance.code, ccNodeName: event.name },
+    });
+  }
+  const snap = v2Snapshot(instance);
+  await recordAudit(db, {
+    actorId: null,
+    sessionId: null,
+    action: "approval.cc",
+    targetType: "approval_instance",
+    targetId: instance.id,
+    result: "success",
+    afterJson: { ccNode: event.name, nodeId: event.nodeId, recipients: list },
+    ip: null,
+  });
+  snap.ccFired = [...(snap.ccFired ?? []), event.nodeId];
+  snap.ccRecipients = [...new Set([...(snap.ccRecipients ?? []), ...list])];
+  await db
+    .update(approvalInstances)
+    .set({ policySnapshot: instance.policySnapshot as Record<string, unknown>, updatedAt: new Date().toISOString() })
+    .where(eq(approvalInstances.id, instance.id));
+}
+
+/** 到步后处理：去重 once（同审批人后续 pending 步自动 skipped 留痕 dedupe）+ 抄送触发 */
+async function postAdvanceV2(
+  db: DbOrTx,
+  instance: ApprovalInstanceRow,
+  passedStepApproverId: string | null,
+  passedStepCount: number,
+): Promise<void> {
+  const snap = v2Snapshot(instance);
+  if (snap.settings?.dedupeApprover === "once" && passedStepApproverId) {
+    const later = await db
+      .select()
+      .from(approvalSteps)
+      .where(and(eq(approvalSteps.instanceId, instance.id), eq(approvalSteps.status, "pending"), eq(approvalSteps.approverId, passedStepApproverId)));
+    for (const st of later) {
+      await db
+        .update(approvalSteps)
+        .set({ status: "skipped", comment: "dedupe: 同审批人前面步骤已批准", actedAt: new Date().toISOString() })
+        .where(and(eq(approvalSteps.id, st.id), eq(approvalSteps.status, "pending")));
+    }
+  }
+  for (const ev of snap.ccEvents ?? []) {
+    if ((snap.ccFired ?? []).includes(ev.nodeId)) continue;
+    if (ev.afterStepIndex <= passedStepCount) await fireCcEvent(db, instance, ev, instance.projectId);
+  }
+}
+
+/** auto_pass/auto_reject 级联：到步即系统落（actedBy=NULL/comment=auto）；auto_reject 走拒绝链 */
+async function autoCascadeV2(db: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
+  for (;;) {
+    const snap = v2Snapshot(instance);
+    const meta = stepMetaOf(instance, instance.currentStepSeq);
+    if (!meta || meta.approvalType === "manual") return;
+    const [step] = await db
+      .select()
+      .from(approvalSteps)
+      .where(and(eq(approvalSteps.instanceId, instance.id), eq(approvalSteps.seq, instance.currentStepSeq)))
+      .limit(1);
+    if (!step || step.status !== "pending") return;
+    const now = new Date().toISOString();
+    if (meta.approvalType === "auto_reject") {
+      await db
+        .update(approvalSteps)
+        .set({ status: "rejected", comment: "auto", actedAt: now })
+        .where(and(eq(approvalSteps.id, step.id), eq(approvalSteps.status, "pending")));
+      await recordAudit(db, {
+        actorId: null, sessionId: null, action: "approval.auto", targetType: "approval_instance", targetId: instance.id,
+        result: "success", afterJson: { stepSeq: step.seq, type: "auto_reject" },
+        ip: null,
+      });
+      await finalize(db, instance, "rejected");
+      const handler = handlerFor(instance.bizType);
+      if (handler) await handler.onRejected(db, instance);
+      return;
+    }
+    await db
+      .update(approvalSteps)
+      .set({ status: "approved", comment: "auto", actedAt: now })
+      .where(and(eq(approvalSteps.id, step.id), eq(approvalSteps.status, "pending")));
+    await recordAudit(db, {
+      actorId: null, sessionId: null, action: "approval.auto", targetType: "approval_instance", targetId: instance.id,
+      result: "success", afterJson: { stepSeq: step.seq, type: "auto_pass" },
+      ip: null,
+    });
+    const next = await db
+      .select({ seq: approvalSteps.seq })
+      .from(approvalSteps)
+      .where(and(eq(approvalSteps.instanceId, instance.id), eq(approvalSteps.status, "pending"), gt(approvalSteps.seq, instance.currentStepSeq)))
+      .orderBy(asc(approvalSteps.seq))
+      .limit(1);
+    if (!next[0]) {
+      await finalize(db, instance, "approved");
+      const handler = handlerFor(instance.bizType);
+      if (handler) await handler.onApproved(db, instance);
+      return;
+    }
+    await db.update(approvalInstances).set({ currentStepSeq: next[0].seq, updatedAt: now }).where(eq(approvalInstances.id, instance.id));
+    instance.currentStepSeq = next[0].seq;
+    await postAdvanceV2(db, instance, step.approverId, Object.keys(snap.stepMeta ?? {}).filter((k) => Number(k) <= next[0].seq).length);
+  }
+}
+
+/** v2 提交流程：编译→逐 step 解析（新策略/sameAsInitiator）→ 步骤落地 → 首组通知 → 提交时抄送 → auto 级联 */
+async function submitWithV2Flow(
+  db: DbOrTx,
+  input: SubmitInput,
+  flow: { id: string; name: string; versionNo: number; definitionJson: Record<string, unknown>; bizBinding?: string },
+): Promise<ApprovalInstanceRow> {
+  const evalSnapshot = {
+    ...input.formSnapshot,
+    amount_cents: input.formSnapshot.amount_cents ?? input.formSnapshot.estimated_cost_cents ?? null,
+  };
+  const configRows = await db.select().from(systemConfig);
+  const compiled = compileFlowV2(flow.definitionJson, evalSnapshot, false, (key) => resolveConfigValue(configRows, key), await v2OptsForBinding(db, flow.bizBinding ?? input.bizType));
+
+  interface Planned {
+    countersign: "any" | "all";
+    candidates: string[];
+    approverRole: string | null;
+    skipped: boolean;
+    meta: StepMetaV2;
+  }
+  const planned: Planned[] = [];
+  for (const cs of compiled.steps) {
+    let candidates = await resolveApproverV2(db, cs, input, flow.bizBinding ?? input.bizType);
+    if (candidates.length === 0 && cs.kind === "manager_chain") continue; // 链不足提前终止
+    const same = await applySameAsInitiator(db, cs, input, candidates);
+    candidates = same.candidates;
+    if (!same.skipStep && cs.sameAsInitiator !== "self") {
+      // 自审禁止（arch/03）：剔除申请人本人；self 语义显式保留
+      candidates = candidates.filter((c) => c !== input.applicantId);
+    }
+    if (candidates.length === 0 && !same.skipStep) {
+      throw new BusinessError(ERROR_CODE.SELF_APPROVAL_BLOCKED, `流程节点「${cs.label}」无可用审批人（申请人本人不可自审）`);
+    }
+    planned.push({
+      countersign: cs.countersign,
+      candidates,
+      approverRole: cs.kind === "role" ? (cs.role ?? "") : cs.kind === "user" ? null : cs.kind,
+      skipped: same.skipStep,
+      meta: {
+        nodeId: cs.nodeId,
+        label: cs.label,
+        approvalType: cs.approvalType,
+        ops: cs.ops,
+        sameAsInitiator: cs.sameAsInitiator,
+        ...(cs.fieldPerms ? { fieldPerms: cs.fieldPerms } : {}),
+      },
+    });
+  }
+  // 超预算 escalate 等追加管理层步骤（arch/06 §4.4；与 v1 同语义：角色解析、剔除申请人、空则拒绝）
+  for (const role of input.extraStepRoles ?? []) {
+    const candidates = (await resolveRoleCandidates(db, role, input.projectId ?? null)).filter((c) => c !== input.applicantId);
+    if (candidates.length === 0) {
+      throw new BusinessError(ERROR_CODE.SELF_APPROVAL_BLOCKED, `追加步骤（${role}）无可用审批人（申请人本人不可自审）`);
+    }
+    planned.push({
+      countersign: "any",
+      candidates,
+      approverRole: role,
+      skipped: false,
+      meta: {
+        nodeId: "escalate",
+        label: `追加审批（${role}）`,
+        approvalType: "manual",
+        ops: { transfer: true, returnBack: "none", requireCommentOnReject: true, requireCommentOnApprove: false },
+        sameAsInitiator: "skip",
+      },
+    });
+  }
+  if (planned.length === 0) {
+    throw new BusinessError(ERROR_CODE.SELF_APPROVAL_BLOCKED, "流程无可用审批步骤");
+  }
+
+  const code = await nextCode("APR", db);
+  const stepMeta: Record<string, StepMetaV2> = {};
+  interface StepRow {
+    seq: number;
+    approverId: string | null;
+    approverRole: string | null;
+    countersign: "any" | "all";
+    status: "pending" | "skipped";
+    comment: string | null;
+  }
+  const stepRows: StepRow[] = [];
+  let i = 0;
+  for (const p of planned) {
+    i++;
+    if (p.skipped || p.candidates.length === 0) {
+      stepRows.push({ seq: i, approverId: p.candidates[0] ?? null, approverRole: p.approverRole, countersign: p.countersign, status: "skipped", comment: "same_as_initiator:skip" });
+      stepMeta[String(i)] = p.meta;
+      continue;
+    }
+    const finalCandidates = p.candidates;
+    if (finalCandidates.length > 1 && p.countersign === "all") {
+      finalCandidates.forEach((cand, j) => {
+        const seq = i * 1000 + (j + 1);
+        // 会签子步角色置空（同 v1）：他人子步无权代审（carryover-n4 钉住）
+        stepRows.push({ seq, approverId: cand, approverRole: null, countersign: "all", status: "pending", comment: null });
+        stepMeta[String(seq)] = p.meta;
+      });
+    } else {
+      stepRows.push({ seq: i, approverId: finalCandidates[0], approverRole: p.approverRole, countersign: p.countersign, status: "pending", comment: null });
+      stepMeta[String(i)] = p.meta;
+    }
+  }
+  const firstSeq = stepRows[0].seq;
+
+  const [instance] = await db
+    .insert(approvalInstances)
+    .values({
+      code,
+      bizType: input.bizType,
+      bizId: input.bizId,
+      projectId: input.projectId ?? null,
+      applicantId: input.applicantId,
+      formSnapshot: input.formSnapshot,
+      policySnapshot: {
+        flowId: flow.id,
+        flowName: flow.name,
+        flowVersion: flow.versionNo,
+        compiledSteps: compiled.steps,
+        stepMeta,
+        ccEvents: compiled.ccEvents,
+        ccFired: [],
+        ccRecipients: [],
+        settings: compiled.settings,
+      },
+      currentStepSeq: firstSeq,
+      status: "pending",
+      idempotencyKey: input.idempotencyKey,
+    })
+    .returning();
+  if (!instance) throw new Error("审批实例插入失败");
+
+  for (const row of stepRows) {
+    await db.insert(approvalSteps).values({
+      instanceId: instance.id,
+      seq: row.seq,
+      approverId: row.approverId,
+      approverRole: row.approverRole,
+      countersign: row.countersign,
+      status: row.status,
+      ...(row.comment ? { comment: row.comment } : {}),
+    });
+  }
+
+  const firstGroup = groupKey(firstSeq);
+  for (const row of stepRows.filter((r) => groupKey(r.seq) === firstGroup && r.status === "pending")) {
+    if (!row.approverId) continue;
+    await notify(db, {
+      eventType: "approval_pending",
+      recipientId: row.approverId,
+      sourceType: bizSourceType(input.bizType),
+      sourceId: input.bizId,
+      payload: { approvalInstanceId: instance.id, code },
+    });
+    emitEvent({ type: "approval.todo", userId: row.approverId, instanceId: instance.id, code, bizType: input.bizType });
+    emitEvent({ type: "assistant.feed", userId: row.approverId, reason: "approval_pending" });
+  }
+  for (const ev of compiled.ccEvents.filter((e) => e.afterStepIndex === 0)) {
+    await fireCcEvent(db, instance as ApprovalInstanceRow, ev, input.projectId ?? null);
+  }
+  await autoCascadeV2(db, instance as ApprovalInstanceRow);
+  return (await loadInstance(db, instance.id)) as ApprovalInstanceRow;
 }

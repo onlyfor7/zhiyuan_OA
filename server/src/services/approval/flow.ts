@@ -4,6 +4,7 @@ import { ERROR_CODE, FLOW_APPROVER_KIND, FLOW_CONDITION_FIELDS, FLOW_CONDITION_F
 
 import { flowDefinitions } from "../../db/schema";
 import { BusinessError } from "../../lib/errors";
+import { compileFlowV2, isFlowV2Def } from "./flow-v2";
 import type { DbOrTx } from "../../trpc/context";
 
 /**
@@ -366,13 +367,48 @@ export async function findEnabledFlow(
   return rows[0] ?? null;
 }
 
-/** 发布前语义校验：全部可达审批节点可解析（角色零活跃用户 → FLOW_UNPUBLISHABLE） */
+/** custom_form 绑定流的 v2 校验选项：form_contact/form.<key> 允许（携表单字段集） */
+export async function v2OptsForBinding(db: DbOrTx, bizBinding?: string): Promise<{ allowFormFields?: boolean; formFieldKeys?: string[] }> {
+  if (!bizBinding?.startsWith("custom_form:")) return {};
+  const code = bizBinding.slice("custom_form:".length);
+  const { customFormDefs } = await import("../../db/schema");
+  const [form] = await db.select({ formSchema: customFormDefs.formSchema }).from(customFormDefs).where(eq(customFormDefs.code, code)).limit(1);
+  const keys = ((form?.formSchema as { fields?: Array<{ key?: string }> } | undefined)?.fields ?? []).map((f) => f.key ?? "");
+  return { allowFormFields: true, formFieldKeys: keys };
+}
+
+/** 发布前语义校验：全部可达审批节点可解析（角色零活跃用户 → FLOW_UNPUBLISHABLE）；v2 定义双读分派 */
 export async function assertFlowPublishable(
   db: DbOrTx,
   raw: unknown,
   resolveKind: (kind: string, role: string | null, userId: string | null) => Promise<string[]>,
+  bizBinding?: string,
 ): Promise<void> {
   void db;
+  // 20-02 v2：运行时解析类 kind（依赖提交人/表单快照）发布期只校验结构，解析留给提交时
+  const RUNTIME_KINDS = new Set(["initiator_manager", "project_manager", "initiator_choice", "initiator_self", "dept_head", "manager_chain", "form_contact"]);
+  try {
+    if (isFlowV2Def(raw)) {
+      const compiledV2 = compileFlowV2(raw, {}, true, undefined, await v2OptsForBinding(db, bizBinding));
+      for (const step of compiledV2.steps) {
+        if (RUNTIME_KINDS.has(step.kind)) continue; // 运行时解析：发布不预判
+        const candidates = await resolveKind(step.kind, step.role, step.userId);
+        if (candidates.length === 0) {
+          throw new BusinessError(
+            ERROR_CODE.FLOW_UNPUBLISHABLE,
+            `流程不可发布：节点「${step.label}」审批人解析为空（角色零活跃用户或无对应人员）`,
+          );
+        }
+      }
+      return;
+    }
+  } catch (error) {
+    if (error instanceof BusinessError && error.businessCode === ERROR_CODE.FLOW_UNPUBLISHABLE) throw error;
+    if (error instanceof BusinessError) {
+      throw new BusinessError(ERROR_CODE.FLOW_UNPUBLISHABLE, `流程不可发布：${error.message}`);
+    }
+    throw error;
+  }
   let def: FlowDefinition;
   try {
     def = validateFlowStructure(raw);

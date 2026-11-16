@@ -46,9 +46,29 @@ export async function createRequest(
     endOn?: string;
     amountCents?: number | null;
     attachmentFileVersionId?: string;
+    /** 20-02 自定义表单：字段值（按 form_schema 校验后快照）；传此则 requestType=表单 code */
+    payload?: Record<string, unknown> | null;
   },
 ) {
-  await validRequestType(db, input.requestType);
+  // 自定义表单链（arch/14 §4.3）：requestType=CF code 时跳过固定类型白名单，走表单校验
+  let cfForm: { id: string; formVersion: number; formSchema: unknown } | null = null;
+  if (input.payload !== undefined && input.payload !== null) {
+    const { loadPublishedFormForSubmit, validatePayloadAgainstSchema, validatePayloadRefs } = await import("../forms/forms");
+    const r = await loadPublishedFormForSubmit(db, user, input.requestType);
+    if (!r.form) {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "表单不存在或未发布", r.fieldErrors as Record<string, string[]>);
+    }
+    cfForm = r.form as { id: string; formVersion: number; formSchema: unknown };
+    const fieldErrors = {
+      ...validatePayloadAgainstSchema(cfForm.formSchema as never, input.payload),
+      ...(await validatePayloadRefs(db, cfForm.formSchema as never, input.payload)),
+    };
+    if (Object.keys(fieldErrors).length > 0) {
+      throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "表单字段校验失败", fieldErrors);
+    }
+  } else {
+    await validRequestType(db, input.requestType);
+  }
   if (!input.title.trim()) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "标题必填", { title: ["标题必填"] });
   if (!input.reason.trim()) throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "事由必填", { reason: ["事由必填"] });
   const code = await nextCode("REQ", db);
@@ -63,6 +83,7 @@ export async function createRequest(
       endOn: input.endOn ?? null,
       amountCents: input.amountCents ?? null,
       attachmentFileVersionId: input.attachmentFileVersionId ?? null,
+      ...(cfForm ? { payload: input.payload!, formId: cfForm.id, formVersion: cfForm.formVersion } : {}),
       applicantId: user.id,
       status: "draft",
       createdBy: user.id,
@@ -127,14 +148,18 @@ export async function submitRequest(
     .where(and(eq(genericRequests.id, input.id), eq(genericRequests.rowVersion, input.rowVersion)))
     .returning();
   if (!updated[0]) throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "数据已被他人修改，请刷新后重试");
+  // 20-02 自定义表单：bizType=custom_form:<code>（findEnabledFlow 命中绑定流）；form.<key> 并入快照供条件求值
+  const isCf = row.requestType.startsWith("CF-") && row.formId;
+  const cfPayload = (row.payload ?? {}) as Record<string, unknown>;
   const instance = await engine.submit(db, {
-    bizType: "generic_request",
+    bizType: isCf ? `custom_form:${row.requestType}` : "generic_request",
     bizId: row.id,
     applicantId: user.id,
     formSnapshot: {
       request_type: row.requestType,
       amount_cents: row.amountCents,
       title: row.title,
+      ...(isCf ? Object.fromEntries(Object.entries(cfPayload).map(([k, v]) => [`form.${k}`, v])) : {}),
       // G3：发起人指定审批人透传（引擎 initiator_choice 节点消费；缺省由引擎按节点校验）
       ...(input.chosenApproverId ? { chosenApproverId: input.chosenApproverId } : {}),
     },

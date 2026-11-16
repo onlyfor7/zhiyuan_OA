@@ -11,10 +11,12 @@ export const orgUnits = pgTable(
     name: text("name").notNull(),
     parentId: uuid("parent_id").references((): AnyPgColumn => orgUnits.id, { onDelete: "restrict" }),
     sort: integer("sort").notNull().default(0),
+    /** 部门负责人（arch/14 §6 dept_head/to_dept_head；0017 追加可空列；无负责人→提交/发布如实报错） */
+    leaderId: uuid("leader_id").references((): AnyPgColumn => orgUnits.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).notNull().defaultNow(),
   },
-  (t) => [index("org_units_parent_id_idx").on(t.parentId)],
+  (t) => [index("org_units_parent_id_idx").on(t.parentId), index("org_units_leader_id_idx").on(t.leaderId)],
 );
 
 /** 用户（arch/01 §1；external_id 预留 SSO，arch/00 §4；arch/12 §9 增 position/employee_no/joined_at） */
