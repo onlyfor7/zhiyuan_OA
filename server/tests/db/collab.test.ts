@@ -74,7 +74,7 @@ describe("会议与出差种子及约束", () => {
     expect(counts.travel_segments).toBe(5);
     expect(counts.travel_events).toBe(5);
     expect(counts.approval_policies).toBe(13); // 迭代 1 三条 + 迭代 2 四条 + 迭代 3 五条 + timesheet 占位
-    expect(counts.code_sequences).toBe(24); // 19 + LD/OPP/CTR + AR/INV（9c/9d）
+    expect(counts.code_sequences).toBe(25); // 19 + LD/OPP/CTR + AR/INV（9c/9d）+ CF（20）
 
     // 行动项转换双向定位 + 会议状态/纪要状态分离
     const { db, pool } = await openDb();

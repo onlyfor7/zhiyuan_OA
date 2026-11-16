@@ -52,7 +52,7 @@ describe("9d-01 财务核算数据建模与种子（arch/12 §7.2）", () => {
     expect(counts.fin_receivables).toBe(2);
     expect(counts.fin_invoices).toBe(1);
     expect(counts.fin_cost_rates).toBe(3);
-    expect(counts.code_sequences).toBe(24);
+    expect(counts.code_sequences).toBe(25); // + CF（20）
 
     const { db, pool } = await openDb();
     try {

@@ -54,7 +54,7 @@ describe("9c-01 CRM 数据建模与种子（arch/12 §6.2）", () => {
     expect(counts.crm_contracts).toBe(1);
     expect(counts.crm_contract_payment_plans).toBe(2);
     expect(counts.crm_followups).toBe(3);
-    expect(counts.code_sequences).toBe(24); // 19 + LD/OPP/CTR + AR/INV（9c/9d）
+    expect(counts.code_sequences).toBe(25); // 19 + LD/OPP/CTR + AR/INV（9c/9d）+ CF（20）
 
     const { db, pool } = await openDb();
     try {

@@ -143,7 +143,7 @@ describe("迭代 18 工单 01：角色层级与商机立项数据模型（arch/1
     expect(counts.plan_items).toBe(26);
     expect(counts.project_templates).toBe(3);
     expect(counts.archive_directories).toBe(66);
-    expect(counts.code_sequences).toBe(24);
+    expect(counts.code_sequences).toBe(25); // + CF（20）
 
     const { db, pool } = await openDb();
     try {

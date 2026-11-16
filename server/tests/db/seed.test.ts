@@ -35,7 +35,7 @@ describe("种子幂等与验收布局", () => {
     expect(first.projects).toBe(6); // +18-01 商机 OPP-00001 唯一项目；OPP-00002 复用 PRJ-00005 不新建
     expect(first.project_members).toBe(17); // 4+3+2+3+4 + 商机项目补 manager（王宝茁）
     expect(first.system_config).toBe(21); // 15 + timesheet.step_minutes（arch/11）+ 保留期两键（9a-04 §14.5）
-    expect(first.code_sequences).toBe(24); // 19 + LD/OPP/CTR + AR/INV（9c/9d；full 档）
+    expect(first.code_sequences).toBe(25); // 19 + LD/OPP/CTR + AR/INV + CF（9c/9d/20；full 档）
   });
 
   it("验收场景布局：王宝茁可见 A（负责）与 B（成员），管晨仅在 A，佳力奇 C 对二者不可见", async () => {
