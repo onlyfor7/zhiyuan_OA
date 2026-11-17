@@ -6,15 +6,15 @@ import { ArrowRight, ChevronRight, Plus } from "lucide-react";
 
 import { useApproval } from "../api/approval";
 import { useRequest, useRequestList, useRequestMutations, useRequestTypes } from "../api/generic-request";
-import { useForm, useFormPublicList } from "../api/forms";
-import type { FormFieldDef } from "@lexflow/shared";
+import { useFormPublicList } from "../api/forms";
+import type { CustomFormSchema } from "@lexflow/shared";
 import { FormFieldControl, FormReadonlyView, type FormPayload } from "./flows/form-render";
 import { useMe } from "../api/auth";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
 import { ListSkeleton } from "../components/feedback";
 import { toast } from "sonner";
 import "../lib/form";
-import { formatYuan } from "../api/reference";
+import { formatYuan, useUserNameMap } from "../api/reference";
 import { FlowProgressGraph } from "../components/FlowProgressGraph";
 import { stepFlagsFrom } from "../lib/flow-step-flags";
 import { FormDialog } from "../components/FormDialog";
@@ -238,44 +238,28 @@ function RequestCreateForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-/** 详情：自定义表单 payload 按 form_schema（快照 form_version）只读渲染（20-03-G3：schema 经 getById 读取，非管理角色降级原始键值） */
-function RequestPayloadView({ formId, payload }: { formId: string | null; payload: FormPayload }) {
-  const form = useForm(formId);
-  const schema = (form.data?.formSchema as { fields?: FormFieldDef[] } | null)?.fields ?? null;
-  if (!schema) {
-    return (
-      <div className="context-note" style={{ marginTop: 8 }}>
-        自定义表单字段（快照）：
-        {Object.entries(payload).map(([k, v]) => `${k}=${typeof v === "object" ? JSON.stringify(v) : String(v)}`).join("；")}
-        （表单定义读取受限，接口缺口登记 20-03-G3）
-      </div>
-    );
-  }
+/** 详情：自定义表单 payload 按详情输出 formSchema（快照版本）只读渲染（20-02b G3：schema 随实例 policy 快照回带，草稿取当前结构） */
+function RequestPayloadView({ formSchema, formVersion, payload }: { formSchema: unknown; formVersion: number | null; payload: FormPayload }) {
+  const userNames = useUserNameMap();
+  const fields = (formSchema as CustomFormSchema | null)?.fields ?? null;
+  if (!fields) return null;
   return (
     <section style={{ marginTop: 10 }}>
-      <span className="section-label">表单内容（快照 v{(form.data as { formVersion?: number } | undefined)?.formVersion ?? "—"}）</span>
-      <FormReadonlyView fields={schema} payload={payload} />
+      <span className="section-label">表单内容（快照 v{formVersion ?? "—"}）</span>
+      <FormReadonlyView fields={fields} payload={payload} PersonNames={(id) => userNames.get(id) ?? "—"} />
     </section>
   );
 }
 
-/** 自定义表单项渲染（发起）：schema 经 forms.getById 读取（G3 缺口：member 无 schema 时降级提示） */
+/** 自定义表单项渲染（发起）：schema 经 listPublic 携带一次取齐（20-02b G3 移除降级） */
 function CustomFormFields({ requestType, payload, onChange }: { requestType: string; payload: FormPayload; onChange: (p: FormPayload) => void }) {
   const publicForms = useFormPublicList();
   const meta = (publicForms.data ?? []).find((f) => f.code === requestType);
-  const adminForm = useForm(meta?.id ?? null);
-  const schema = (adminForm.data?.formSchema as { fields?: FormFieldDef[] } | null)?.fields ?? null;
   if (!meta) return <p className="list-note">表单加载中…</p>;
-  if (!schema) {
-    return (
-      <p className="context-note">
-        「{meta.name}」表单定义读取受限（接口缺口登记 20-03-G3：listPublic 未携带 form_schema，非管理角色不可读）——请联系管理员发布修复后重试。
-      </p>
-    );
-  }
+  const fields = (meta.formSchema as unknown as CustomFormSchema | null)?.fields ?? [];
   return (
     <div className="fw-ro-form" style={{ marginTop: 8 }}>
-      {schema.map((f) => (
+      {fields.map((f) => (
         <label key={f.key} className="form-field">
           <span>{f.label}{f.required ? " *" : ""}</span>
           <FormFieldControl
@@ -319,7 +303,11 @@ export function RequestDetailPage() {
             <span>{r.code}</span>
           </div>
       {r.requestType.startsWith("CF-") && r.payload ? (
-        <RequestPayloadView formId={(r as { formId?: string | null }).formId ?? null} payload={r.payload as FormPayload} />
+        <RequestPayloadView
+          formSchema={(r as { formSchema?: unknown }).formSchema ?? null}
+          formVersion={(r as { formVersion?: number | null }).formVersion ?? null}
+          payload={r.payload as FormPayload}
+        />
       ) : null}
           <h1>
             <span className="badge badge-minutes-pending_confirm">{typeLabel(r.requestType)}</span>{" "}

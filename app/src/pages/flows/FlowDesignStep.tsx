@@ -381,12 +381,13 @@ function ApprovalDrawer({ node, bizBinding, formFields, isCustomForm, onChange }
       <span className="section-label">表单权限矩阵（{isCustom ? "自定义表单=全字段" : "固定业务表单=白名单字段"}）</span>
       <div className="fw-perm-grid">
         {permFields.map((f) => {
-          const cur = node.fieldPerms?.[f.key] ?? "read";
+          const cur = node.fieldPerms?.[f.key];
+          const isHidden = cur?.hidden === true;
           return (
             <div key={f.key} className="fw-perm-row">
               <span>{f.label}</span>
-              <label><input type="radio" checked={cur === "read"} onChange={() => patch({ fieldPerms: { ...node.fieldPerms, [f.key]: "read" } })} /> 只读</label>
-              <label><input type="radio" checked={cur === "hidden"} onChange={() => patch({ fieldPerms: { ...node.fieldPerms, [f.key]: "hidden" } })} /> 隐藏</label>
+              <label><input type="radio" checked={!isHidden} onChange={() => patch({ fieldPerms: { ...node.fieldPerms, [f.key]: { read: true } } })} /> 只读</label>
+              <label><input type="radio" checked={isHidden} onChange={() => patch({ fieldPerms: { ...node.fieldPerms, [f.key]: { hidden: true } } })} /> 隐藏</label>
               <label className="fw-perm-edit" title={isCustom ? "edit 语义 P2（防业务一致性破坏）" : "固定表单 edit 列置灰（arch/14 §9 P2）"}>
                 <input type="radio" disabled /> 可编辑（P2）
               </label>

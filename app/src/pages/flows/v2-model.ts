@@ -21,8 +21,8 @@ export interface V2ApprovalNode {
   countersign: "any" | "all";
   sameAsInitiator: SameAsInitiator;
   ops: FlowNodeOps;
-  /** 节点×字段 {read|hidden}（自定义表单=全字段；固定业务表单=白名单字段） */
-  fieldPerms?: Record<string, "read" | "hidden">;
+  /** 节点×字段权限（自定义表单=全字段；固定业务表单=白名单字段；契约形态=FlowV2FieldPerm 对象 {read/edit/hidden}） */
+  fieldPerms?: Record<string, { read?: boolean; edit?: boolean; hidden?: boolean }>;
 }
 
 export interface V2CcNode {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Check, ChevronRight, Mail, Send, Undo2, X } from "lucide-react";
 
-import type { FlowNodeOps } from "@lexflow/shared";
+import type { CustomFormSchema, FlowNodeOps } from "@lexflow/shared";
 
 import { useApproval, useApprovalAct, useApprovalsApplied, useApprovalsMine } from "../api/approval";
 import { useUserNameMap } from "../api/reference";
@@ -29,9 +29,10 @@ interface ApprovalCheck {
   detail: string;
 }
 
-/** 自定义表单字段区：formSnapshot 中 form.* 键值（服务端已按当前节点 fieldPerms 过滤 hidden，前端直读不过滤） */
-function FormSnapshotRows({ formSnapshot }: { formSnapshot: Record<string, unknown> }) {
+/** 自定义表单字段区：formSnapshot 中 form.* 键值（服务端已按当前节点 fieldPerms 过滤 hidden；key→label 经详情输出 formSchema 映射） */
+function FormSnapshotRows({ formSnapshot, formSchema }: { formSnapshot: Record<string, unknown>; formSchema: unknown }) {
   const entries = Object.entries(formSnapshot).filter(([k]) => k.startsWith("form."));
+  const labels = new Map(((formSchema as CustomFormSchema | null)?.fields ?? []).map((f) => [f.key, f.label]));
   if (entries.length === 0) return null;
   return (
     <>
@@ -39,7 +40,7 @@ function FormSnapshotRows({ formSnapshot }: { formSnapshot: Record<string, unkno
       <div className="fw-ro-form">
         {entries.map(([k, v]) => (
           <div className="fw-ro-row" key={k}>
-            <span className="fw-ro-label">{k.slice("form.".length)}</span>
+            <span className="fw-ro-label">{labels.get(k.slice("form.".length)) ?? k.slice("form.".length)}</span>
             <span className="fw-ro-value">{v == null || v === "" ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v)}</span>
           </div>
         ))}
@@ -81,7 +82,7 @@ function SnapshotPanel({ instanceId }: { instanceId: string }) {
           ))}
         </>
       ) : null}
-      {approval.data.formSnapshot ? <FormSnapshotRows formSnapshot={approval.data.formSnapshot as Record<string, unknown>} /> : null}
+      {approval.data.formSnapshot ? <FormSnapshotRows formSnapshot={approval.data.formSnapshot as Record<string, unknown>} formSchema={approval.data.formSchema} /> : null}
     </div>
   );
 }
