@@ -2,7 +2,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { ERROR_CODE } from "@lexflow/shared";
 
-import { customFormDefs, flowDefinitions } from "../../db/schema";
+import { customFormDefs, flowDefinitions, projects } from "../../db/schema";
 import { BusinessError } from "../../lib/errors";
 import { can } from "../../services/access";
 import { recordAudit } from "../../services/audit";
@@ -30,12 +30,23 @@ import type { SessionUser } from "../../modules/auth/session";
 
 /** 审批流设计器域（arch/09 §3.3）：draft/publish/disable/versions；sysadmin/partner；发布前服务端强制校验 */
 
-async function requireFlowAdmin(db: DbOrTx, user: SessionUser): Promise<void> {
+type FlowRowLite = Pick<typeof flowDefinitions.$inferSelect, "scope" | "projectId">;
+
+/** O-20-5-6：scope=project 且 projectId 非空的流程行——项目负责人（projects.manager_id=本人）放行（arch/14 §13） */
+async function isProjectFlowManager(db: DbOrTx, user: SessionUser, row: FlowRowLite): Promise<boolean> {
+  if (row.scope !== "project" || !row.projectId) return false;
+  const [p] = await db.select({ managerId: projects.managerId }).from(projects).where(eq(projects.id, row.projectId)).limit(1);
+  return p?.managerId === user.id;
+}
+
+async function requireFlowAdmin(db: DbOrTx, user: SessionUser, row?: FlowRowLite): Promise<void> {
   const allowed =
     user.globalRoles.includes("sysadmin") ||
     user.globalRoles.includes("partner") ||
     (await can(db, user, "admin.config", { type: "project", projectId: "" }));
-  if (!allowed) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "无流程管理权限");
+  if (allowed) return;
+  if (row && (await isProjectFlowManager(db, user, row))) return;
+  throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "无流程管理权限");
 }
 
 type FlowRow = typeof flowDefinitions.$inferSelect;
@@ -69,9 +80,9 @@ export async function listFlows(db: DbOrTx, user: SessionUser) {
 
 /** 复制为新草稿（20-02 §4）：深拷贝 definitionJson、版本号新起；custom_form 绑定流须走 forms 复制语义 */
 export async function duplicateFlowAsDraft(db: DbOrTx, user: SessionUser, input: { id: string }, ip: string | null, sessionId: string | null) {
-  await requireFlowAdmin(db, user);
   const [row] = await db.select().from(flowDefinitions).where(eq(flowDefinitions.id, input.id)).limit(1);
   if (!row) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "流程不存在或无权访问");
+  await requireFlowAdmin(db, user, row);
   if (row.bizBinding.startsWith("custom_form:")) {
     throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "表单绑定流程请复制表单（1:1 绑定不可独立复制）", { id: ["表单流程不可复制"] });
   }
@@ -88,9 +99,9 @@ export async function duplicateFlowAsDraft(db: DbOrTx, user: SessionUser, input:
 
 /** 删除流程（20-02 §4）：仅草稿（未启用）；表单绑定流走 forms.delete */
 export async function deleteFlowDraft(db: DbOrTx, user: SessionUser, input: { id: string }, ip: string | null, sessionId: string | null) {
-  await requireFlowAdmin(db, user);
   const [row] = await db.select().from(flowDefinitions).where(eq(flowDefinitions.id, input.id)).limit(1);
   if (!row) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "流程不存在或无权访问");
+  await requireFlowAdmin(db, user, row);
   if (row.enabled) throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "仅草稿（未启用）流程可删除");
   if (row.bizBinding.startsWith("custom_form:")) {
     throw new BusinessError(ERROR_CODE.VALIDATION_FAILED, "表单绑定流程请删除表单（1:1 绑定）", { id: ["表单流程不可独立删除"] });
@@ -101,9 +112,9 @@ export async function deleteFlowDraft(db: DbOrTx, user: SessionUser, input: { id
 }
 
 export async function getFlowById(db: DbOrTx, user: SessionUser, id: string) {
-  await requireFlowAdmin(db, user);
   const [row] = await db.select().from(flowDefinitions).where(eq(flowDefinitions.id, id)).limit(1);
   if (!row) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "流程不存在或无权访问");
+  await requireFlowAdmin(db, user, row);
   return row;
 }
 
@@ -216,9 +227,9 @@ export async function updateFlowDraft(
   user: SessionUser,
   input: { id: string; rowVersion: number; name?: string; definitionJson?: Record<string, unknown> },
 ) {
-  await requireFlowAdmin(db, user);
   const [row] = await db.select().from(flowDefinitions).where(eq(flowDefinitions.id, input.id)).limit(1);
   if (!row) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "流程不存在或无权访问");
+  await requireFlowAdmin(db, user, row);
   if (row.enabled) throw new BusinessError(ERROR_CODE.STATE_CONFLICT, "已发布流程不可修改（须先停用再产新版本）");
   if (input.definitionJson) {
     const [row] = await db.select({ bizBinding: flowDefinitions.bizBinding }).from(flowDefinitions).where(eq(flowDefinitions.id, input.id)).limit(1);
@@ -240,14 +251,16 @@ export async function updateFlowDraft(
 }
 
 export async function publishFlow(db: DbOrTx, user: SessionUser, input: { id: string; idempotencyKey: string }) {
-  await requireFlowAdmin(db, user);
   const [row] = await db.select().from(flowDefinitions).where(eq(flowDefinitions.id, input.id)).limit(1);
   if (!row) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "流程不存在或无权访问");
+  await requireFlowAdmin(db, user, row);
   return publishFlowRow(db, user.id, row, input.idempotencyKey);
 }
 
 export async function disableFlow(db: DbOrTx, user: SessionUser, input: { id: string; rowVersion: number }) {
-  await requireFlowAdmin(db, user);
+  const [row] = await db.select().from(flowDefinitions).where(eq(flowDefinitions.id, input.id)).limit(1);
+  if (!row) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "流程不存在或无权访问");
+  await requireFlowAdmin(db, user, row);
   return disableFlowRow(db, user.id, input.id, input.rowVersion);
 }
 

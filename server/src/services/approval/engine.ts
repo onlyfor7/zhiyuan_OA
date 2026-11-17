@@ -609,14 +609,18 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
       .update(approvalInstances)
       .set({ currentStepSeq: nextPending[0].seq, updatedAt: now })
       .where(eq(approvalInstances.id, instance.id));
-    // 20-02：去重 once + 抄送触发 + auto_pass/auto_reject 到步级联
+    // 20-02：去重 once（视同通过推进）+ 中段抄送 + auto_pass/auto_reject 到步级联
+    let effSeq: number | "finalized" = nextPending[0].seq;
     {
       const fresh = await loadInstance(db, instance.id);
       const passedCount = Object.keys(v2Snapshot(fresh).stepMeta ?? {}).filter((k) => Number(k) <= nextPending[0].seq).length;
-      await postAdvanceV2(db, fresh as ApprovalInstanceRow, step.approverId, passedCount);
-      await autoCascadeV2(db, (await loadInstance(db, instance.id)) as ApprovalInstanceRow);
+      effSeq = await postAdvanceV2(db, fresh as ApprovalInstanceRow, step.approverId, passedCount);
     }
-    // 通知下一组审批人
+    if (effSeq === "finalized") {
+      return { instance: await loadInstance(db, instance.id), applied: true };
+    }
+    await autoCascadeV2(db, (await loadInstance(db, instance.id)) as ApprovalInstanceRow);
+    // 通知下一组审批人（按 dedupe 推进后的有效序位）
     const groupSteps = await db
       .select()
       .from(approvalSteps)
@@ -624,7 +628,7 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
         and(
           eq(approvalSteps.instanceId, instance.id),
           eq(approvalSteps.status, "pending"),
-          sql`(floor(${approvalSteps.seq} / 1000) = ${groupKey(nextPending[0].seq)} OR ${approvalSteps.seq} = ${nextPending[0].seq})`,
+          sql`(floor(${approvalSteps.seq} / 1000) = ${groupKey(effSeq)} OR ${approvalSteps.seq} = ${effSeq})`,
         ),
       );
     for (const s of groupSteps) {
@@ -949,14 +953,17 @@ async function fireCcEvent(
     .where(eq(approvalInstances.id, instance.id));
 }
 
-/** 到步后处理：去重 once（同审批人后续 pending 步自动 skipped 留痕 dedupe）+ 抄送触发 */
+/** 到步后处理：去重 once（同审批人后续 pending 步自动 skipped 视同通过）+ 中段抄送触发；
+ *  O-20-5-7：dedupe 跳过不得滞留推进——返回有效当前序位；无 pending 则直接 approved 终审（业务回写+末端 cc）。
+ *  与 G4 rearm 的 [returned] 步显式区分：dedupe-skipped 不可被重挂（重挂判定仅认 [returned] 前缀）。 */
 async function postAdvanceV2(
   db: DbOrTx,
   instance: ApprovalInstanceRow,
   passedStepApproverId: string | null,
   passedStepCount: number,
-): Promise<void> {
+): Promise<number | "finalized"> {
   const snap = v2Snapshot(instance);
+  let deduped = 0;
   if (snap.settings?.dedupeApprover === "once" && passedStepApproverId) {
     const rearmed = new Set(snap.rearmedSeqs ?? []); // G4：重挂步属新审批行为，去重不豁免跳过
     const later = await db
@@ -965,10 +972,12 @@ async function postAdvanceV2(
       .where(and(eq(approvalSteps.instanceId, instance.id), eq(approvalSteps.status, "pending"), eq(approvalSteps.approverId, passedStepApproverId)));
     for (const st of later) {
       if (rearmed.has(st.seq)) continue;
-      await db
+      const r = await db
         .update(approvalSteps)
-        .set({ status: "skipped", comment: "dedupe: 同审批人前面步骤已批准", actedAt: new Date().toISOString() })
-        .where(and(eq(approvalSteps.id, st.id), eq(approvalSteps.status, "pending")));
+        .set({ status: "skipped", comment: "dedupe: 同审批人前面步骤已批准（视同通过）", actedAt: new Date().toISOString() })
+        .where(and(eq(approvalSteps.id, st.id), eq(approvalSteps.status, "pending")))
+        .returning({ id: approvalSteps.id });
+      deduped += r.length;
     }
   }
   const totalSteps = Object.keys(snap.stepMeta ?? {}).length;
@@ -977,6 +986,31 @@ async function postAdvanceV2(
     // 20-02b G5：中段 cc 到步即触发；末端 cc（afterStepIndex=总步数）仅在 approved 终态后发
     if (ev.afterStepIndex < totalSteps && ev.afterStepIndex <= passedStepCount) await fireCcEvent(db, instance, ev, instance.projectId);
   }
+  if (deduped === 0) return instance.currentStepSeq;
+  // 仅当指针所指步被 dedupe 跳过（非 pending）才需即时推进/终审；
+  // 若跳过的是更后的步，当前步仍待审——其批准后的前进查询天然跳过 dedupe-skipped 步（与 [returned] 重挂判定互斥）
+  const [cur] = await db
+    .select({ status: approvalSteps.status })
+    .from(approvalSteps)
+    .where(and(eq(approvalSteps.instanceId, instance.id), eq(approvalSteps.seq, instance.currentStepSeq)))
+    .limit(1);
+  if (cur?.status === "pending") return instance.currentStepSeq;
+  const [next] = await db
+    .select({ seq: approvalSteps.seq })
+    .from(approvalSteps)
+    .where(and(eq(approvalSteps.instanceId, instance.id), eq(approvalSteps.status, "pending"), gt(approvalSteps.seq, instance.currentStepSeq)))
+    .orderBy(asc(approvalSteps.seq))
+    .limit(1);
+  if (!next) {
+    await finalize(db, instance, "approved");
+    const handler = handlerFor(instance.bizType);
+    if (handler) await handler.onApproved(db, instance);
+    await fireTerminalCcV2(db, (await loadInstance(db, instance.id)) as ApprovalInstanceRow);
+    return "finalized";
+  }
+  await db.update(approvalInstances).set({ currentStepSeq: next.seq, updatedAt: new Date().toISOString() }).where(eq(approvalInstances.id, instance.id));
+  instance.currentStepSeq = next.seq;
+  return next.seq;
 }
 
 /** 末端抄送（afterStepIndex ≥ 总步数）：仅实例进入 approved 终态后触发（拒绝路径全程无 cc） */
@@ -1041,7 +1075,9 @@ async function autoCascadeV2(db: DbOrTx, instance: ApprovalInstanceRow): Promise
     }
     await db.update(approvalInstances).set({ currentStepSeq: next[0].seq, updatedAt: now }).where(eq(approvalInstances.id, instance.id));
     instance.currentStepSeq = next[0].seq;
-    await postAdvanceV2(db, instance, step.approverId, Object.keys(snap.stepMeta ?? {}).filter((k) => Number(k) <= next[0].seq).length);
+    const eff = await postAdvanceV2(db, instance, step.approverId, Object.keys(snap.stepMeta ?? {}).filter((k) => Number(k) <= next[0].seq).length);
+    if (eff === "finalized") return;
+    if (typeof eff === "number") instance.currentStepSeq = eff;
   }
 }
 

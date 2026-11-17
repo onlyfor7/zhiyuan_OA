@@ -95,6 +95,10 @@ export interface FlowV2Definition {
   schemaVersion: 2;
   settings: FlowV2Settings;
   nodes: FlowV2Node[];
+  /** 提交时抄送（O-20-5-8：基础信息配置；→ ccEvent afterStepIndex=0 提交即触发） */
+  submitCc?: FlowV2ApproverRef[];
+  /** 完成抄送（→ ccEvent afterStepIndex=总步数，终审 approved 后触发，与 02b G5 同路） */
+  endCc?: FlowV2ApproverRef[];
 }
 
 export interface CompiledStepV2 extends CompiledApproval {
@@ -323,6 +327,15 @@ export function validateFlowStructureV2(raw: unknown, opts: ValidateV2Options = 
 
   normalized.nodes = walk(def.nodes, 1, "");
   if (totalNodes > FLOW_V2_LIMITS.maxNodes) throw invalid(`流程节点总数超过 ${FLOW_V2_LIMITS.maxNodes}`);
+  // O-20-5-8：submitCc/endCc 按审批人策略校验（同 cc receivers 规则）
+  const validateCcList = (key: "submitCc" | "endCc"): FlowV2ApproverRef[] => {
+    const raw = (def as unknown as Record<string, unknown>)[key];
+    if (raw === undefined || raw === null) return [];
+    if (!Array.isArray(raw)) throw invalid(`${key} 须为数组`);
+    return raw.map((r, i) => validateApprover(`${key}.r${i}`, r, true));
+  };
+  normalized.submitCc = validateCcList("submitCc");
+  normalized.endCc = validateCcList("endCc");
   return normalized;
 }
 
@@ -439,6 +452,13 @@ export function compileFlowV2(
     }
   };
   walk(def.nodes, []);
+  // O-20-5-8：submitCc/endCc 编译为 ccEvent（复用 cc 通道：notify+emitEvent+审计+ccRecipients）
+  if (def.submitCc && def.submitCc.length > 0) {
+    ccEvents.push({ nodeId: "submitCc", name: "提交抄送", receivers: def.submitCc, afterStepIndex: 0 });
+  }
+  if (def.endCc && def.endCc.length > 0) {
+    ccEvents.push({ nodeId: "endCc", name: "完成抄送", receivers: def.endCc, afterStepIndex: steps.length });
+  }
   return { steps, ccEvents, settings: def.settings };
 }
 

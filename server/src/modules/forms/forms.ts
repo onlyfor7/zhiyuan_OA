@@ -25,6 +25,34 @@ function notFound(): BusinessError {
   return new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "表单不存在或无权访问");
 }
 
+/** O-20-5-2：发布前显式用户引用活性检查（user 直接指定 / initiator_choice scope.users / cc 显式 userId） */
+async function assertExplicitUsersActive(db: DbOrTx, raw: Record<string, unknown>): Promise<void> {
+  const ids = new Set<string>();
+  const collect = (ref: Record<string, unknown>) => {
+    if (ref.kind === "user" && typeof ref.userId === "string") ids.add(ref.userId);
+    if (ref.kind === "initiator_choice" && ref.scope && (ref.scope as { mode?: string }).mode === "users") {
+      for (const id of (ref.scope as { userIds?: string[] }).userIds ?? []) ids.add(id);
+    }
+  };
+  const walk = (nodes: unknown[]): void => {
+    for (const n of nodes as Array<Record<string, unknown>>) {
+      if (!n || typeof n !== "object") continue;
+      if (n.type === "approval") collect((n.approver ?? {}) as Record<string, unknown>);
+      if (n.type === "cc") for (const r of (n.receivers ?? []) as Array<Record<string, unknown>>) collect(r);
+      if (n.type === "condition") for (const b of (n.branches ?? []) as Array<{ nodes?: unknown[] }>) walk(b.nodes ?? []);
+    }
+  };
+  walk((raw.nodes ?? []) as unknown[]);
+  for (const r of (raw.submitCc ?? []) as Array<Record<string, unknown>>) collect(r);
+  for (const r of (raw.endCc ?? []) as Array<Record<string, unknown>>) collect(r);
+  for (const id of ids) {
+    const [u] = await db.select({ id: users.id, status: users.status }).from(users).where(eq(users.id, id)).limit(1);
+    if (!u || u.status !== "active") {
+      throw new BusinessError(ERROR_CODE.FLOW_UNPUBLISHABLE, `流程不可发布：指定人员不存在或已停用（${id.slice(0, 8)}…）`);
+    }
+  }
+}
+
 /* ===== form_schema 校验（arch/14 §4.2 P1 控件库；返回字段级错误映射，空=合法） ===== */
 
 const KEY_RE = /^[a-z][a-z0-9_]{0,49}$/;
@@ -216,6 +244,10 @@ export async function publishForm(
     return ["__runtime__"]; // 运行时解析类：发布不预判
   };
   await assertFlowPublishable(db, flow.definitionJson, resolveKind, flow.bizBinding);
+  // O-20-5-2：显式指定用户活性（停用=412 如实报错；角色范围集停用用户由运行时解析剔除）
+  if ((flow.definitionJson as { schemaVersion?: number }).schemaVersion === 2) {
+    await assertExplicitUsersActive(db, flow.definitionJson);
+  }
   await publishFlowRow(db, user.id, flow, crypto.randomUUID());
   const [updated] = await db
     .update(customFormDefs)
