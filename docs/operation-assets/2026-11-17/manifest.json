@@ -1,0 +1,104 @@
+{
+  "shots": [
+    {
+      "file": "op-06-审批-01.png",
+      "capturedAt": "2026-11-17T15:10:30.170Z",
+      "id": "op-06-审批-01",
+      "flow": "4.4.2 审批中心",
+      "step": 1,
+      "page": "审批中心",
+      "role": "partner",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "op-06-审批-02.png",
+      "capturedAt": "2026-11-17T15:10:32.267Z",
+      "id": "op-06-审批-02",
+      "flow": "4.4.2 审批中心",
+      "step": 2,
+      "page": "通过确认（意见必填态）",
+      "role": "partner",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "op-06-发起-00.png",
+      "capturedAt": "2026-11-17T15:10:34.687Z",
+      "id": "op-06-发起-00",
+      "flow": "4.4.1 发起通用申请单",
+      "step": 1,
+      "page": "我的申请单",
+      "role": "member",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "op-06-发起-01.png",
+      "capturedAt": "2026-11-17T15:10:37.125Z",
+      "id": "op-06-发起-01",
+      "flow": "4.4.1 发起通用申请单",
+      "step": 2,
+      "page": "发起弹窗（自定义表单类型选中渲染字段）",
+      "role": "member",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "op-06-设计器-01.png",
+      "capturedAt": "2026-11-17T15:10:40.483Z",
+      "id": "op-06-设计器-01",
+      "flow": "4.4.5 审批流设计（四步向导）",
+      "step": 1,
+      "page": "向导①基础信息",
+      "role": "sysadmin",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "op-06-设计器-02.png",
+      "capturedAt": "2026-11-17T15:10:42.057Z",
+      "id": "op-06-设计器-02",
+      "flow": "4.4.5 审批流设计（四步向导）",
+      "step": 2,
+      "page": "向导②表单设计",
+      "role": "sysadmin",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "op-06-设计器-03.png",
+      "capturedAt": "2026-11-17T15:10:43.158Z",
+      "id": "op-06-设计器-03",
+      "flow": "4.4.5 审批流设计（四步向导）",
+      "step": 3,
+      "page": "向导③流程设计（节点抽屉）",
+      "role": "sysadmin",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "op-06-设计器-04.png",
+      "capturedAt": "2026-11-17T15:10:45.025Z",
+      "id": "op-06-设计器-04",
+      "flow": "4.4.5 审批流设计（四步向导）",
+      "step": 4,
+      "page": "向导④更多设置",
+      "role": "sysadmin",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "op-06-设计器-05.png",
+      "capturedAt": "2026-11-17T15:13:03.953Z",
+      "id": "op-06-设计器-05",
+      "flow": "4.4.5 审批流设计（四步向导）",
+      "step": 5,
+      "page": "审批流管理后台（业务审批组+自定义组）",
+      "role": "sysadmin",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "op-06-项目流-01.png",
+      "capturedAt": "2026-11-17T15:13:06.242Z",
+      "id": "op-06-项目流-01",
+      "flow": "4.4.5 审批流设计（项目级）",
+      "step": 6,
+      "page": "项目级向导（无表单设计步）",
+      "role": "sysadmin",
+      "viewport": "1440x900"
+    }
+  ]
+}

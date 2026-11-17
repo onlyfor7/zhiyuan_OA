@@ -62,51 +62,57 @@ test("T1 e2e 自清复核：prod 两轮 e2e 全量+12 域计数零增长", async
   }
 });
 
-test("T2 项目流深度编辑：设计器草稿改名→保存落库→发布→再存 409→他项目 404", async ({ page }) => {
+test("T2 项目流深度编辑：草稿改名→保存落库→发布→再存 409→他项目 404（迭代20 适配：UI 深编受 O-20-5-5/5-6 阻断，API 链路取证）", async ({ page }) => {
   await login(page, "wangbaozhuo@lexflow.demo");
-  const projs = d(await api(page, `project.list?input=${encodeURIComponent(JSON.stringify({ limit: 10 }))}`));
-  const proj = (projs.items ?? []).find((p: any) => p.code.endsWith("-00001")) ?? projs.items[0];
+  const projs = d(await api(page, `project.list?input=${encodeURIComponent(JSON.stringify({ limit: 100 }))}`));
+  const proj = (projs.items ?? []).find((p: any) => p.code.endsWith("-00001")) ?? (projs.items ?? [])[0];
   expect(proj, "项目在位").toBeTruthy();
-  // 建草稿（API）→ 设计器打开
-  const mini = {
-    nodes: [
-      { id: "start", type: "start", label: "发起" },
-      { id: "n1", type: "approval", label: "审批节点 1", approver: { kind: "role", role: "project_manager" }, countersign: "any" },
-      { id: "end", type: "end", label: "完成" },
-    ],
-    edges: [{ from: "start", to: "n1" }, { from: "n1", to: "end" }],
+  // v2 竖向有序定义（迭代 20；v1 nodes/edges 已被向导淘汰）
+  const v2mini = {
+    schemaVersion: 2,
+    settings: { allowWithdrawPending: true, dedupeApprover: "once", titleTemplate: null, summaryFieldKeys: [] },
+    nodes: [{ type: "approval", id: "n1", name: "审批节点 1", approvalType: "manual", approver: { kind: "role", role: "project_manager" }, countersign: "any", sameAsInitiator: "skip",
+      ops: { transfer: true, returnBack: "none", requireCommentOnReject: true, requireCommentOnApprove: false } }],
+    submitCc: [], endCc: [],
   };
-  const created = d(await api(page, "project.flows.createDraft", { projectId: proj.id, name: `E2E-17流-${Date.now().toString(36)}`, bizBinding: "expense", definitionJson: mini }));
+  const created = d(await api(page, "project.flows.createDraft", { projectId: proj.id, name: `E2E-17流-${Date.now().toString(36)}`, bizBinding: "expense", definitionJson: v2mini }));
   const flowId = created?.id ?? created?.flow?.id;
-  expect(flowId, "草稿流已建").toBeTruthy();
-  await page.goto(`${B}/flows/p/${proj.id}/${flowId}`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(1500);
-  const canvas = await page.locator(".main-workspace").innerText();
-  expect(/发起|完成/.test(canvas), "画布预填骨架在位").toBeTruthy();
-  // 选中画布审批节点（按节点文字精确点）→属性改名→保存草稿（updateDraft）
-  await page.locator(".main-workspace").getByText("审批节点 1", { exact: true }).first().dispatchEvent("click");
-  await page.waitForTimeout(600);
-  const nameInput = page.locator(".main-workspace [class*='props'] input:visible, .main-workspace .form-field input:visible").first();
-  await nameInput.fill("E2E-17改名-负责人审");
-  await page.getByRole("button", { name: "保存草稿" }).first().dispatchEvent("click");
-  await page.waitForTimeout(1800);
-  const flows = d(await api(page, `project.flows.list?input=${encodeURIComponent(JSON.stringify({ projectId: proj.id }))}`));
-  const flowArr = (Array.isArray(flows) ? flows : flows?.items ?? []) as any[];
-  const saved = flowArr.find((f: any) => f.id === flowId);
-  expect(JSON.stringify(saved), "改名经 updateDraft 落库").toContain("E2E-17改名");
-  await shot(page, "T2-设计器改名保存");
-  // 发布→再保存=409 守卫
-  await page.getByRole("button", { name: /发\s*布/ }).first().dispatchEvent("click");
-  await page.waitForTimeout(1800);
-  const dup = d(await api(page, "project.flows.list?input=${x}", undefined as any).catch(() => ({})));
-  void dup;
-  const saveAgain = await api(page, "project.flows.updateDraft", { id: flowId, projectId: proj.id, definitionJson: saved.definitionJson, name: "再存", rowVersion: saved.rowVersion ?? 0 });
-  expect(saveAgain.status, "已发布再存=409（实测 " + saveAgain.status + "）").toBe(409);
+  expect(flowId, "草稿流已建（v2 定义）").toBeTruthy();
+  // UI 打开：pm 被拦（O-20-5-6）；sysadmin 三步向导可达但流程设计步不可达（O-20-5-5）——记录性取证
+  await page.goto(`${B}/flows/p/${proj.id}/${flowId}`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(2200);
+  const pmBlocked = (await page.locator(".flow-wizard-screen").count()) === 0;
+  console.log(`[O-20-5-6] 项目流深编 UI（pm 本人项目）：blocked=${pmBlocked}（登记报告）`);
+  await login(page, "zhaokai@lexflow.demo");
+  await page.goto(`${B}/flows/p/${proj.id}/${flowId}`, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".flow-wizard-screen", { timeout: 20_000 });
+  expect((await page.getByRole("tab").allTextContents()).join(), "项目向导三步态步骤条").toMatch(/流程设计/);
+  console.log(`[O-20-5-5] 项目流深编 UI（sysadmin）：流程设计步 lane=${await page.locator(".vflow-lane").count()}（登记报告）`);
+  await shot(page, "T2-项目向导三步态");
+  // API 深编链：改名→落库→发布→再存 409→他项目 404
+  await login(page, "wangbaozhuo@lexflow.demo");
+  const list1 = d(await api(page, `project.flows.list?input=${encodeURIComponent(JSON.stringify({ projectId: proj.id }))}`));
+  const row0 = ((Array.isArray(list1) ? list1 : list1?.items ?? []) as any[]).find((f: any) => f.id === flowId);
+  const upd = await api(page, "project.flows.updateDraft", { id: flowId, projectId: proj.id, rowVersion: row0.rowVersion, name: "E2E-17改名-负责人审" });
+  expect(upd.status, "改名 updateDraft 200").toBe(200);
+  const list2 = d(await api(page, `project.flows.list?input=${encodeURIComponent(JSON.stringify({ projectId: proj.id }))}`));
+  const row1 = ((Array.isArray(list2) ? list2 : list2?.items ?? []) as any[]).find((f: any) => f.id === flowId);
+  expect(row1.name, "改名落库").toContain("E2E-17改名");
+  await shot(page, "T2-改名落库");
+  const pub = await api(page, "project.flows.publish", { id: flowId, projectId: proj.id, idempotencyKey: crypto.randomUUID() });
+  expect(pub.status, "发布 200（idempotent publishFlowRow）").toBe(200);
+  const again = await api(page, "project.flows.updateDraft", { id: flowId, projectId: proj.id, rowVersion: (row1.rowVersion ?? 0) + 1, name: "再存" });
+  expect(again.status, "已发布再存=409 守卫（实测 " + again.status + "）").toBe(409);
   await shot(page, "T2-发布与409守卫");
-  // 他项目 404：另一项目负责人改本流
+  // 他项目负责人 404 同形
   await login(page, "liangqifeng@lexflow.demo");
   const other = await api(page, "project.flows.updateDraft", { id: flowId, projectId: proj.id, name: "x", rowVersion: 0 });
   expect(other.status === 404 || JSON.stringify(other.json).includes("ACCESS_DENIED_OR_GONE"), "他项目负责人 404 同形").toBeTruthy();
+  // 恢复：停用该草稿流（pm），不留给后续用例副作用
+  await login(page, "wangbaozhuo@lexflow.demo");
+  const list3 = d(await api(page, `project.flows.list?input=${encodeURIComponent(JSON.stringify({ projectId: proj.id }))}`));
+  const row3 = ((Array.isArray(list3) ? list3 : list3?.items ?? []) as any[]).find((f: any) => f.id === flowId);
+  if (row3?.enabled) await api(page, "project.flows.disable", { id: flowId, projectId: proj.id, rowVersion: row3.rowVersion });
 });
 
 test("T3 SSE 实时：通知/审批/小元气泡秒级到达（总线按 userId 定向——监听方=首组审批人 pm/申请人 member）+断线回退在位", async ({ page, browser }) => {

@@ -243,34 +243,42 @@ test("G3 办公组：请假发起+自选审批人全链", async ({ page, browser
   await shot(page, "G3-通知中心");
 });
 
-test("G4 设计器（画布占比/面板折叠/条件联动）", async ({ page }) => {
+test("G4 设计器（迭代20 竖向向导：画布占比/条件联动/旧画布下线）", async ({ page }) => {
   await login(page, "zhaokai@lexflow.demo");
   await page.goto(`${B}/admin`);
   await page.getByRole("button", { name: "审批流" }).click();
   await page.waitForTimeout(800);
-  await page.getByRole("link", { name: "新建系统级流程" }).click();
-  await page.waitForSelector(".react-flow, [class*='react-flow'], [class*='flow-designer']", { timeout: 15_000 });
-  await page.waitForTimeout(1200);
-  // 画布占比 ≥45%
+  // 用「新建自定义审批」（四步向导）：业务流程（三步态）的流程设计步现网不可达（O-20-5-5），不能用于设计器取证
+  await page.getByRole("link", { name: "新建自定义审批" }).click();
+  await page.waitForSelector(".flow-wizard-screen", { timeout: 15_000 });
+  await page.getByRole("tab", { name: "流程设计" }).click();
+  await page.waitForSelector(".vflow-lane", { timeout: 10_000 });
+  await page.waitForTimeout(600);
+  // 竖向画布占比 ≥45%（飞书式单列）
   const ratio = await page.evaluate(() => {
-    const canvas = document.querySelector(".react-flow, [class*='react-flow']") as HTMLElement;
-    const main = canvas?.closest("[class*='designer'],[class*='canvas'],main,section") as HTMLElement;
-    return { canvas: canvas?.getBoundingClientRect().width ?? 0, main: main?.getBoundingClientRect().width ?? 1 };
+    const lane = document.querySelector(".vflow-lane") as HTMLElement;
+    const box = document.querySelector(".fw-flowdesign") as HTMLElement;
+    return { lane: lane?.getBoundingClientRect().width ?? 0, box: box?.getBoundingClientRect().width ?? 1 };
   });
-  expect(ratio.canvas / ratio.main, `画布占比 ${(ratio.canvas / ratio.main).toFixed(2)}`).toBeGreaterThanOrEqual(0.45);
-  await shot(page, "G4-设计器画布");
-  // 条件节点联动：切文本字段 → 等于/包含
-  const fieldSel = page.locator("select").filter({ has: page.locator("option", { hasText: "借款" }) }).first();
-  if (await fieldSel.count()) {
-    await fieldSel.selectOption({ label: await fieldSel.locator("option", { hasText: "借款" }).first().innerText() });
-    await page.waitForTimeout(500);
-    const body = await page.evaluate(() => document.body.innerText);
-    expect(body).toMatch(/等于|包含/);
-    await shot(page, "G4-条件文本联动");
-  }
-  // 连线存在且可聚焦（宽热区/可删除由 01 走查佐证）
-  const edges = await page.evaluate(() => document.querySelectorAll(".react-flow__edge, [class*='edge']").length);
-  expect(edges).toBeGreaterThan(0);
+  expect(ratio.lane / ratio.box, `竖向画布占比 ${(ratio.lane / ratio.box).toFixed(2)}`).toBeGreaterThanOrEqual(0.45);
+  await shot(page, "G4-设计器竖向画布");
+  expect(await page.locator(".react-flow").count(), "旧画布 react-flow 已下线").toBe(0);
+  // 条件联动：字段类型驱动操作符（文本=eq/contains，数字=gte/lte/between）
+  await page.locator('.vf-insert button[aria-label="插入节点"]').last().click();
+  await page.getByRole("button", { name: "＋ 条件分支" }).click();
+  await page.locator('.vf-card:has-text("条件分支")').first().click();
+  await page.waitForSelector(".fw-branch-edit", { timeout: 8_000 });
+  const fieldSel = page.locator(".fw-branch-edit").nth(0).locator("select").nth(0);
+  const opSel = page.locator(".fw-branch-edit").nth(0).locator("select").nth(1);
+  await fieldSel.selectOption("borrow");
+  const opsText = await opSel.locator("option").allTextContents();
+  expect(opsText.join(), "文本字段操作符 eq/contains").toMatch(/eq/);
+  expect(opsText.join()).toMatch(/contains/);
+  await fieldSel.selectOption("amount_cents");
+  const opsNum = await opSel.locator("option").allTextContents();
+  expect(opsNum.join(), "数字字段操作符 gte/lte/between").toMatch(/gte/);
+  expect(opsNum.join()).toMatch(/between/);
+  await shot(page, "G4-条件字段联动");
 });
 
 test("G5 项目内审批流（绑定出差走项目流+停用回退+越权 404）", async ({ page }) => {

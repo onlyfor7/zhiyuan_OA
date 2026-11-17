@@ -828,17 +828,6 @@
       "capturedAt": "2026-11-14T17:35:27.614Z"
     },
     {
-      "id": "op-06-发起-00",
-      "file": "op-06-发起-00.png",
-      "flow": "发起申请",
-      "step": "0",
-      "page": "我的申请单列表",
-      "role": "member",
-      "viewport": "desktop-1440x900",
-      "anchor": "流程§4.4.1",
-      "capturedAt": "2026-11-14T17:35:31.736Z"
-    },
-    {
       "id": "op-06-发起-01",
       "file": "op-06-发起-01.png",
       "flow": "发起申请",
@@ -870,28 +859,6 @@
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.4.1",
       "capturedAt": "2026-11-14T17:35:49.946Z"
-    },
-    {
-      "id": "op-06-审批-01",
-      "file": "op-06-审批-01.png",
-      "flow": "审批中心",
-      "step": "1",
-      "page": "待办审批卡（业务快照）",
-      "role": "member",
-      "viewport": "desktop-1440x900",
-      "anchor": "流程§4.4.2",
-      "capturedAt": "2026-11-14T17:44:40.788Z"
-    },
-    {
-      "id": "op-06-审批-02",
-      "file": "op-06-审批-02.png",
-      "flow": "审批中心",
-      "step": "2",
-      "page": "通过确认弹窗（未点确认）",
-      "role": "member",
-      "viewport": "desktop-1440x900",
-      "anchor": "流程§4.4.2",
-      "capturedAt": "2026-11-14T17:44:48.288Z"
     },
     {
       "id": "op-06-审批-03",
@@ -936,39 +903,6 @@
       "viewport": "desktop-1440x900",
       "anchor": "流程§4.4.4",
       "capturedAt": "2026-11-14T17:36:29.888Z"
-    },
-    {
-      "id": "op-06-设计器-01",
-      "file": "op-06-设计器-01.png",
-      "flow": "流程设计器",
-      "step": "1",
-      "page": "系统级设计器画布",
-      "role": "sysadmin",
-      "viewport": "desktop-1440x900",
-      "anchor": "流程§4.4.5",
-      "capturedAt": "2026-11-14T17:36:36.534Z"
-    },
-    {
-      "id": "op-06-设计器-02",
-      "file": "op-06-设计器-02.png",
-      "flow": "流程设计器",
-      "step": "2",
-      "page": "画布节点选中态（右侧属性面板可编辑）",
-      "role": "sysadmin",
-      "viewport": "desktop-1440x900",
-      "anchor": "流程§4.4.5",
-      "capturedAt": "2026-11-14T18:23:38.941Z"
-    },
-    {
-      "id": "op-06-项目流-01",
-      "file": "op-06-项目流-01.png",
-      "flow": "项目级流",
-      "step": "1",
-      "page": "项目内审批流页签",
-      "role": "project_manager",
-      "viewport": "desktop-1440x900",
-      "anchor": "流程§4.4.5",
-      "capturedAt": "2026-11-14T17:36:40.263Z"
     },
     {
       "id": "op-07-预算-01",

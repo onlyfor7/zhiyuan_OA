@@ -1,0 +1,85 @@
+{
+  "shots": [
+    {
+      "file": "05-01-approval-center.png",
+      "capturedAt": "2026-11-17T15:10:29.670Z",
+      "id": "05-01",
+      "chapter": "5 协同与审批",
+      "page": "审批中心",
+      "role": "partner",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "05-02-approval-detail.png",
+      "capturedAt": "2026-11-17T15:10:31.332Z",
+      "id": "05-02",
+      "chapter": "5 协同与审批",
+      "page": "审批详情（快照展开）",
+      "role": "partner",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "05-05-generic-request.png",
+      "capturedAt": "2026-11-17T15:10:35.263Z",
+      "id": "05-05",
+      "chapter": "5 协同与审批",
+      "page": "通用申请单发起弹窗",
+      "role": "member",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "05-03a-wizard-step1-basic.png",
+      "capturedAt": "2026-11-17T15:10:39.985Z",
+      "id": "05-03a",
+      "chapter": "5 协同与审批",
+      "page": "四步向导①基础信息",
+      "role": "sysadmin",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "05-03b-wizard-step2-formdesign.png",
+      "capturedAt": "2026-11-17T15:10:41.560Z",
+      "id": "05-03b",
+      "chapter": "5 协同与审批",
+      "page": "四步向导②表单设计（控件库+手机画布）",
+      "role": "sysadmin",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "05-03c-wizard-step3-flowdesign.png",
+      "capturedAt": "2026-11-17T15:10:42.669Z",
+      "id": "05-03c",
+      "chapter": "5 协同与审批",
+      "page": "四步向导③流程设计（竖向画布+节点抽屉）",
+      "role": "sysadmin",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "05-03d-wizard-step4-settings.png",
+      "capturedAt": "2026-11-17T15:10:44.524Z",
+      "id": "05-03d",
+      "chapter": "5 协同与审批",
+      "page": "四步向导④更多设置",
+      "role": "sysadmin",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "08-04-admin-flows.png",
+      "capturedAt": "2026-11-17T15:13:03.460Z",
+      "id": "08-04",
+      "chapter": "8 组织与系统治理",
+      "page": "审批流管理后台（分组列表）",
+      "role": "sysadmin",
+      "viewport": "1440x900"
+    },
+    {
+      "file": "05-04-project-flows.png",
+      "capturedAt": "2026-11-17T15:13:06.241Z",
+      "id": "05-04",
+      "chapter": "5 协同与审批",
+      "page": "项目级流程向导（三步态）",
+      "role": "sysadmin",
+      "viewport": "1440x900"
+    }
+  ]
+}

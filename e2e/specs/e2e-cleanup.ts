@@ -233,6 +233,19 @@ export async function runE2eCleanup(): Promise<string[]> {
     return n;
   });
 
+  // ⑨ 迭代20 自定义表单：published→disabled 终态（forms.disable 语义，与「冒烟表单-20」留存口径一致）
+  await safe("forms.disable", async () => {
+    const sys = await session("sysadmin");
+    const list = d(await sys.api("forms.list"));
+    const targets = ((list.items ?? []) as any[]).filter((r) => fresh(r) && r.status === "published" && STAMP.test(r.name));
+    let n = 0;
+    for (const f of targets.slice(0, 40)) {
+      const r = await sys.api("forms.disable", { id: f.id, rowVersion: f.rowVersion ?? 0 });
+      if (r.status === 200) n++;
+    }
+    return n;
+  });
+
   return log;
 }
 

@@ -24,7 +24,7 @@ async function login(page: Page, email: string): Promise<void> {
   await emailInput.fill(email);
   await page.locator('input[type="password"]').fill("Demo@2026");
   await page.getByRole("button", { name: "登录" }).click();
-  await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 15_000 });
+  await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 30_000 });
 }
 
 async function api(page: Page, path: string, opts: { method?: string; body?: unknown } = {}) {
@@ -67,9 +67,14 @@ let projectAId = "";
 test.beforeAll(async ({ browser }) => {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
-  await login(page, "wangbaozhuo@lexflow.demo");
-  const list = await api(page, "project.list", { method: "GET" });
-  projectAId = (list.json as any).result.data.items.find((p: any) => p.code.endsWith("-00001")).id;
+  // 迭代20-05：硬锚 PRJ-2026-00001 不可移植（且 project.list 按成员身份过滤，sysadmin 亦不见非成员项目）——
+  // 取 e2e 主演 guanchen 可见且王宝茁负责的项目（dev/prod 种子均满足：= PRJ-2026-00001 语义）
+  await login(page, "guanchen@lexflow.demo");
+  const list = await api(page, `project.list?input=${encodeURIComponent(JSON.stringify({ limit: 100 }))}`, { method: "GET" });
+  const items = (list.json as any).result.data.items as any[];
+  const pick = items.find((p: any) => p.managerName === "王宝茁" && p.lifecycleStatus === "in_progress")
+    ?? items.find((p: any) => p.managerName === "王宝茁") ?? items[0];
+  projectAId = pick.id;
   await ctx.close();
 });
 

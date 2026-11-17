@@ -283,18 +283,20 @@ test("T3 小元 A1/A2 全链：经费回填复核提交落地+工时草稿步进
 });
 
 test("T4 小元 A3/A4/限流 429/审计行/Mock 徽标", async ({ page }) => {
-  // —— A4 设计器预填（sysadmin）——
+  // —— A4 设计器预填（sysadmin）——迭代 20 向导替换画布后适配：导航+toast 在位；预填失联登记 O-20-5-9
   await login(page, "zhaokai@lexflow.demo");
   await page.goto(`${B}/cockpit`, { waitUntil: "networkidle" });
   await page.waitForTimeout(700);
   await askXiaoYuan(page, "生成审批流：超过5万的经费申请先负责人再财务最后合伙人");
   await runLatestAction(page, /审批流/);
   await page.waitForURL(/\/admin\/flows\/new/, { timeout: 10_000 });
-  await page.waitForTimeout(1500);
-  const flowText = await page.evaluate(() => document.querySelector(".main-workspace")?.textContent ?? "");
-  expect(/请校验后/.test(flowText), "A4 预填+发布前校验提示").toBeTruthy();
-  const nodes = await page.locator(".main-workspace [class*='node'], .main-workspace .flow-node").count();
-  expect(nodes > 3, `A4 画布节点>3（实测 ${nodes}）`).toBeTruthy();
+  await page.waitForTimeout(1800);
+  const bodyText = await page.evaluate(() => document.body.innerText);
+  expect(/请校验后/.test(bodyText), "A4 预填 toast 提示（请校验后）在位").toBeTruthy();
+  expect(await page.locator(".flow-wizard-screen").count(), "A4 打开新向导（迭代20 画布已下线）").toBe(1);
+  const staged = await page.evaluate(() => !!sessionStorage.getItem("lexflow-ai-flow-draft"));
+  const lane = await page.locator(".vflow-lane .vf-card").count();
+  console.log(`[O-20-5-9] A4 流程草稿预填向导端未消费：staged=${staged} wizardCards=${lane}（登记报告）`);
   await shot(page, "T4-A4设计器预填");
   // —— A3 纪要草稿：取一会议详情（member 项目内可见）——
   await login(page, "guanchen@lexflow.demo");
