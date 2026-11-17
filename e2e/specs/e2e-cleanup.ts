@@ -246,7 +246,26 @@ export async function runE2eCleanup(): Promise<string[]> {
     return n;
   });
 
+  // ⑩ 迭代20-05b：STAMP 命名绑定流终态停用（与 ⑨ 表单闭环配套，防「验收20-*」流残留）
+  await safe("flows.disable", () => disableStampedFlows().then((n) => n));
+
   return log;
+}
+
+/** 迭代20-05b：清理域⑩——绑定流终态（「验收20-*」等 STAMP 命名 enabled 流 → flow.disable，与表单 disabled 同口径，不做物理删除） */
+export async function disableStampedFlows(): Promise<number> {
+  const log: string[] = [];
+  const sys = new Session(EMAILS.sysadmin);
+  await sys.login();
+  const list = d(await sys.api("flow.list"));
+  const targets = ((list.items ?? []) as any[]).filter((f) => STAMP.test(f.name ?? "") && f.enabled === true);
+  let n = 0;
+  for (const f of targets.slice(0, 60)) {
+    const r = await sys.api("flow.disable", { id: f.id, rowVersion: f.rowVersion ?? 0 });
+    if (r.status === 200) n++;
+  }
+  if (n) log.push(`flows.disable×${n}`);
+  return n;
 }
 
 /** 未结/未决口径计数（两轮零增长验收的度量集）。 */
