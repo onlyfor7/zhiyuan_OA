@@ -219,3 +219,28 @@ export function serializeDef(def: V2Def): Record<string, unknown> {
 }
 
 export type { CustomFormSchema, FormFieldDef };
+
+/** O-20-5-1：定位首个 initiator_choice 审批节点（含条件分支嵌套），供提交网关自选审批人门控 */
+export interface V2ChoiceRequirement {
+  present: boolean;
+  scope: { mode: "all" | "roles" | "users"; roleKeys?: string[]; userIds?: string[] } | null;
+}
+
+export function findInitiatorChoice(def: unknown): V2ChoiceRequirement | null {
+  if (!isV2Def(def)) return null;
+  let found: V2ChoiceRequirement | null = null;
+  const walk = (nodes: V2Node[]): void => {
+    for (const n of nodes) {
+      if (found) return;
+      if (n.type === "approval" && n.approver.kind === "initiator_choice") {
+        found = { present: true, scope: (n.approver as { scope?: V2ChoiceRequirement["scope"] }).scope ?? null };
+        return;
+      }
+      if (n.type === "condition") {
+        for (const b of n.branches) walk(b.nodes);
+      }
+    }
+  };
+  walk((def as V2Def).nodes ?? []);
+  return found ?? { present: false, scope: null };
+}

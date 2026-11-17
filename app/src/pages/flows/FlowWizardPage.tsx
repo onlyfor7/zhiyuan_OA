@@ -9,6 +9,7 @@ import { type RouterOutputs } from "../../lib/trpc";
 import { useFlow, useFlowMutations } from "../../api/flow";
 import { useForm, useFormList, useFormMutations } from "../../api/forms";
 import { newClientKey, rootErrorMessage } from "../../lib/form";
+import { AI_FLOW_DRAFT_KEY } from "../../components/ai/ai-actions";
 import { defaultV2Def, isV2Def, serializeDef, validateV2, type V2Def } from "./v2-model";
 import { FormDesignStep } from "./FormDesignStep";
 import { FlowDesignStep } from "./FlowDesignStep";
@@ -72,6 +73,7 @@ export default function FlowWizardPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "conflict">("idle");
   const [created, setCreated] = useState(false); // 新建首存后置 true（避免重复 create）
+  const [baselineFp, setBaselineFp] = useState<string | null>(null); // O-20-5-4：装载指纹基线（未编辑零请求）
   const saveTimer = useRef<number | null>(null);
   const lastSaved = useRef<string>("");
 
@@ -91,10 +93,14 @@ export default function FlowWizardPage() {
   if (loadKey && loadedKey !== loadKey) {
     setLoadedKey(loadKey);
     if (isNew) {
+      const meta = emptyMeta();
+      const schema: CustomFormSchema = { fields: [] };
+      const def = defaultV2Def();
+      setBaselineFp(JSON.stringify([meta, schema, def, null]));
       setState({
-        meta: emptyMeta(),
-        schema: { fields: [] },
-        def: defaultV2Def(),
+        meta,
+        schema,
+        def,
         formId: null, formRv: 0, flowId: null, flowRv: 0, flowEnabled: false,
         bizBinding: isProject ? "generic_request" : newKind === "biz" ? "generic_request" : "",
         isCustom: !isProject && newKind === "custom",
@@ -103,15 +109,18 @@ export default function FlowWizardPage() {
     } else if (flowData) {
       const custom = flowData.bizBinding.startsWith("custom_form:");
       const def = isV2Def(flowData.definitionJson) ? (flowData.definitionJson as V2Def) : defaultV2Def();
+      const meta = {
+        name: flowData.name,
+        description: formData?.description ?? "",
+        icon: formData?.icon ?? "ClipboardList",
+        groupName: formData?.groupName ?? "通用",
+        visibility: (formData?.visibility as WizardMeta["visibility"]) ?? { mode: "all", roleKeys: [], userIds: [] },
+      };
+      const schema = (formData?.formSchema as CustomFormSchema | undefined) ?? { fields: [] };
+      setBaselineFp(JSON.stringify([meta, schema, def, flowData.id]));
       setState({
-        meta: {
-          name: flowData.name,
-          description: formData?.description ?? "",
-          icon: formData?.icon ?? "ClipboardList",
-          groupName: formData?.groupName ?? "通用",
-          visibility: (formData?.visibility as WizardMeta["visibility"]) ?? { mode: "all", roleKeys: [], userIds: [] },
-        },
-        schema: (formData?.formSchema as CustomFormSchema | undefined) ?? { fields: [] },
+        meta,
+        schema,
         def,
         formId: formData?.id ?? null,
         formRv: formData?.rowVersion ?? 0,
@@ -130,8 +139,36 @@ export default function FlowWizardPage() {
     lastSaved.current = "";
   }, [loadedKey]);
 
+  // O-20-5-9：AI A4 流程草稿预填——新向导挂载消费 sessionStorage 一次（读后即清，含坏数据）
+  const aiDraftConsumed = useRef(false);
+  useEffect(() => {
+    if (!isNew || aiDraftConsumed.current) return;
+    aiDraftConsumed.current = true;
+    const raw = sessionStorage.getItem(AI_FLOW_DRAFT_KEY);
+    if (!raw) return;
+    sessionStorage.removeItem(AI_FLOW_DRAFT_KEY);
+    try {
+      const parsed = JSON.parse(raw) as { definitionJson?: unknown; description?: string };
+      const def = isV2Def(parsed.definitionJson) ? (parsed.definitionJson as V2Def) : null;
+      if (!def) return;
+      const description = parsed.description ?? "";
+      // setState 经微任务异步触发（react-hooks/set-state-in-effect 合规）
+      queueMicrotask(() => {
+        setState((s) => (s ? { ...s, def, meta: { ...s.meta, description: s.meta.description || description } } : s));
+        setStep((v) => (state?.isCustom && !isProject ? Math.max(v, 2) : Math.max(v, 1))); // 直达流程设计步
+      });
+      toast.success("已载入 AI 流程草稿", { description: description || "已预填流程设计步，请校验后保存/发布。" });
+    } catch {
+      /* 坏数据静默忽略 */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载消费一次
+  }, [isNew]);
+
   const steps = state?.isCustom && !isProject ? ["基础信息", "表单设计", "流程设计", "更多设置"] : ["基础信息", "流程设计", "更多设置"];
-  const stepIndex = state?.isCustom && !isProject ? step : step >= 1 ? step + 1 : step; // 三步态跳过表单设计
+  // O-20-5-5：stepIndex 与步骤条/渲染条件同一口径（四步态 slot 1=表单设计；三步态无表单设计步）
+  const stepIndex = step;
+  const flowDesignIndex = state?.isCustom && !isProject ? 2 : 1;
+  const settingsIndex = state?.isCustom && !isProject ? 3 : 2;
 
   const patch = useCallback((p: Partial<WizardState>) => {
     setState((s) => (s ? { ...s, ...p } : s));
@@ -237,11 +274,12 @@ export default function FlowWizardPage() {
     }
   };
 
-  /** 自动保存（防抖 800ms；指纹去重；rowVersion 往返；409 提示刷新） */
+  /** 自动保存（防抖 800ms；指纹基线门控=未编辑零请求（O-20-5-4）；rowVersion 往返；409 提示刷新） */
   useEffect(() => {
     if (!state) return;
     const fingerprint = JSON.stringify([state.meta, state.schema, state.def, state.flowId]);
     if (fingerprint === lastSaved.current) return;
+    if (baselineFp !== null && fingerprint === baselineFp) return; // 未经编辑（或改回初始值）不触发保存
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
       void saveNow();
@@ -250,7 +288,7 @@ export default function FlowWizardPage() {
       if (saveTimer.current) window.clearTimeout(saveTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 指纹驱动防抖保存
-  }, [state, created]);
+  }, [state, created, baselineFp]);
 
   if (!state || (isNew === false && flowQuery.isPending) || (isNew === false && !state.flowId)) {
     return <p className="list-note">正在加载流程…</p>;
@@ -323,7 +361,7 @@ export default function FlowWizardPage() {
       {stepIndex === 1 && state.isCustom && !isProject ? (
         <FormDesignStep schema={state.schema} onChange={(schema) => patch({ schema })} />
       ) : null}
-      {stepIndex === (state.isCustom && !isProject ? 2 : 1) ? (
+      {stepIndex === flowDesignIndex ? (
         <FlowDesignStep
           def={state.def}
           bizBinding={state.bizBinding}
@@ -332,7 +370,7 @@ export default function FlowWizardPage() {
           onChange={(def) => patch({ def })}
         />
       ) : null}
-      {stepIndex === (state.isCustom && !isProject ? 3 : 2) ? (
+      {stepIndex === settingsIndex ? (
         <SettingsStep state={state} patch={patch} />
       ) : null}
 

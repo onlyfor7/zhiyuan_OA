@@ -10,15 +10,18 @@ export function UserPicker({
   value,
   onChange,
   placeholder = "搜索姓名、邮箱或部门",
+  /** O-20-5-1：initiator_choice scope=users 时限定可选成员 */
+  restrictToIds,
 }: {
   value: string;
   onChange: (userId: string) => void;
   placeholder?: string;
+  restrictToIds?: string[];
 }) {
   const [keyword, setKeyword] = useState("");
   const users = useUserList(keyword);
-  const items = users.data?.items ?? [];
-  const selected = items.find((u) => u.id === value);
+  const items = (users.data?.items ?? []).filter((u) => !restrictToIds || restrictToIds.includes(u.id));
+  const selected = items.find((u) => u.id === value) ?? (users.data?.items ?? []).find((u) => u.id === value);
 
   return (
     <div className="user-picker">

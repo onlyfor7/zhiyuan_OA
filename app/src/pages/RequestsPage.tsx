@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { BackButton } from "../components/feedback";
 import { HelpIcon } from "../components/HelpIcon";
 import { Link, useParams } from "react-router";
@@ -6,11 +6,14 @@ import { ArrowRight, ChevronRight, Plus } from "lucide-react";
 
 import { useApproval } from "../api/approval";
 import { useRequest, useRequestList, useRequestMutations, useRequestTypes } from "../api/generic-request";
-import { useFormPublicList } from "../api/forms";
+import { useForm, useFormPublicList } from "../api/forms";
+import { useFlow } from "../api/flow";
+import { findInitiatorChoice } from "./flows/v2-model";
 import type { CustomFormSchema } from "@lexflow/shared";
 import { FormFieldControl, FormReadonlyView, type FormPayload } from "./flows/form-render";
 import { useMe } from "../api/auth";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
+import { fieldErrorsOf } from "../lib/trpc";
 import { ListSkeleton } from "../components/feedback";
 import { toast } from "sonner";
 import "../lib/form";
@@ -286,6 +289,19 @@ export function RequestDetailPage() {
   const typeLabel = (key: string) => types.data?.items.find((i) => i.key === key)?.label ?? key;
   const [chosenApproverId, setChosenApproverId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // O-20-5-1：提交网关自选审批人门控——CF 经 表单→绑定流定义解析；读不到（member/非 CF）由服务端 fieldErrors 揭示
+  const cfFormId = (request.data as { formId?: string | null } | undefined)?.formId ?? null;
+  const formQ = useForm(cfFormId);
+  const flowQ = useFlow(formQ.data?.flowId ?? null);
+  const [serverNeedsChoice, setServerNeedsChoice] = useState(false);
+  const [choiceFieldErr, setChoiceFieldErr] = useState<string | null>(null);
+  const choiceReq = useMemo(() => {
+    if (!cfFormId || !flowQ.data) return null; // null=不可解析（unknown，服务端兜底）
+    return findInitiatorChoice(flowQ.data.definitionJson);
+  }, [cfFormId, flowQ.data]);
+  const choiceRequired = serverNeedsChoice || choiceReq?.present === true;
+  const choiceVisible = choiceRequired || choiceReq === null;
+  const restrictIds = choiceReq?.present === true && choiceReq.scope?.mode === "users" ? choiceReq.scope.userIds : undefined;
 
   if (request.isPending) return <p className="list-note">正在加载申请单…</p>;
   if (request.isError) throw request.error;
@@ -327,10 +343,11 @@ export function RequestDetailPage() {
           >
             {STATUS_LABEL[r.status]}
           </span>
-          {r.status === "draft" ? (
+          {r.status === "draft" && choiceVisible ? (
             <div className="form-field" style={{ minWidth: 240, margin: 0 }}>
-              <span>选择审批人 *（流程含发起人指定节点时必选）</span>
-              <UserPicker value={chosenApproverId} onChange={setChosenApproverId} placeholder="搜索并选择审批人" />
+              <span>{choiceRequired ? "选择审批人 *（本流程要求发起人指定）" : "选择审批人（如流程要求指定审批人，不选将无法提交）"}</span>
+              <UserPicker value={chosenApproverId} onChange={(v) => { setChosenApproverId(v); setChoiceFieldErr(null); }} placeholder="搜索并选择审批人" restrictToIds={restrictIds} />
+              {choiceFieldErr ? <em className="ux-err">{choiceFieldErr}</em> : null}
             </div>
           ) : null}
           {r.status === "draft" ? (
@@ -339,15 +356,23 @@ export function RequestDetailPage() {
               disabled={mutations.submit.isPending}
               onClick={() => {
                 setError(null);
-                if (!chosenApproverId) {
-                  setError("请选择审批人：当前流程包含「发起人指定审批人」节点。");
+                setChoiceFieldErr(null);
+                if (choiceRequired && !chosenApproverId) {
+                  setChoiceFieldErr("请选择审批人：当前流程包含「发起人指定审批人」节点。");
                   return;
                 }
                 mutations.submit.mutate(
-                  { id: r.id, rowVersion: r.rowVersion, idempotencyKey: newIdempotencyKey(), chosenApproverId },
+                  { id: r.id, rowVersion: r.rowVersion, idempotencyKey: newIdempotencyKey(), ...(chosenApproverId ? { chosenApproverId } : {}) },
                   {
                     onSuccess: () => toast.success("申请单已提交，进入审批流程"),
                     onError: (err) => {
+                      const fe = fieldErrorsOf(err);
+                      if (fe?.chosenApproverId) {
+                        // O-20-5-1：定义不可读时由服务端揭示选人要求（member 视角 initiator_choice 流）
+                        setServerNeedsChoice(true);
+                        setChoiceFieldErr(fe.chosenApproverId[0] ?? "请选择审批人");
+                        return;
+                      }
                       setError(rootErrorMessage(err));
                       toast.error("提交失败", { description: rootErrorMessage(err) });
                     },
