@@ -5,7 +5,7 @@
 
 ## 当前迭代
 
-**迭代 20 · 审批流飞书化重构**（**20-02b 后端修棒已发布**——20-03 前端棒验收通过（四步向导/竖向设计器/表单运行时，探针 26/26 采信+根 345 复跑全绿）；G3/G4/G5 三服务端缺陷已裁定发修：后端会话认领 `docs/work-orders/迭代20/02b-后端会话-G3G4G5修复.md`）
+**迭代 20 · 审批流飞书化重构**（**20-03b 前端棒已发布**——20-02b 验收通过（G3/G4/G5 全修，根 348 复跑全绿，member 自提全链实弹终审 cc 到达）；前端会话认领 `docs/work-orders/迭代20/03b-前端会话-G3降级移除与复证.md`）
 
 **迭代 19 · 外测 HTTP 兼容修复**（**已收口** 2026-11-14——19-01/19-02/19-03 全部通过；普通 Chrome 无 flag 七入口零崩溃复验全绿，D-MAN-4 关闭，根 337 全绿）
 
@@ -137,8 +137,8 @@
 | 20-01 数据模型与 v1→v2 迁移 | 数据 | **通过** | 数据会话 | 2026-11-15 | 架构复核：边界干净（db/shared/tests）；迁移函数三色斑点/汇合点检测成立；回执 71/71/0/71+二次零变更架构复跑实证；根 307 复跑全绿；§6.3 裁定并入 20-02（D-20-1-1） |
 | 20-02 编译器 v2 与引擎扩展+自定义表单服务端 | 后端 | **通过** | 后端会话 | 2026-11-16 | 架构复核：编译器 v2 读码成立（分支第一命中/else/嵌套限制/cc 不产步骤/链逐级展开）；引擎红线机制（默认剔除本人+空 403、self 显式豁免）读码+用例钉住；typecheck/build/migrate/根 345 复跑全绿；G-20-2-1/2 裁定关闭并修订 arch/14 |
 | 20-03 四步向导与竖向设计器前端 | 前端 | **通过** | 前端会话 | 2026-11-17 | 架构复核：边界干净（仅 app/）；竖向设计器/条件分支列/节点抽屉/表单设计器/后台分组/审批中心退回与 hidden 过滤截图逐项采信；发布竞态 saveNow 修复采信；typecheck/build/migrate/根 345 复跑全绿；G3/G4/G5 裁定服务端缺口发 02b 修 |
-| 20-02b G3/G4/G5 服务端三缺陷修复 | 后端 | **已发布** | 待认领 | 2026-11-17 | `docs/work-orders/迭代20/02b-后端会话-G3G4G5修复.md`：getById visibility 放行+listPublic 携 schema/退回重挂/末端 cc 终审触发 |
-| 20-03b G3 降级移除与走查复证 | 前端 | 未认领 | | | 待 20-02b 通过 |
+| 20-02b G3/G4/G5 服务端三缺陷修复 | 后端 | **通过** | 后端会话 | 2026-11-17 | 架构复核：G3 放行口径（published+visibility 命中同形 404）/G4 重挂（[returned] 重置 pending+rearmedSeqs 豁免 dedupe+approval.rearm 审计）/G5 末端 cc 终态触发读码成立；根 348 复跑全绿；member 自提全链实弹采信 |
+| 20-03b G3 降级移除与走查复证 | 前端 | **已发布** | 待认领 | 2026-11-17 | `docs/work-orders/迭代20/03b-前端会话-G3降级移除与复证.md`：发起/详情按 schema 渲染+快照 label 映射+member 自提全链复证 |
 | 20-04 外测发布 | 部署 | 未认领 | | | 待 20-03b 通过 |
 | 20-05 验收与两册手册同步 | 测试 | 未认领 | | | 待 20-04 通过 |
 
@@ -414,9 +414,9 @@
 
 | 日期 | 会话 | 事项 | 架构裁定 | 状态 |
 |---|---|---|---|---|
-| 2026-11-17 | 前端→架构 | **20-03-G3**：`forms.listPublic`/`forms.getById` 对非管理角色不给 form_schema（listPublic 仅元数据；getById 非 forms 管理员不可读）→ member 发起/详情无法渲染自定义表单字段，前端已降级为提示+原始键值（管理角色全渲染正常，走查 B2 实证） | **裁定：真实后端缺口**（arch/14 §4.3 意图=发起方按 visibility 渲染须可读 schema）；发 20-02b 修（getById 按 visibility 放行只读+listPublic 携 schema+详情带 label 数据），20-03b 前端去降级 | 修复中（02b） |
-| 2026-11-17 | 前端→架构 | **20-03-G4**：引擎 return prev 再到达语义——退回步被置 `skipped`+`[returned]` 留痕，上一步再批准后流程**直接终审**（returned 步不重挂，退回发起步被永久旁路）。实测 APR-2026-00284：seq2 `[returned]` 后 seq1 再批准 → instance approved；arch/14 §7「引擎=步骤指针回拨」语义下，再到达 returned 步应重新 pending 待其重审 | **裁定：引擎语义缺陷**（§7「指针回拨」意图=再到达 returned 步应重 pending 重审，现被永久旁路）；发 20-02b 修（前进重挂+dedupe 不误跳+用例钉住） | 修复中（02b） |
-| 2026-11-17 | 前端→架构 | **20-03-G5**：cc 触发时点——`postAdvanceV2` 以「stepMeta ≤ nextPending.seq 计数 ≥ afterStepIndex」判定，**到达第 N 步即触发**而非「第 N 步通过后」；末端抄送（afterStepIndex=总步数）在末步被到达时即发出（走查实测第 1 步通过后抄送已发），终审补发被 ccFired 守卫挡住 | **裁定：cc 时点缺陷**（§8 末端抄送=实例终审通过后触发，现末步到达即误发且终审补发被守卫挡）；发 20-02b 修（末端 cc 严格终态触发，中段维持到步触发） | 修复中（02b） |
+| 2026-11-17 | 前端→架构 | **20-03-G3**：`forms.listPublic`/`forms.getById` 对非管理角色不给 form_schema（listPublic 仅元数据；getById 非 forms 管理员不可读）→ member 发起/详情无法渲染自定义表单字段，前端已降级为提示+原始键值（管理角色全渲染正常，走查 B2 实证） | **裁定：真实后端缺口**（arch/14 §4.3 意图=发起方按 visibility 渲染须可读 schema）；发 20-02b 修（getById 按 visibility 放行只读+listPublic 携 schema+详情带 label 数据），20-03b 前端去降级 | **已修复**（02b 验收通过） |
+| 2026-11-17 | 前端→架构 | **20-03-G4**：引擎 return prev 再到达语义——退回步被置 `skipped`+`[returned]` 留痕，上一步再批准后流程**直接终审**（returned 步不重挂，退回发起步被永久旁路）。实测 APR-2026-00284：seq2 `[returned]` 后 seq1 再批准 → instance approved；arch/14 §7「引擎=步骤指针回拨」语义下，再到达 returned 步应重新 pending 待其重审 | **裁定：引擎语义缺陷**（§7「指针回拨」意图=再到达 returned 步应重 pending 重审，现被永久旁路）；发 20-02b 修（前进重挂+dedupe 不误跳+用例钉住） | **已修复**（02b 验收通过） |
+| 2026-11-17 | 前端→架构 | **20-03-G5**：cc 触发时点——`postAdvanceV2` 以「stepMeta ≤ nextPending.seq 计数 ≥ afterStepIndex」判定，**到达第 N 步即触发**而非「第 N 步通过后」；末端抄送（afterStepIndex=总步数）在末步被到达时即发出（走查实测第 1 步通过后抄送已发），终审补发被 ccFired 守卫挡住 | **裁定：cc 时点缺陷**（§8 末端抄送=实例终审通过后触发，现末步到达即误发且终审补发被守卫挡）；发 20-02b 修（末端 cc 严格终态触发，中段维持到步触发） | **已修复**（02b 验收通过） |
 | 2026-11-16 | 后端→架构 | **G-20-2-1**：arch/14 §6 假定 `org_units.leader_id` 18-01 已就位，实测无此列——dept_head/to_dept_head 无存储 | **裁定：接受**（0017 追加式迁移合规，归属后端棒无碍；基线假定错误责任在架构，arch/14 §6 已修订标注 0017 落地） | **已关闭** |
 | 2026-11-16 | 后端→架构 | **G-20-2-2**：sameAsInitiator=skip 对「全候选人=提交人本人」的独步场景——按 arch/14 字面「自动跳过」则与 arch/03 自审禁止红线（既有冻结用例 自审拦截/B6 期望 403）冲突 | **裁定：接受红线优先实现**（默认/skip=剔除本人、空则 403；self=显式配置豁免红线；arch/14 §6 已修订为精确语义） | **已关闭** |
 | 2026-11-13 | 后端→架构 | **18-02 users rowVersion 缺口**：users 表无 row_version，受控纠正员工对象无法提交客户端 rowVersion；后端按服务端 before 快照 updated_at 内部乐观校验落地 | **裁定接受方案 ②**：管理域无 row_version 属既有 9b 留痕，当前快照校验+理由+全快照审计合规；若未来需客户端令牌另行评估 | **已关闭** |
@@ -473,6 +473,10 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-17｜架构｜迭代20-02b通过·20-03b发布｜**20-02b 后端修棒验收通过，20-03b 前端棒发布（当前唯一可执行任务）。** 复核：边界干净（6 文件仅 server/tests）；G3=getById 非管理放行（published+visibility 命中、同一判定函数禁两套、未命中同形 404）+listPublic 携 schema+policyExtras 快照（三处详情输出附）；G4=前进选下一序位含 [returned] 跳过步→重置 pending（actedBy/comment/actedAt 清空+approval.rearm 审计）+rearmedSeqs 记账使 dedupe once 豁免、该步获批后解除豁免——读码成立，旧「旁路终审」断言随修复翻转（如实注明非弱化）；G5=末端 cc 改 fireTerminalCcV2 仅 approved 终态触发（接 act 终审与 autoCascade 终审），reject 全程无 cc，中段到步语义不变。架构复跑四道门全绿：typecheck/build/db:migrate/根 **348/348**（server 314+app 34）。dev 实弹采信：member 自提全链（getById 200+schema→提交→一审过→退回→rearm_audit=1→再审 inst=approved→terminal_cc=1）。**20-03b**：去 G3 降级+快照 label 映射+member 自提全链复证，通过后解锁 20-04 部署。
+
+- 2026-11-17｜后端｜迭代20-02b｜**工单 02b（20-03-G3/G4/G5 服务端三缺陷）完成，转「待验收」。** ① **G3**（arch/14 §4.3 意图）：`forms.getById` 非管理角色放行只读——限 published 且命中 visibility（内联同一判定口径，禁两套），draft/disabled/未命中同形 404；`forms.listPublic` 对命中者携 `formSchema+formVersion`（发起入口一次取齐）；**提交时 formSchema 经 `policyExtras` 快照入 policySnapshot**（版本对应）——approval.getById/approval.detail/genericRequest.getById 三处输出附 formSchema（key→label 渲染数据；草稿单据无实例时回退取当前结构）。② **G4**（§7 指针回拨）：act 前进改为「下一序位 = pending 或 [returned] 跳过步」——后者**重挂为 pending**（actedBy/comment/actedAt 清空，审计 approval.rearm 留痕），重挂 seq 记 policySnapshot.rearmedSeqs 使 **dedupe once 豁免**（退回重审属新审批行为），重挂步获批后解除豁免；return initiator 路径不受影响。**排障**：[returned] 判定 left(comment,N) 初版 N=9（按 8 字母数错），实测 '[returned]' 含方括号 **10 字符**——LIKE 字符类陷阱改用 left() 后又栽长度，按实测修正；旧 20-02 用例「退回后旁路终审 approved」即 G4 缺陷本体的钉现状断言，**随修复翻转为重挂语义**（该用例末段按新语义更新：重挂 pending→再审→approved，非弱化）。③ **G5**（§8 结束抄送）：postAdvance 只发中段 cc（afterStepIndex<总步数，到步语义不变）；**末端 cc（≥总步数）仅在 approved 终态触发**——act 终审块与 autoCascade 终审均接 fireTerminalCcV2，auto_reject/人工 reject 全程无 cc（拒绝路径用例实证）。**测试**：iter20-02b.test.ts 3 用例（G3 四探针+三详情携 schema；G4 批准路径重挂+拒绝路径 rejected+rearm 审计；G5 pending 不发/批准后发/拒绝全程无/中段 cc 不变）+ iter20-02 旧用例 1 处随缺陷修复翻转。**质量门逐条真实执行**：typecheck✓/build✓/db:migrate✓/server **314=311+3**/根 test **348=314+34**（≥345 达标）。**dev 实弹**（:3001 已重启）：member 自提全链——G3 getById 200+listPublic 携 schema→提交→一审过→二审 return prev→一审再过（**rearm_audit=1**）→二审再审→**inst=approved/step2=approved**→**terminal_cc=1**（终审后到达）。**遗留**：无新增。交 20-03b 前端：去 G3 降级+快照 label 映射+走查复证。
 
 - 2026-11-17｜架构｜迭代20-03通过·20-02b发布｜**20-03 前端棒验收通过；G3/G4/G5 三偏差均裁定为真实服务端缺口，发布 20-02b 后端修棒（当前唯一可执行任务），后续 20-03b 前端去降级已备单。** 复核：边界干净（17 文件仅 app/）；截图逐项采信——表单设计步（11 控件库+手机式画布+属性抽屉，飞书 image8/9 同构）、竖向流程设计（提交/审批/条件分支横列 else 恒最后/支内节点/＋分支/抄送卡，卡间＋插入）、节点抽屉（9+1 审批人策略+ops+fieldPerms 矩阵含 edit 置灰 P2）、审批中心（退回钮+hidden 字段不进快照实证+cc 只读）、375px 零溢出；发布竞态 409 静默失败 saveNow 重构采信；typecheck/build/db:migrate/根 345 复跑全绿（server 311+app 34）。**裁定**：G3=getById 按 visibility 放行只读+listPublic 携 schema（§4.3 意图）；G4=退回重挂（§7 指针回拨本意，returned 步再到达重 pending，dedupe 不误跳）；G5=末端 cc 严格终审触发（§8 结束时抄送，中段维持到步触发）。**20-03b**（备单待解锁）：去 G3 降级+快照区 label 映射+member 自提全链复证。
 
