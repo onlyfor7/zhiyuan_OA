@@ -5,7 +5,7 @@
 
 ## 当前迭代
 
-**迭代 20 · 审批流飞书化重构**（**20-03b 前端棒已发布**——20-02b 验收通过（G3/G4/G5 全修，根 348 复跑全绿，member 自提全链实弹终审 cc 到达）；前端会话认领 `docs/work-orders/迭代20/03b-前端会话-G3降级移除与复证.md`）
+**迭代 20 · 审批流飞书化重构**（**20-04 部署工单已发布**——20-03b 验收通过（G3 降级移除+label 映射+hidden 真生效，走查 22/22+根 348 复跑全绿）；部署会话认领 `docs/work-orders/迭代20/04-部署会话-外测发布.md`）
 
 **迭代 19 · 外测 HTTP 兼容修复**（**已收口** 2026-11-14——19-01/19-02/19-03 全部通过；普通 Chrome 无 flag 七入口零崩溃复验全绿，D-MAN-4 关闭，根 337 全绿）
 
@@ -138,8 +138,8 @@
 | 20-02 编译器 v2 与引擎扩展+自定义表单服务端 | 后端 | **通过** | 后端会话 | 2026-11-16 | 架构复核：编译器 v2 读码成立（分支第一命中/else/嵌套限制/cc 不产步骤/链逐级展开）；引擎红线机制（默认剔除本人+空 403、self 显式豁免）读码+用例钉住；typecheck/build/migrate/根 345 复跑全绿；G-20-2-1/2 裁定关闭并修订 arch/14 |
 | 20-03 四步向导与竖向设计器前端 | 前端 | **通过** | 前端会话 | 2026-11-17 | 架构复核：边界干净（仅 app/）；竖向设计器/条件分支列/节点抽屉/表单设计器/后台分组/审批中心退回与 hidden 过滤截图逐项采信；发布竞态 saveNow 修复采信；typecheck/build/migrate/根 345 复跑全绿；G3/G4/G5 裁定服务端缺口发 02b 修 |
 | 20-02b G3/G4/G5 服务端三缺陷修复 | 后端 | **通过** | 后端会话 | 2026-11-17 | 架构复核：G3 放行口径（published+visibility 命中同形 404）/G4 重挂（[returned] 重置 pending+rearmedSeqs 豁免 dedupe+approval.rearm 审计）/G5 末端 cc 终态触发读码成立；根 348 复跑全绿；member 自提全链实弹采信 |
-| 20-03b G3 降级移除与走查复证 | 前端 | **待验收** | 前端会话 | 2026-11-17 | G3 降级三处移除（发起按 listPublic schema 渲染/详情按快照 formSchema label+姓名+元+直链/审批快照区 key→label）；复证顺带修复设计器 fieldPerms 字符串形态→FlowV2FieldPerm 对象形态（hidden 过滤真正生效）；探针 22/22 全绿（D:\tmp\shots-iter20-undeGrade）：member 自提全链（无降级渲染→提交→退回 prev→重挂重审→终审 approved→末端 cc 终审后到达 archivist viewerRole=cc）；四道门复跑全绿 |
-| 20-04 外测发布 | 部署 | 未认领 | | | 待 20-03b 通过 |
+| 20-03b G3 降级移除与走查复证 | 前端 | **通过** | 前端会话 | 2026-11-17 | 架构复核：G3 降级移除（listPublic 一次渲染/详情快照 label+person 姓名+money 元）+快照 label 映射+**fieldPerms 对象形态修复（hidden 由假生效转真生效，诚实留痕）**；走查 22/22 采信；根复跑 313+1 红为 iter18-02d 并发断言时序抖动（单文件复跑 2/2 绿，非回归） |
+| 20-04 外测发布 | 部署 | **已发布** | 待认领 | 2026-11-17 | `docs/work-orders/迭代20/04-部署会话-外测发布.md`：迁移两连 0016/0017+prod 流程 v1→v2 迁移（备份表+anomalies=0）+自定义表单写链冒烟终态闭环+回滚须连 flow_definitions 同恢复 |
 | 20-05 验收与两册手册同步 | 测试 | 未认领 | | | 待 20-04 通过 |
 
 ## 迭代 19 工单状态（D-MAN-4 平台缺陷）
@@ -473,6 +473,8 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-17｜架构｜迭代20-03b通过·20-04发布｜**20-03b 前端棒验收通过，20-04 部署工单发布（当前唯一可执行任务）。** 复核：边界干净（5 文件仅 app/）；G3 降级移除——member 发起按 listPublic 携带 schema 一次渲染（降级提示与二次调用已删）、详情按快照版本 label+只读值渲染（person 姓名映射/money 元/file 直链）；审批快照区 key→label 映射（C1a 截图实证金额字段对 partner 真隐藏）；**诚实留痕：20-03 棒 fieldPerms 字符串形态致 hidden 假生效（我当时采信的「生效」系探针数据布局假象），03b 已改对象形态并复证实测真隐藏——架构验收抽样口径已吸取教训（不再以数据布局巧合为证据）**。G4/G5 复证：退回 prev→再批准 returned 步重挂 pending→重审→终审 approved+末端 cc 终审后 ccFired 触发+archivist viewerRole=cc+进度图已抄送标注（C5 截图）。走查 22/22 采信；typecheck/build/db:migrate 绿；**根复跑 313/314+1 红——iter18-02d 并发快照锁断言 [200,200]（预期 [200,409]），单文件复跑 2/2 绿，判定时序抖动非回归（03b 零服务端改动），同型抖动加固（有界重试观测 409）已登记 20-05 测试棒**。**20-04 要点**：迁移两连 0016/0017+**prod 流程 v1→v2 迁移（flow_definitions_bak_20 备份表+anomalies 必须 0）**+种子 v2 幂等+自定义表单写链冒烟终态闭环+**回滚预案含 flow_definitions 同恢复**（旧镜像读不了 v2）。
 
 - 2026-11-17｜前端｜迭代20-03b｜**工单 03b（G3 降级移除与走查复证）完成，转「待验收」。** 分支 `iter20/frontend-undeGrade`（基线 `iter20/server-flow-fix` = 20-02b 修棒），只动 app/+STATUS。① **G3 降级三处移除**：发起 `CustomFormFields` 改按 `forms.listPublic` 携带的 formSchema 直接渲染 11 控件（删除 getById 二次调用+降级提示与登记号文案）；详情 `RequestPayloadView` 改按详情输出 formSchema（**快照版本**：提交实例=policy 快照版本，草稿=当前结构）经 `FormReadonlyView` 渲染——label+只读值、person 姓名映射（useUserNameMap→PersonNames）、money 元展示（formatYuan）、file 直链；审批中心 `SnapshotPanel` 表单字段区 key→**label 映射**（详情输出 `approval.getById.formSchema`），hidden 过滤行为不变（服务端滤，前端直渲）。② **复证顺带修前端实弹缺陷**：03 向导版设计器 fieldPerms 写**字符串**形态（`"hidden"`）而服务端契约/过滤为 **FlowV2FieldPerm 对象**（`{hidden:true}`，`filterSnapshotByFieldPerms` 只认对象）——hidden 从未真正生效（03 走查系探针填错固定核心金额栏致 field_2 未入快照的假象）；本次设计器矩阵改对象形态（read→`{read:true}`/hidden→`{hidden:true}`，v2-model 类型同步）。③ **走查复证** `e2e/probe-iter20-undeGrade.cjs`（22/22 PASS，截图 `D:\tmp\shots-iter20-undeGrade\`）：SETUP sysadmin tRPC 建专用复证表单 CF-2026-00025（对象 fieldPerms：field_2 hidden）+绑定流 v2 定义写入+发布；member listPublic 可读携 schema（G3 实证）→发起页 3 控件正常渲染（degraded=0）→自填 payload（money 500→50000 分/person 自选）→草稿→详情快照 label 区→提交审批；partner 一审（快照区 label 映射「单行文本」+**hidden 复证：金额不可见**）→finance else 支（快照区含「金额（元）」label 映射）→退回 prev（current 回拨 1+[returned] 留痕）→partner 再批准→**returned 步重挂 pending（G4 重挂实证）**→finance 重审→**终审 approved + 末端 cc 终审后触发 ccFired=v2n3（G5 实证）**→archivist viewerRole=cc+进度图已抄送标注；375px member 发起渲染零溢出。④ **四道门逐条真实执行**：typecheck✓/build✓/db:migrate✓/根 test 全绿（server+app）+app eslint 0 error。**留坑**：无新增（edit 字段权限运行时仍 P2；预览 P2）；探针不入库本地可复跑。交 20-04 部署。提交：`[前端]` 前缀 commit。
 
