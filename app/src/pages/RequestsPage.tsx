@@ -6,6 +6,9 @@ import { ArrowRight, ChevronRight, Plus } from "lucide-react";
 
 import { useApproval } from "../api/approval";
 import { useRequest, useRequestList, useRequestMutations, useRequestTypes } from "../api/generic-request";
+import { useForm, useFormPublicList } from "../api/forms";
+import type { FormFieldDef } from "@lexflow/shared";
+import { FormFieldControl, FormReadonlyView, type FormPayload } from "./flows/form-render";
 import { useMe } from "../api/auth";
 import { newIdempotencyKey, rootErrorMessage } from "../lib/form";
 import { ListSkeleton } from "../components/feedback";
@@ -13,6 +16,7 @@ import { toast } from "sonner";
 import "../lib/form";
 import { formatYuan } from "../api/reference";
 import { FlowProgressGraph } from "../components/FlowProgressGraph";
+import { stepFlagsFrom } from "../lib/flow-step-flags";
 import { FormDialog } from "../components/FormDialog";
 import { UserPicker } from "../components/UserPicker";
 
@@ -130,13 +134,16 @@ function RequestCreateForm({ onDone }: { onDone: () => void }) {
   const mutations = useRequestMutations();
   const types = useRequestTypes();
   const typeItems = types.data?.items ?? [];
+  const publicForms = useFormPublicList();
   const [requestType, setRequestType] = useState("leave");
+  const [payload, setPayload] = useState<FormPayload>({});
   const [title, setTitle] = useState("");
   const [reason, setReason] = useState("");
   const [startOn, setStartOn] = useState("");
   const [endOn, setEndOn] = useState("");
   const [amountYuan, setAmountYuan] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const isCfType = requestType.startsWith("CF-");
 
   return (
     <div className="grant-apply-form">
@@ -152,12 +159,19 @@ function RequestCreateForm({ onDone }: { onDone: () => void }) {
       <div className="owner-line">
         <label className="form-field">
           <span>申请类型 *</span>
-          <select value={requestType} onChange={(e) => setRequestType(e.target.value)}>
+          <select value={requestType} onChange={(e) => { setRequestType(e.target.value); setPayload({}); }}>
             {typeItems.map((i) => (
               <option key={i.key} value={i.key}>
                 {i.label}
               </option>
             ))}
+            {(publicForms.data ?? []).length > 0 ? (
+              <optgroup label="自定义审批">
+                {(publicForms.data ?? []).map((f) => (
+                  <option key={f.code} value={f.code}>{f.name}</option>
+                ))}
+              </optgroup>
+            ) : null}
           </select>
         </label>
         <label className="form-field span-2">
@@ -183,6 +197,7 @@ function RequestCreateForm({ onDone }: { onDone: () => void }) {
           <input type="number" min="0" step="0.01" value={amountYuan} onChange={(e) => setAmountYuan(e.target.value)} />
         </label>
       </div>
+      {isCfType ? <CustomFormFields requestType={requestType} payload={payload} onChange={setPayload} /> : null}
       {error ? (
         <p className="form-error" role="alert">
           {error}
@@ -205,7 +220,8 @@ function RequestCreateForm({ onDone }: { onDone: () => void }) {
                 reason: reason.trim(),
                 startOn: startOn || undefined,
                 endOn: endOn || undefined,
-                amountCents: amountCents && amountCents > 0 ? amountCents : null,
+                amountCents: isCfType ? null : amountCents && amountCents > 0 ? amountCents : null,
+                ...(isCfType ? { payload } : {}),
               },
               {
                 onSuccess: onDone,
@@ -218,6 +234,60 @@ function RequestCreateForm({ onDone }: { onDone: () => void }) {
           <ArrowRight size={15} />
         </button>
       </div>
+    </div>
+  );
+}
+
+/** 详情：自定义表单 payload 按 form_schema（快照 form_version）只读渲染（20-03-G3：schema 经 getById 读取，非管理角色降级原始键值） */
+function RequestPayloadView({ formId, payload }: { formId: string | null; payload: FormPayload }) {
+  const form = useForm(formId);
+  const schema = (form.data?.formSchema as { fields?: FormFieldDef[] } | null)?.fields ?? null;
+  if (!schema) {
+    return (
+      <div className="context-note" style={{ marginTop: 8 }}>
+        自定义表单字段（快照）：
+        {Object.entries(payload).map(([k, v]) => `${k}=${typeof v === "object" ? JSON.stringify(v) : String(v)}`).join("；")}
+        （表单定义读取受限，接口缺口登记 20-03-G3）
+      </div>
+    );
+  }
+  return (
+    <section style={{ marginTop: 10 }}>
+      <span className="section-label">表单内容（快照 v{(form.data as { formVersion?: number } | undefined)?.formVersion ?? "—"}）</span>
+      <FormReadonlyView fields={schema} payload={payload} />
+    </section>
+  );
+}
+
+/** 自定义表单项渲染（发起）：schema 经 forms.getById 读取（G3 缺口：member 无 schema 时降级提示） */
+function CustomFormFields({ requestType, payload, onChange }: { requestType: string; payload: FormPayload; onChange: (p: FormPayload) => void }) {
+  const publicForms = useFormPublicList();
+  const meta = (publicForms.data ?? []).find((f) => f.code === requestType);
+  const adminForm = useForm(meta?.id ?? null);
+  const schema = (adminForm.data?.formSchema as { fields?: FormFieldDef[] } | null)?.fields ?? null;
+  if (!meta) return <p className="list-note">表单加载中…</p>;
+  if (!schema) {
+    return (
+      <p className="context-note">
+        「{meta.name}」表单定义读取受限（接口缺口登记 20-03-G3：listPublic 未携带 form_schema，非管理角色不可读）——请联系管理员发布修复后重试。
+      </p>
+    );
+  }
+  return (
+    <div className="fw-ro-form" style={{ marginTop: 8 }}>
+      {schema.map((f) => (
+        <label key={f.key} className="form-field">
+          <span>{f.label}{f.required ? " *" : ""}</span>
+          <FormFieldControl
+            field={f}
+            value={payload[f.key]}
+            payload={payload}
+            editable
+            readonly={false}
+            onChange={(v) => onChange({ ...payload, [f.key]: v })}
+          />
+        </label>
+      ))}
     </div>
   );
 }
@@ -248,6 +318,9 @@ export function RequestDetailPage() {
             <ChevronRight size={13} />
             <span>{r.code}</span>
           </div>
+      {r.requestType.startsWith("CF-") && r.payload ? (
+        <RequestPayloadView formId={(r as { formId?: string | null }).formId ?? null} payload={r.payload as FormPayload} />
+      ) : null}
           <h1>
             <span className="badge badge-minutes-pending_confirm">{typeLabel(r.requestType)}</span>{" "}
             {r.title}
@@ -336,7 +409,11 @@ export function RequestDetailPage() {
             APPROVAL PROGRESS · {approval.data.flowProgress.flowName} V{approval.data.flowProgress.flowVersion ?? "—"} · 当前：
             {approval.data.flowProgress.currentNodeLabel ?? "—"}
           </span>
-          <FlowProgressGraph progress={approval.data.flowProgress} />
+          <FlowProgressGraph
+            progress={approval.data.flowProgress}
+            policySnapshot={approval.data.policySnapshot}
+            stepFlags={stepFlagsFrom(approval.data)}
+          />
         </section>
       ) : approval.isPending && r.approvalInstanceId ? (
         <p className="list-note">正在加载审批进度…</p>

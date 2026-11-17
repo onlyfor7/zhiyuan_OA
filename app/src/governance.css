@@ -2480,3 +2480,155 @@ h2, .context-heading h2, .section-heading h2 { font-size: var(--fs-h2); }
 .gantt-ts.done { color: #16a34a; }
 .gantt-ts.overdue { color: #dc2626; }
 .gantt-ts.delayed { color: #d97706; }
+
+
+/* ============================================================
+   迭代20-03：四步向导（FlowWizardPage）+ 竖向流程设计器 + 自定义表单运行时
+   契约：arch/14 §3–§5（飞书式竖向画布/条件分支/抄送/fieldPerms）
+   ============================================================ */
+
+/* —— 整页壳：视口锁定（H1），顶栏 + 步骤条 + 步体 + 底部操作 —— */
+.flow-wizard-screen { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; background: var(--surface); }
+.fw-topbar { display: flex; align-items: center; gap: 14px; padding: 10px 18px; border-bottom: 1px solid var(--line); background: #fff; flex: none; }
+.fw-topbar h1 { font-size: 18px; font-weight: 700; margin: 0; color: var(--ink); white-space: nowrap; }
+.fw-save-state { font-size: 12px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+.fw-save-state.err { color: #dc2626; }
+.fw-steps { flex: 1; min-width: 0; }
+.fw-step-body { flex: 1; min-height: 0; overflow: auto; padding: 18px 22px 28px; }
+.fw-foot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 18px; border-top: 1px solid var(--line); background: #fff; }
+
+/* —— 通用卡片（步骤分区） —— */
+.fw-card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; margin: 0 auto 16px; max-width: 860px; }
+.fw-card > h2 { font-size: 16px; font-weight: 700; margin: 0 0 4px; color: var(--ink); }
+.fw-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 34px 12px; border: 1px dashed var(--line); border-radius: 8px; background: #fafbfd; }
+
+/* —— 步骤一基础信息：提交人范围角色多选 chips —— */
+
+/* —— 步骤二表单设计：左控件库 + 中手机画布 + 右属性 —— */
+.fw-formdesign { display: grid; grid-template-columns: 200px minmax(0, 1fr) 300px; gap: 14px; max-width: 1080px; margin: 0 auto; align-items: start; }
+.fw-palette { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.fw-palette > h3 { font-size: 13px; font-weight: 700; margin: 0 0 2px; color: var(--ink); }
+.fw-palette-item { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 13px; background: #fafbfd; cursor: pointer; text-align: left; transition: border-color 120ms ease-out, background 120ms ease-out; width: 100%; }
+.fw-palette-item:hover { border-color: #2563eb; background: #eff4ff; color: #2563eb; }
+.fw-canvas { min-width: 0; }
+.fw-phone { max-width: 420px; margin: 0 auto; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px 16px 20px; min-height: 420px; box-shadow: 0 6px 20px rgba(15, 23, 42, .06); }
+.fw-phone > h3 { font-size: 14px; font-weight: 700; margin: 0 0 12px; color: var(--ink); }
+.fw-field-card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; cursor: pointer; transition: border-color 120ms ease-out, box-shadow 120ms ease-out; }
+.fw-field-card:hover { border-color: #93b4f5; }
+.fw-field-card.selected { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, .15); }
+.fw-field-head { display: flex; align-items: center; gap: 8px; }
+.fw-field-head strong { font-size: 13px; color: var(--ink); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fw-field-head .req { color: #dc2626; font-style: normal; margin-left: 2px; }
+.fw-field-head .p9a-row-actions { display: flex; gap: 2px; flex: none; opacity: 0; transition: opacity 120ms ease-out; }
+.fw-field-card:hover .fw-field-head .p9a-row-actions, .fw-field-card.selected .fw-field-head .p9a-row-actions, .fw-field-card:focus-within .fw-field-head .p9a-row-actions { opacity: 1; }
+.fw-field-card small { display: block; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.fw-props { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px; position: sticky; top: 0; }
+.fw-props > h3 { font-size: 13px; font-weight: 700; margin: 0 0 10px; color: var(--ink); }
+.fw-props .form-field { margin-bottom: 10px; }
+.fw-props textarea { width: 100%; min-height: 72px; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 13px; resize: vertical; }
+
+/* —— 步骤三流程设计：竖向飞书式画布 —— */
+.fw-flowdesign { height: 100%; min-height: 0; display: flex; }
+.vflow-scroll { flex: 1; min-width: 0; overflow: auto; padding: 20px 24px 60px; }
+.vflow-lane { display: flex; flex-direction: column; align-items: center; min-width: min-content; }
+.vf-card { width: 260px; background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; cursor: pointer; box-shadow: 0 2px 6px rgba(15, 23, 42, .05); transition: box-shadow 120ms ease-out, transform 120ms ease-out; }
+.vf-card:hover { box-shadow: 0 4px 14px rgba(15, 23, 42, .12); transform: translateY(-1px); }
+.vf-bar { height: 4px; }
+.vf-body { padding: 10px 12px; }
+.vf-body strong { display: block; font-size: 13px; color: var(--ink); }
+.vf-body small { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+.vf-body .p9a-row-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 120ms ease-out; }
+.vf-card:hover .vf-body .p9a-row-actions, .vf-card:focus-within .vf-body .p9a-row-actions { opacity: 1; }
+.vf-submit, .vf-end { cursor: default; }
+.vf-submit .vf-body strong { color: #16a34a; }
+.vf-end { opacity: .92; }
+.vf-insert { display: flex; flex-direction: column; align-items: center; padding: 4px 0; position: relative; }
+.vf-insert > button { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line); background: #fff; color: var(--muted); font-size: 13px; line-height: 1; cursor: pointer; padding: 0; transition: all 120ms ease-out; }
+.vf-insert > button:hover { border-color: #2563eb; color: #2563eb; transform: scale(1.12); }
+.vf-insert-menu { position: absolute; top: 26px; z-index: 30; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(15, 23, 42, .16); padding: 6px; display: flex; flex-direction: column; min-width: 132px; }
+.vf-insert-menu button { border: 0; background: transparent; text-align: left; padding: 7px 10px; font-size: 13px; border-radius: 6px; cursor: pointer; color: var(--ink); }
+.vf-insert-menu button:hover { background: #eff4ff; color: #2563eb; }
+.vf-insert-menu button:disabled { color: var(--line); cursor: not-allowed; background: transparent; }
+
+/* 条件分支：横向列，列内递归竖排 */
+.vf-branches { display: flex; align-items: stretch; gap: 12px; padding: 12px; border: 1px dashed #c7bfe8; border-radius: 10px; background: #fbfaff; }
+.vf-branch { display: flex; flex-direction: column; align-items: center; min-width: 284px; }
+.vf-branch.else { background: #f8fafc; border-radius: 8px; }
+.vf-branch-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; max-width: 284px; }
+.vf-branch-head strong { font-size: 12px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vf-branch-head .tag-else { font-size: 10px; background: #e2e8f0; color: #475569; border-radius: 999px; padding: 1px 8px; flex: none; }
+.vf-branch-head button { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; padding: 2px 4px; border-radius: 4px; }
+.vf-branch-head button:hover { background: #eff4ff; color: #2563eb; }
+.vf-branch-head button:disabled { color: var(--line); cursor: not-allowed; }
+.vf-branch-head .p9a-row-actions { display: flex; gap: 2px; flex: none; }
+button.vf-branch-add { border-style: dashed; }
+.fw-drawer-body textarea { width: 100%; min-height: 64px; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 13px; resize: vertical; }
+
+/* —— 节点配置抽屉（页面内右浮） —— */
+.fw-node-drawer { width: 340px; flex: none; border-left: 1px solid var(--line); background: #fff; display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.fw-node-drawer .drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--line); flex: none; }
+.fw-node-drawer .drawer-head strong { font-size: 14px; color: var(--ink); }
+.fw-node-drawer .drawer-head button { border: 0; background: transparent; cursor: pointer; color: var(--muted); font-size: 16px; padding: 4px 8px; border-radius: 6px; }
+.fw-node-drawer .drawer-head button:hover { background: #f1f5f9; color: var(--ink); }
+.fw-drawer-body { flex: 1; overflow: auto; padding: 14px; }
+.fw-drawer-body .form-field { margin-bottom: 12px; }
+
+/* fieldPerms 权限矩阵 */
+.fw-perm-grid { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.fw-perm-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px 84px; align-items: center; border-bottom: 1px solid var(--line); }
+.fw-perm-row:last-child { border-bottom: 0; }
+.fw-perm-row.head { background: #f8fafc; font-size: 11px; color: var(--muted); font-weight: 600; }
+.fw-perm-row > span { padding: 7px 10px; font-size: 12px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fw-perm-row > label { display: flex; align-items: center; justify-content: center; padding: 5px 0; }
+.fw-perm-row input { accent-color: #2563eb; width: 15px; height: 15px; }
+.fw-perm-edit { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px; color: var(--muted); cursor: not-allowed; user-select: none; padding: 5px 0; }
+
+/* 抄送接收人编辑器 */
+.fw-cc-receiver { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.fw-cc-receiver select { flex: 1; min-width: 0; }
+.fw-cc-receiver button { flex: none; }
+
+/* 分支表达式编辑 */
+.fw-branch-edit { border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-bottom: 10px; background: #fcfcfe; }
+.fw-branch-edit .expr-row { display: grid; grid-template-columns: minmax(0, 1fr) 92px minmax(0, 1fr); gap: 6px; margin-top: 8px; }
+
+/* —— 自定义表单运行时（发起/详情/快照渲染） —— */
+.fw-ro-form { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin: 10px 0; }
+.fw-ro-row { display: grid; grid-template-columns: 140px minmax(0, 1fr); border-bottom: 1px solid var(--line); }
+.fw-ro-row:last-child { border-bottom: 0; }
+.fw-ro-label { padding: 9px 12px; background: #f8fafc; font-size: 12px; color: var(--muted); }
+.fw-ro-value { padding: 9px 12px; font-size: 13px; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+.fw-money { display: inline-flex; align-items: center; gap: 6px; width: 100%; }
+.fw-money input { flex: 1; min-width: 0; }
+.fw-money i { font-style: normal; font-size: 12px; color: var(--muted); flex: none; }
+.fw-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.fw-options label { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px; cursor: pointer; }
+.fw-options label:has(input:checked) { background: #eff4ff; border-color: #2563eb; color: #2563eb; }
+.fw-options input { accent-color: #2563eb; }
+.fw-file-field { display: inline-flex; flex-direction: column; gap: 6px; font-size: 12px; }
+.fw-file-field a { color: #2563eb; text-decoration: none; }
+.fw-file-field a:hover { text-decoration: underline; }
+
+/* —— 进度图 v2 标注（抄送/系统自动，arch/14 §8） —— */
+.progress-auto-tag { font-style: normal; font-size: 10px; background: #fef3c7; color: #b45309; border-radius: 999px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; }
+.progress-cc { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 6px 10px; border-radius: 8px; margin: 6px 0; }
+.progress-cc strong { flex: none; }
+.progress-cc small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.progress-cc.fired { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+.progress-cc.pending { background: #f8fafc; border: 1px dashed var(--line); color: var(--muted); }
+
+/* —— 375px 适配：设计器三栏转单列抽屉化、分支横向滚动 —— */
+@media (max-width: 480px) {
+  .fw-formdesign { grid-template-columns: 1fr; }
+  .fw-palette { flex-direction: row; flex-wrap: wrap; }
+  .fw-palette-item { width: auto; flex: 1 1 42%; }
+  .fw-props { position: static; }
+  .fw-node-drawer { position: fixed; inset: auto 0 0 0; top: 56px; width: 100%; border-left: 0; border-top: 1px solid var(--line); z-index: 40; box-shadow: 0 -8px 24px rgba(15, 23, 42, .18); }
+  .vf-card { width: 232px; }
+  .vf-branches { overflow-x: auto; max-width: calc(100vw - 32px); }
+  .fw-step-body { padding: 12px 12px 20px; }
+  .fw-card { padding: 14px; }
+  .fw-topbar { flex-wrap: wrap; row-gap: 6px; }
+  .fw-ro-row { grid-template-columns: 104px minmax(0, 1fr); }
+  .fw-perm-row { grid-template-columns: minmax(0, 1fr) 64px 64px; }
+}

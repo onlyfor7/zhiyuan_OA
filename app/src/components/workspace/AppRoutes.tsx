@@ -33,7 +33,7 @@ const CrmOpportunitiesPage = lazy(() => import("../../pages/crm/OpportunitiesPag
 const CrmContractsPage = lazy(() => import("../../pages/crm/ContractsPage"));
 const CrmFollowupsPage = lazy(() => import("../../pages/crm/FollowupsPage"));
 const AdminCenterPage = lazy(() => import("../../pages/admin/AdminCenterPage"));
-const FlowDesignerPage = lazy(() => import("../../pages/admin/FlowDesignerPage"));
+const FlowWizardPage = lazy(() => import("../../pages/flows/FlowWizardPage"));
 const RequestsPage = lazy(() => import("../../pages/RequestsPage"));
 const RequestDetailPage = lazy(() =>
   import("../../pages/RequestsPage").then((m) => ({ default: m.RequestDetailPage })),
@@ -105,8 +105,9 @@ export function AppRoutes({ location }: { location?: RoutesLocation }) {
       <Route path="/workbench" element={<WorkbenchPage />} />
       <Route path="/approvals" element={<ApprovalsPage />} />
       <Route path="/admin" element={<MenuGuard menu="/admin"><AdminCenterPage /></MenuGuard>} />
-      <Route path="/admin/flows/:flowId" element={<MenuGuard menu="/admin"><FlowDesignerPage /></MenuGuard>} />
-      <Route path="/flows/p/:projectId/:flowId" element={<FlowDesignerPage />} />
+      <Route path="/admin/flows/new" element={<MenuGuard menu="/admin"><FlowWizardPage /></MenuGuard>} />
+      <Route path="/admin/flows/:flowId" element={<MenuGuard menu="/admin"><FlowWizardPage /></MenuGuard>} />
+      <Route path="/flows/p/:projectId/:flowId" element={<FlowWizardPage />} />
       <Route path="/requests" element={<RequestsPage />} />
       <Route path="/requests/:requestId" element={<RequestDetailPage />} />
       <Route path="/settings" element={<SettingsPage />} />

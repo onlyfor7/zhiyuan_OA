@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { Link } from "react-router";
 import { GitBranch, Plus, ShieldCheck } from "lucide-react";
 
@@ -6,7 +7,8 @@ import { useAdminConfig, useAdminMutations } from "../../api/admin";
 import { useMe } from "../../api/auth";
 import { useClientList, useMatterList } from "../../api/reference";
 import { useProjectTemplates } from "../../api/project";
-import { useFlowList } from "../../api/flow";
+import { useFlowList, useFlowMutations } from "../../api/flow";
+import { useFormList } from "../../api/forms";
 import { HelpIcon } from "../../components/HelpIcon";
 import { FormDialog } from "../../components/FormDialog";
 import AiConfigTab from "./AiConfigTab";
@@ -415,55 +417,91 @@ function TemplatesTab() {
   );
 }
 
-function FlowRow({ f }: { f: { id: string; name: string; versionNo: number; enabled: boolean; bizBinding: string; updatedAt: string } }) {
+function FlowRow({ f, onToggle, onDuplicate, onDelete }: { f: { id: string; name: string; versionNo: number; enabled: boolean; bizBinding: string; updatedAt: string; rowVersion: number }; onToggle: () => void; onDuplicate: () => void; onDelete: () => void }) {
+  const draft = !f.enabled;
   return (
-    <Link className="report-row" to={`/admin/flows/${f.id}`}>
-      <div>
-        <strong>
-          <GitBranch size={14} style={{ verticalAlign: "-2px" }} /> {f.name}
-          <span className={`badge ${f.enabled ? "badge-health-normal" : ""}`}>
-            V{f.versionNo} · {f.enabled ? "启用中" : "草稿"}
-          </span>
-        </strong>
-        <small>
-          绑定业务：{f.bizBinding} · 更新 {f.updatedAt.slice(0, 16).replace("T", " ")}
-        </small>
-      </div>
-      <span className="text-action">打开设计器</span>
-    </Link>
+    <div className="report-row">
+      <Link to={`/admin/flows/${f.id}`} style={{ display: "contents", color: "inherit" }}>
+        <div>
+          <strong>
+            <GitBranch size={14} style={{ verticalAlign: "-2px" }} /> {f.name}
+            <span className={`badge ${f.enabled ? "badge-health-normal" : "badge-minutes-pending_confirm"}`}>
+              V{f.versionNo} · {f.enabled ? "启用中" : "草稿"}
+            </span>
+          </strong>
+          <small>
+            绑定业务：{f.bizBinding} · 更新 {f.updatedAt.slice(0, 16).replace("T", " ")}
+          </small>
+        </div>
+      </Link>
+      <span className="p9a-row-actions">
+        <Link className="text-action" to={`/admin/flows/${f.id}`}>编辑</Link>
+        <button type="button" className="text-action" onClick={onToggle}>{f.enabled ? "停用" : "启停"}</button>
+        <button type="button" className="text-action" onClick={onDuplicate}>复制为新草稿</button>
+        {draft ? <button type="button" className="text-action" onClick={onDelete}>删除</button> : null}
+      </span>
+    </div>
   );
 }
 
 /** G5：/admin 审批流列表分「系统级 / 项目内」两区（flow.list byScope 分区） */
+/** 审批流分组列表（arch/14 §11）：固定组「业务审批」+ 自定义表单各组；行操作=编辑/启停/复制草稿/删除（仅草稿） */
 function FlowsTab() {
   const flows = useFlowList();
-  if (flows.isPending) return <p className="list-note">正在加载流程…</p>;
+  const flowMut = useFlowMutations();
+  const formList = useFormList();
+  const [error, setError] = useState<string | null>(null);
+  if (flows.isPending || formList.isPending) return <p className="list-note">正在加载流程…</p>;
   if (flows.isError) throw flows.error;
-  const system = flows.data.byScope?.system ?? flows.data.items.filter((f) => f.scope === "global");
-  const project = flows.data.byScope?.project ?? flows.data.items.filter((f) => f.scope === "project");
+  if (formList.isError) throw formList.error;
+  const items = flows.data.items;
+  const byGroup = (flows.data as { byGroup?: Array<{ groupName: string; items: typeof items }> }).byGroup
+    ?? [{ groupName: "业务审批", items: items.filter((f) => !f.bizBinding.startsWith("custom_form:")) }];
+  const projectCount = items.filter((f) => f.scope === "project").length;
   return (
     <div className="preview-tab-body">
       <div className="quality-toolbar">
-        <span className="toolbar-hint">流程定义（同名称恰一个启用版本；项目内流程在项目空间「审批流」入口管理）</span>
-        <Link to="/admin/flows/new" className="primary-action">
-          <Plus size={15} />
-          新建系统级流程
-        </Link>
+        <span className="toolbar-hint">分组=固定「业务审批」+自定义表单组（arch/14 §11）；行操作含复制草稿/删除（仅草稿）；项目内流程在项目空间管理（{projectCount}）</span>
+        <div className="row-ops">
+          <Link to="/admin/flows/new?kind=custom" className="primary-action">
+            <Plus size={15} />
+            新建自定义审批
+          </Link>
+          <Link to="/admin/flows/new?kind=biz" className="secondary-action">
+            <Plus size={15} />
+            新建业务流程
+          </Link>
+        </div>
       </div>
-      <span className="section-label">系统级（{system.length}）</span>
-      <div className="report-list">
-        {system.map((f) => (
-          <FlowRow key={f.id} f={f} />
-        ))}
-      </div>
-      <span className="section-label" style={{ display: "block", marginTop: 18 }}>
-        项目内（{project.length}）
-      </span>
-      <div className="report-list">
-        {project.length === 0 ? <p className="list-note">暂无项目内流程（由各项目负责人在项目空间创建）</p> : project.map((f) => (
-          <FlowRow key={f.id} f={f} />
-        ))}
-      </div>
+      {error ? <p className="form-error" role="alert">{error}</p> : null}
+      {byGroup.map((g) => (
+        <section key={g.groupName} style={{ marginBottom: 14 }}>
+          <span className="section-label">{g.groupName}（{g.items.length}）</span>
+          <div className="report-list">
+            {g.items.map((f) => (
+              <FlowRow
+                key={f.id}
+                f={f}
+                onToggle={() => {
+                  setError(null);
+                  flowMut.disable.mutate(
+                    { id: f.id, rowVersion: f.rowVersion },
+                    { onSuccess: () => toast.success(f.enabled ? "已停用" : "已启用（草稿件发布请进向导）"), onError: (e) => setError(rootErrorMessage(e)) },
+                  );
+                }}
+                onDuplicate={() => {
+                  setError(null);
+                  flowMut.duplicateAsDraft.mutate({ id: f.id }, { onSuccess: () => toast.success("已复制为新草稿"), onError: (e) => setError(rootErrorMessage(e)) });
+                }}
+                onDelete={() => {
+                  setError(null);
+                  flowMut.deleteDraft.mutate({ id: f.id }, { onSuccess: () => toast.success("草稿已删除"), onError: (e) => setError(rootErrorMessage(e)) });
+                }}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }

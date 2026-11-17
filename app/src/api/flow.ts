@@ -36,5 +36,7 @@ export function useFlowMutations() {
   const updateDraft = useMutation(trpc.flow.updateDraft.mutationOptions({ onSuccess: invalidate }));
   const publish = useMutation(trpc.flow.publish.mutationOptions({ onSuccess: invalidate }));
   const disable = useMutation(trpc.flow.disable.mutationOptions({ onSuccess: invalidate }));
-  return { createDraft, updateDraft, publish, disable };
+  const duplicateAsDraft = useMutation(trpc.flow.duplicateAsDraft.mutationOptions({ onSuccess: invalidate }));
+  const deleteDraft = useMutation(trpc.flow.deleteDraft.mutationOptions({ onSuccess: invalidate }));
+  return { createDraft, updateDraft, publish, disable, duplicateAsDraft, deleteDraft };
 }

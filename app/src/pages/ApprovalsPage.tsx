@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Check, ChevronRight, Send, X } from "lucide-react";
+import { Check, ChevronRight, Mail, Send, Undo2, X } from "lucide-react";
+
+import type { FlowNodeOps } from "@lexflow/shared";
 
 import { useApproval, useApprovalAct, useApprovalsApplied, useApprovalsMine } from "../api/approval";
 import { useUserNameMap } from "../api/reference";
@@ -16,6 +18,7 @@ import {
 import type { RouterOutputs } from "../lib/trpc";
 import { UserPicker } from "../components/UserPicker";
 import { FlowProgressGraph } from "../components/FlowProgressGraph";
+import { stepFlagsFrom } from "../lib/flow-step-flags";
 
 type MineItem = RouterOutputs["approval"]["listMine"]["items"][number];
 type AppliedItem = RouterOutputs["approval"]["listMineApplied"]["items"][number];
@@ -24,6 +27,25 @@ interface ApprovalCheck {
   name: string;
   pass: boolean;
   detail: string;
+}
+
+/** 自定义表单字段区：formSnapshot 中 form.* 键值（服务端已按当前节点 fieldPerms 过滤 hidden，前端直读不过滤） */
+function FormSnapshotRows({ formSnapshot }: { formSnapshot: Record<string, unknown> }) {
+  const entries = Object.entries(formSnapshot).filter(([k]) => k.startsWith("form."));
+  if (entries.length === 0) return null;
+  return (
+    <>
+      <span className="section-label">自定义表单字段（已按节点权限过滤）</span>
+      <div className="fw-ro-form">
+        {entries.map(([k, v]) => (
+          <div className="fw-ro-row" key={k}>
+            <span className="fw-ro-label">{k.slice("form.".length)}</span>
+            <span className="fw-ro-value">{v == null || v === "" ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v)}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
 }
 
 /** 审批快照：biz 关键字段 + 提交时检查项（EXP-006；随 formSnapshot 冻结） */
@@ -59,6 +81,7 @@ function SnapshotPanel({ instanceId }: { instanceId: string }) {
           ))}
         </>
       ) : null}
+      {approval.data.formSnapshot ? <FormSnapshotRows formSnapshot={approval.data.formSnapshot as Record<string, unknown>} /> : null}
     </div>
   );
 }
@@ -99,20 +122,55 @@ function FlowProgressPanel({ id }: { id: string }) {
         {progress.flowVersion != null ? ` V${progress.flowVersion}` : ""}
       </span>
       {progress.currentNodeLabel ? <p className="context-note">当前节点：{progress.currentNodeLabel}</p> : null}
-      <FlowProgressGraph progress={progress} />
+      <FlowProgressGraph progress={progress} policySnapshot={approval.data.policySnapshot} stepFlags={stepFlagsFrom(approval.data)} />
     </div>
   );
 }
 
+/** 当前步骤节点操作权限（arch/14 §7 ops：退回/转交/意见必填，取自实例 policySnapshot.stepMeta） */
+function useStepOps(instanceId: string, stepSeq: number) {
+  const detail = useApproval(instanceId);
+  const snap = detail.data?.policySnapshot as {
+    stepMeta?: Record<string, { ops?: FlowNodeOps }>;
+  } | null;
+  const ops = snap?.stepMeta?.[String(stepSeq)]?.ops;
+  const viewerRole = detail.data?.viewerRole;
+  return { viewerRole, ops, loading: detail.isPending };
+}
+
 function ActPanel({ item }: { item: MineItem }) {
   const act = useApprovalAct();
-  const [action, setAction] = useState<"approve" | "reject" | "transfer" | null>(null);
+  const [action, setAction] = useState<"approve" | "reject" | "transfer" | "return" | null>(null);
   const [comment, setComment] = useState("");
   const [transferTo, setTransferTo] = useState("");
   const [idemKey] = useState(newIdempotencyKey);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const instanceId = item.instance.id;
+  const { viewerRole, ops } = useStepOps(instanceId, item.step.seq);
+  const canReturn = !!ops && ops.returnBack !== "none";
+  const returnTarget = ops?.returnBack === "initiator" ? "退回提交人" : "退回上一步";
+  const approveNeedsComment = ops?.requireCommentOnApprove === true;
+  const rejectNeedsComment = ops?.requireCommentOnReject !== false;
+  const canTransfer = ops?.transfer !== false;
+  const submitDisabled =
+    act.isPending ||
+    (action === "reject" && rejectNeedsComment && !comment.trim()) ||
+    (action === "approve" && approveNeedsComment && !comment.trim()) ||
+    (action === "transfer" && !transferTo) ||
+    (action === "return" && !comment.trim());
+
+  if (viewerRole === "cc") {
+    return (
+      <div className="act-panel">
+        <span className="section-label">ACTION</span>
+        <p className="context-note">
+          <Mail size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />
+          抄送（只读）· 该流程节点将您设为抄送接收人，仅供知悉，无需操作。
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="act-panel">
@@ -133,10 +191,18 @@ function ActPanel({ item }: { item: MineItem }) {
             <X size={15} />
             驳回
           </button>
-          <button className="secondary-action" onClick={() => setAction("transfer")}>
-            <ChevronRight size={15} />
-            转交
-          </button>
+          {canTransfer ? (
+            <button className="secondary-action" onClick={() => setAction("transfer")}>
+              <ChevronRight size={15} />
+              转交
+            </button>
+          ) : null}
+          {canReturn ? (
+            <button className="secondary-action" onClick={() => setAction("return")}>
+              <Undo2 size={15} />
+              退回
+            </button>
+          ) : null}
         </div>
       ) : (
         <div className="act-form">
@@ -146,26 +212,33 @@ function ActPanel({ item }: { item: MineItem }) {
               <UserPicker value={transferTo} onChange={setTransferTo} />
             </div>
           ) : null}
+          {action === "return" ? (
+            <p className="context-note">
+              将{ops?.returnBack === "initiator" ? "退回给申请人本人" : "退回到上一审批节点"}，流程由对方重新处理。
+            </p>
+          ) : null}
           <textarea
             rows={2}
             value={comment}
             placeholder={
               action === "reject"
-                ? "驳回理由（必填）"
+                ? rejectNeedsComment
+                  ? "驳回理由（必填）"
+                  : "驳回理由（选填）"
                 : action === "transfer"
                   ? "转交说明（选填）"
-                  : "审批意见（选填）"
+                  : action === "return"
+                    ? "退回说明（必填）"
+                    : approveNeedsComment
+                      ? "审批意见（必填）"
+                      : "审批意见（选填）"
             }
             onChange={(e) => setComment(e.target.value)}
           />
           <div className="row-ops">
             <button
               className={action === "approve" ? "primary-action" : "secondary-action"}
-              disabled={
-                act.isPending ||
-                (action === "reject" && !comment.trim()) ||
-                (action === "transfer" && !transferTo)
-              }
+              disabled={submitDisabled}
               onClick={() => {
                 setError(null);
                 setNotice(null);
@@ -197,7 +270,9 @@ function ActPanel({ item }: { item: MineItem }) {
                   ? "确认通过"
                   : action === "reject"
                     ? "确认驳回"
-                    : "确认转交"}
+                    : action === "transfer"
+                      ? "确认转交"
+                      : `确认${returnTarget}`}
             </button>
             <button className="text-action" onClick={() => setAction(null)}>
               取消
@@ -217,7 +292,9 @@ function AppliedSteps({ id }: { id: string }) {
   const a = approval.data;
   return (
     <div className="resolution-timeline">
-      {a.flowProgress ? <FlowProgressGraph progress={a.flowProgress} /> : null}
+      {a.flowProgress ? (
+        <FlowProgressGraph progress={a.flowProgress} policySnapshot={a.policySnapshot} stepFlags={stepFlagsFrom(a)} />
+      ) : null}
       {a.steps.map((s) => (
         <div className={s.status === "pending" ? "active" : "done"} key={s.id}>
           <Check size={15} />
