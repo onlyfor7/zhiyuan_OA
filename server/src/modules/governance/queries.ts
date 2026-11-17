@@ -217,7 +217,9 @@ export async function getApprovalById(db: DbOrTx, user: SessionUser, id: string)
   }
   const perms = await viewerFieldPerms(db, instance, user.id);
   const filteredInstance = perms ? { ...instance, formSnapshot: filterSnapshotByFieldPerms(instance.formSnapshot, perms) } : instance;
-  return { ...filteredInstance, viewerRole: isCcRecipient && instance.applicantId !== user.id && isApprover.length === 0 ? ("cc" as const) : undefined, steps, flowProgress };
+  // 20-02b G3：自定义表单快照区附 formSchema（key→label 渲染；edit 字段权限仍 P2）
+  const formSchema = (instance.policySnapshot as { formSchema?: unknown } | null)?.formSchema ?? null;
+  return { ...filteredInstance, formSchema, viewerRole: isCcRecipient && instance.applicantId !== user.id && isApprover.length === 0 ? ("cc" as const) : undefined, steps, flowProgress };
 }
 
 /* ===== approval.detail（arch/12 §16.2：审批中心业务详情聚合） ===== */
@@ -254,6 +256,7 @@ export async function getApprovalDetail(db: DbOrTx, user: SessionUser, id: strin
   const perms = await viewerFieldPerms(db, instance, user.id);
   const filteredFormSnapshot = filterSnapshotByFieldPerms(instance.formSnapshot, perms);
   const snapshot = await buildBizSnapshot(db, instance.bizType, instance.bizId, filteredFormSnapshot);
+  const formSchema = (instance.policySnapshot as { formSchema?: unknown } | null)?.formSchema ?? null;
   return {
     id: instance.id,
     code: instance.code,
@@ -266,6 +269,7 @@ export async function getApprovalDetail(db: DbOrTx, user: SessionUser, id: strin
     applicantName: names.applicants.get(instance.applicantId) ?? null,
     steps: currentSteps.map((s) => ({ seq: s.seq, status: s.status, approverId: s.approverId })),
     snapshot,
+    formSchema,
   };
 }
 

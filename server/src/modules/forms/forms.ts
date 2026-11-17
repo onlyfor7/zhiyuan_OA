@@ -286,9 +286,18 @@ export async function listForms(db: DbOrTx, user: SessionUser) {
 }
 
 export async function getFormById(db: DbOrTx, user: SessionUser, id: string) {
-  await requireFormAdmin(db, user);
   const [row] = await db.select().from(customFormDefs).where(eq(customFormDefs.id, id)).limit(1);
   if (!row) throw notFound();
+  // 管理角色全量读；非管理角色放行只读——限 published 且命中 visibility（复用提交校验同一函数，禁两套口径）
+  if (user.globalRoles.includes("sysadmin") || user.globalRoles.includes("partner")) return row;
+  if (row.status !== "published") throw notFound();
+  const v = row.visibility as { mode?: string; roleKeys?: string[]; userIds?: string[] };
+  const hit = v.mode === "roles"
+    ? (v.roleKeys ?? []).some((r) => user.globalRoles.includes(r))
+    : v.mode === "users"
+      ? (v.userIds ?? []).includes(user.id)
+      : true;
+  if (!hit) throw notFound();
   return row;
 }
 
@@ -309,6 +318,8 @@ export async function listPublicForms(db: DbOrTx, user: SessionUser) {
     icon: r.icon,
     groupName: r.groupName,
     formVersion: r.formVersion,
+    // 20-02b G3：发起入口渲染所需 schema 一次取齐（无需二次调用）
+    formSchema: r.formSchema,
   }));
 }
 

@@ -219,6 +219,8 @@ export interface SubmitInput {
   extraStepRoles?: string[];
   /** 策略占位 runtime_resolve 时的运行时审批人（arch/07 §4.2 工时周期：pm→partner / 主项目 manager / 配置默认） */
   runtimeApproverId?: string;
+  /** 20-02b G3：随实例快照附带的扩展数据（自定义表单 formSchema/formVersion——快照区渲染 key→label） */
+  policyExtras?: Record<string, unknown>;
 }
 
 export async function submit(db: DbOrTx, input: SubmitInput): Promise<ApprovalInstanceRow> {
@@ -541,6 +543,15 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
     return replayOrConflict(db, step.id, input, instance);
   }
 
+  // G4：本步若为重挂步，批准/拒绝后从 rearmedSeqs 移除（豁免仅对该次重审生效）
+  {
+    const freshInst = await loadInstance(db, instance.id);
+    const snap = v2Snapshot(freshInst);
+    if (snap.rearmedSeqs?.includes(step.seq)) {
+      snap.rearmedSeqs = snap.rearmedSeqs.filter((x) => x !== step.seq);
+      await db.update(approvalInstances).set({ policySnapshot: (freshInst as { policySnapshot: unknown }).policySnapshot as Record<string, unknown> }).where(eq(approvalInstances.id, instance.id));
+    }
+  }
   if (input.action === "reject") {
     await finalize(db, instance, "rejected");
     const handler = handlerFor(instance.bizType);
@@ -564,20 +575,36 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
     return { instance, applied: true };
   }
 
+  // 20-02b G4：下一序位 = pending 或 [returned] 跳过步（退回重挂）；重挂步优先于更后的 pending
   const nextPending = await db
-    .select({ seq: approvalSteps.seq })
+    .select()
     .from(approvalSteps)
     .where(
       and(
         eq(approvalSteps.instanceId, instance.id),
-        eq(approvalSteps.status, "pending"),
         gt(approvalSteps.seq, instance.currentStepSeq),
+        sql`(${approvalSteps.status} = 'pending' OR (${approvalSteps.status} = 'skipped' AND left(${approvalSteps.comment}, 10) = '[returned]'))`,
       ),
     )
     .orderBy(asc(approvalSteps.seq))
     .limit(1);
 
   if (nextPending[0]) {
+    // 重挂：退回步重置为 pending（actedBy/comment/actedAt 清空；rearmedSeqs 记账使 dedupe once 豁免——退回重审属新审批行为）
+    if (nextPending[0].status === "skipped") {
+      await db
+        .update(approvalSteps)
+        .set({ status: "pending", actedBy: null, actedAt: null, actedIdempotencyKey: null, comment: null })
+        .where(eq(approvalSteps.id, nextPending[0].id));
+      await recordAudit(db, {
+        actorId: input.actorId, sessionId: null, action: "approval.rearm", targetType: "approval_instance", targetId: instance.id,
+        result: "success", afterJson: { seq: nextPending[0].seq, note: "returned step re-armed" }, ip: null,
+      });
+      const [freshInst] = await db.select().from(approvalInstances).where(eq(approvalInstances.id, instance.id)).limit(1);
+      const snap = v2Snapshot(freshInst);
+      snap.rearmedSeqs = [...new Set([...(snap.rearmedSeqs ?? []), nextPending[0].seq])];
+      await db.update(approvalInstances).set({ policySnapshot: freshInst.policySnapshot as Record<string, unknown> }).where(eq(approvalInstances.id, instance.id));
+    }
     await db
       .update(approvalInstances)
       .set({ currentStepSeq: nextPending[0].seq, updatedAt: now })
@@ -616,11 +643,10 @@ export async function act(db: DbOrTx, input: ActInput): Promise<ActResult> {
     return { instance: await loadInstance(db, instance.id), applied: true };
   }
 
-  // 20-02 终审：补发剩余抄送（afterStepIndex ≤ 总步数）
+  // 20-02b G5：终审触发末端抄送（中段 cc 已在到步时发出）
   {
     const fresh = await loadInstance(db, instance.id);
-    const total = Object.keys(v2Snapshot(fresh).stepMeta ?? {}).length;
-    await postAdvanceV2(db, fresh as ApprovalInstanceRow, step.approverId, total);
+    await fireTerminalCcV2(db, fresh as ApprovalInstanceRow);
   }
   // 终审通过 → 同事务调用业务处理器（arch/04 §4）
   await finalize(db, instance, "approved");
@@ -729,6 +755,8 @@ interface StepMetaV2 {
 
 interface V2Snapshot {
   stepMeta?: Record<string, StepMetaV2>;
+  /** G4：退回重挂步 seq 记账（dedupe once 豁免） */
+  rearmedSeqs?: number[];
   ccEvents?: CcEventV2[];
   ccFired?: string[];
   ccRecipients?: string[];
@@ -930,20 +958,34 @@ async function postAdvanceV2(
 ): Promise<void> {
   const snap = v2Snapshot(instance);
   if (snap.settings?.dedupeApprover === "once" && passedStepApproverId) {
+    const rearmed = new Set(snap.rearmedSeqs ?? []); // G4：重挂步属新审批行为，去重不豁免跳过
     const later = await db
       .select()
       .from(approvalSteps)
       .where(and(eq(approvalSteps.instanceId, instance.id), eq(approvalSteps.status, "pending"), eq(approvalSteps.approverId, passedStepApproverId)));
     for (const st of later) {
+      if (rearmed.has(st.seq)) continue;
       await db
         .update(approvalSteps)
         .set({ status: "skipped", comment: "dedupe: 同审批人前面步骤已批准", actedAt: new Date().toISOString() })
         .where(and(eq(approvalSteps.id, st.id), eq(approvalSteps.status, "pending")));
     }
   }
+  const totalSteps = Object.keys(snap.stepMeta ?? {}).length;
   for (const ev of snap.ccEvents ?? []) {
     if ((snap.ccFired ?? []).includes(ev.nodeId)) continue;
-    if (ev.afterStepIndex <= passedStepCount) await fireCcEvent(db, instance, ev, instance.projectId);
+    // 20-02b G5：中段 cc 到步即触发；末端 cc（afterStepIndex=总步数）仅在 approved 终态后发
+    if (ev.afterStepIndex < totalSteps && ev.afterStepIndex <= passedStepCount) await fireCcEvent(db, instance, ev, instance.projectId);
+  }
+}
+
+/** 末端抄送（afterStepIndex ≥ 总步数）：仅实例进入 approved 终态后触发（拒绝路径全程无 cc） */
+async function fireTerminalCcV2(db: DbOrTx, instance: ApprovalInstanceRow): Promise<void> {
+  const snap = v2Snapshot(instance);
+  const totalSteps = Object.keys(snap.stepMeta ?? {}).length;
+  for (const ev of snap.ccEvents ?? []) {
+    if ((snap.ccFired ?? []).includes(ev.nodeId)) continue;
+    if (ev.afterStepIndex >= totalSteps) await fireCcEvent(db, instance, ev, instance.projectId);
   }
 }
 
@@ -994,6 +1036,7 @@ async function autoCascadeV2(db: DbOrTx, instance: ApprovalInstanceRow): Promise
       await finalize(db, instance, "approved");
       const handler = handlerFor(instance.bizType);
       if (handler) await handler.onApproved(db, instance);
+      await fireTerminalCcV2(db, (await loadInstance(db, instance.id)) as ApprovalInstanceRow);
       return;
     }
     await db.update(approvalInstances).set({ currentStepSeq: next[0].seq, updatedAt: now }).where(eq(approvalInstances.id, instance.id));
@@ -1127,6 +1170,7 @@ async function submitWithV2Flow(
         ccFired: [],
         ccRecipients: [],
         settings: compiled.settings,
+        ...(input.policyExtras ?? {}),
       },
       currentStepSeq: firstSeq,
       status: "pending",

@@ -151,6 +151,13 @@ export async function submitRequest(
   // 20-02 自定义表单：bizType=custom_form:<code>（findEnabledFlow 命中绑定流）；form.<key> 并入快照供条件求值
   const isCf = row.requestType.startsWith("CF-") && row.formId;
   const cfPayload = (row.payload ?? {}) as Record<string, unknown>;
+  // 20-02b G3：自定义表单 schema 随实例快照（版本对应，审批/申请单详情 key→label 渲染）
+  let policyExtras: Record<string, unknown> | undefined;
+  if (isCf && row.formId) {
+    const { customFormDefs } = await import("../../db/schema");
+    const [form] = await db.select({ formSchema: customFormDefs.formSchema }).from(customFormDefs).where(eq(customFormDefs.id, row.formId)).limit(1);
+    if (form) policyExtras = { formSchema: form.formSchema, formVersion: row.formVersion ?? null };
+  }
   const instance = await engine.submit(db, {
     bizType: isCf ? `custom_form:${row.requestType}` : "generic_request",
     bizId: row.id,
@@ -164,6 +171,7 @@ export async function submitRequest(
       ...(input.chosenApproverId ? { chosenApproverId: input.chosenApproverId } : {}),
     },
     idempotencyKey: input.idempotencyKey,
+    ...(policyExtras ? { policyExtras } : {}),
   });
   await db.update(genericRequests).set({ approvalInstanceId: instance.id }).where(eq(genericRequests.id, row.id));
   return { request: updated[0], instance };
@@ -187,6 +195,7 @@ export async function withdrawRequest(db: DbOrTx, user: SessionUser, input: { id
 }
 
 export async function getRequestById(db: DbOrTx, user: SessionUser, id: string) {
+  // 20-02b G3：详情渲染所需 formSchema（自定义表单经审批实例快照回带；草稿单据直接取表单当前结构）
   const [row] = await db.select().from(genericRequests).where(eq(genericRequests.id, id)).limit(1);
   if (!row) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "申请单不存在或无权访问");
   const visible =
@@ -195,6 +204,21 @@ export async function getRequestById(db: DbOrTx, user: SessionUser, id: string) 
     user.globalRoles.includes("sysadmin") ||
     (row.approvalInstanceId !== null);
   if (!visible) throw new BusinessError(ERROR_CODE.ACCESS_DENIED_OR_GONE, "申请单不存在或无权访问");
+  // 20-02b G3：自定义表单详情附 formSchema（提交时经审批实例 policy 快照版本对应；无实例的草稿取当前结构）
+  if (row.formId) {
+    let formSchema: unknown = null;
+    if (row.approvalInstanceId) {
+      const { approvalInstances } = await import("../../db/schema");
+      const [inst] = await db.select({ policySnapshot: approvalInstances.policySnapshot }).from(approvalInstances).where(eq(approvalInstances.id, row.approvalInstanceId)).limit(1);
+      formSchema = (inst?.policySnapshot as { formSchema?: unknown } | null)?.formSchema ?? null;
+    }
+    if (!formSchema) {
+      const { customFormDefs } = await import("../../db/schema");
+      const [form] = await db.select({ formSchema: customFormDefs.formSchema }).from(customFormDefs).where(eq(customFormDefs.id, row.formId)).limit(1);
+      formSchema = form?.formSchema ?? null;
+    }
+    return { ...row, formSchema };
+  }
   return row;
 }
 

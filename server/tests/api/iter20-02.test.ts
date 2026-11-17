@@ -385,7 +385,11 @@ describe("20-02 编译器v2/引擎扩展/自定义表单", () => {
     expect(stR.find((x) => x.seq === 1)!).toMatchObject({ status: "pending", comment: null });
     const instRrow = await query<{ current_step_seq: number }>(`SELECT current_step_seq FROM approval_instances WHERE id=$1`, [instR]);
     expect(instRrow[0].current_step_seq).toBe(1);
+    // 20-02b G4 修复后语义：上一步再批准 → returned 步重挂 pending（不再旁路终审）→ 该步再批准 → approved
     await trpc(app, "approval.act", { cookie: presalesCookie, input: { instanceId: instR, stepSeq: 1, action: "approve", idempotencyKey: uuid() } });
+    let stR2 = await query<{ seq: number; status: string }>(`SELECT seq, status FROM approval_steps WHERE instance_id=$1 ORDER BY seq`, [instR]);
+    expect(stR2.find((x) => x.seq === 2)!.status).toBe("pending"); // 重挂
+    await trpc(app, "approval.act", { cookie: pmCookie, input: { instanceId: instR, stepSeq: 2, action: "approve", idempotencyKey: uuid() } });
     const instR2 = await query<{ status: string }>(`SELECT status FROM approval_instances WHERE id=$1`, [instR]);
     expect(instR2[0].status).toBe("approved");
 
