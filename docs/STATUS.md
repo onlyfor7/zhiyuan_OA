@@ -5,7 +5,7 @@
 
 ## 当前迭代
 
-**迭代 20 · 审批流飞书化重构**（**20-06a 后端修棒已发布**——20-05 验收棒通过（矩阵双 6/6+手册 v1.1），但验收新登记五项高优缺陷（O-20-5-1/5/6/7/8），**裁定阻塞收口、发修棒**：后端认领 `docs/work-orders/迭代20/06a-后端会话-O-20-5-6-7-8修复.md`）
+**迭代 20 · 审批流飞书化重构**（**20-06b 前端修棒已发布**——20-06a 验收通过（O-20-5-6/7/8/2 全修，根 352 复跑全绿）；前端会话认领 `docs/work-orders/迭代20/06b-前端会话-O-20-5-5-4-1-9-3修复.md`）
 
 **迭代 19 · 外测 HTTP 兼容修复**（**已收口** 2026-11-14——19-01/19-02/19-03 全部通过；普通 Chrome 无 flag 七入口零崩溃复验全绿，D-MAN-4 关闭，根 337 全绿）
 
@@ -140,8 +140,8 @@
 | 20-02b G3/G4/G5 服务端三缺陷修复 | 后端 | **通过** | 后端会话 | 2026-11-17 | 架构复核：G3 放行口径（published+visibility 命中同形 404）/G4 重挂（[returned] 重置 pending+rearmedSeqs 豁免 dedupe+approval.rearm 审计）/G5 末端 cc 终态触发读码成立；根 348 复跑全绿；member 自提全链实弹采信 |
 | 20-03b G3 降级移除与走查复证 | 前端 | **通过** | 前端会话 | 2026-11-17 | 架构复核：G3 降级移除（listPublic 一次渲染/详情快照 label+person 姓名+money 元）+快照 label 映射+**fieldPerms 对象形态修复（hidden 由假生效转真生效，诚实留痕）**；走查 22/22 采信；根复跑 313+1 红为 iter18-02d 并发断言时序抖动（单文件复跑 2/2 绿，非回归） |
 | 20-04 外测发布 | 部署 | **通过** | 部署会话 | 2026-11-17 | 架构外网复核：/health 200+首页品牌+新资产 hash+sysadmin 登录+flow.list 13/13 全 schemaVersion=2（迁移实证）+forms.listPublic 空（disabled 闭环一致）；备份/digest/回执/回滚预案采信；观察项（向导打开默认流 rowVersion 提示）归 20-05（已定性 O-20-5-4） |
-| 20-06a O-20-5-6/7/8/2 服务端缺陷修复 | 后端 | **已发布** | 待认领 | 2026-11-17 | `docs/work-orders/迭代20/06a-后端会话-O-20-5-6-7-8修复.md`：dedupe 死锁（视同通过推进）/pm 项目流放行/submitCc/endCc 实装/发布滤停用 |
-| 20-06b O-20-5-5/4/1/9/3 前端缺陷修复 | 前端 | 未认领 | | | 待 20-06a 通过 |
+| 20-06a O-20-5-6/7/8/2 服务端缺陷修复 | 后端 | **通过** | 后端会话 | 2026-11-17 | 架构复核：dedupe 视同通过推进/终审（守卫防误推+与 [returned] 互斥）读码成立；pm 行级放行/submitCc·endCc 实装/发布滤停用成立；根 352 复跑全绿 |
+| 20-06b O-20-5-5/4/1/9/3 前端缺陷修复 | 前端 | **已发布** | 待认领 | 2026-11-17 | `docs/work-orders/迭代20/06b-前端会话-O-20-5-5-4-1-9-3修复.md`：stepIndex 映射/dirty 门控/自选审批人选择器/AI 预填消费端/部门负责人配置 |
 | 20-04b 修复镜像补发 | 部署 | 未认领 | | | 待 20-06b 通过 |
 | 20-05b 缺陷复验与迭代收口 | 测试 | 未认领 | | | 待 20-04b 通过 |
 | 20-05 验收与两册手册同步 | 测试 | **通过** | 测试会话 | 2026-11-17 | 架构复核：矩阵双程与回归证据采信、四高缺陷代码级坐实（O-20-5-5 映射互斥/O-20-5-6 权限门/O-20-5-8 grep 零命中/O-20-5-7 指针滞留）、手册 v1.1 双册校验全绿；**五项高优裁定阻塞收口发 06a/06b 修棒** |
@@ -486,6 +486,10 @@
 | 2026-10-29 | 前端 | 迭代 6 工单 04 登记偏差（4 项）：① 财务登记收款无项目参照端点（无收款记录的新项目 UI 不可登记）② admin userList 无 roles、停用行无恢复启用 UI ③ 申请单类型配置 member/partner 不可读（前端本地静态）④ 参照端点最小字段 | **裁定**：① 新增 `receipts.projectOptions`（finance/partner 参照级 {id,code,name}）——04b 后端 + 04c 前端替换下拉源；② userList 增 roles（04b）+ 停用行加启用按钮（04c，setEnabled(false) 已验证有效）；③ 新增 `genericRequest.types` 公开读端点（04b）+ 前端移除本地静态（04c）；④ 接受现状（参照端点最小字段即契约语义），关闭 | **已关闭**（04b 后端 + 04c 前端收口完成并走查取证） |
 
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
+
+- 2026-11-17｜架构｜迭代20-06a通过·20-06b发布｜**20-06a 后端修棒验收通过，20-06b 前端修棒发布（当前唯一可执行任务）。** 复核：边界干净（5 文件仅 server/tests）；**O-20-5-7 dedupe 死锁**——postAdvanceV2 去重后若指针所指步被跳则续推下一 pending、无 pending 正常 approved 终审（onApproved+末端 cc），「当前步仍 pending 则不动」守卫防误推旁路终审（自审发现并已补组合用例），dedupe-skipped 与 G4 [returned] 重挂显式互斥——读码成立；**O-20-5-6**——requireFlowAdmin 增行级放行（scope=project 放行该项目 manager_id，先取行后校验，与 project.flows 负责人门同语义）；**O-20-5-8**——submitCc（afterStepIndex=0 提交即发）/endCc（总步数终审后发，接 G5 同路）实装；**O-20-5-2**——显式停用用户发布 412、角色范围集运行时剔除（与引擎同口径）。架构复跑四道门全绿：typecheck/build/db:migrate/根 **352/352**（server 318+app 34）。dev 实弹四证采信。排障留痕知情：dev forms.create 偶发 500 孤立不复现（348 全绿），登记瞬时态疑云——若 20-06b/20-04b 再现须升级排查。**20-06b 要点**：stepIndex 映射修复/dirty 门控防自竞态/initiator_choice 自选审批人选择器/AI 草稿预填消费端/部门负责人配置入口。
+
+- 2026-11-17｜后端｜迭代20-06a｜**工单 06a（O-20-5-6/7/8/2 服务端四缺陷）完成，转「待验收」。** ① **O-20-5-7 dedupe once 死锁**（最高危，冻结语义「dedupe skipped=视同通过」）：postAdvanceV2 去重后——若指针所指步被跳过则继续推进到下一 pending（指针未动=当前步仍待审则不动，**防误推**：初版无此守卫会把待审中的当前步旁路直接终审，已修正）；无 pending → 正常 approved 终审（onApproved 业务回写+末端 cc）。返回有效序位/"finalized"，act 前进块与 autoCascade 两处调用点接通；与 G4 [returned] 重挂显式互斥（dedupe-skipped 不可重挂）。② **O-20-5-6 pm 项目流放行**：designer.requireFlowAdmin 增可选行参——scope=project 且 projectId 非空时放行该项目 manager_id（isProjectFlowManager），覆盖 getById/updateDraft/publish/disable/duplicate/deleteDraft（行先取后校，与 project.flows 负责人门同语义禁双口径）。③ **O-20-5-8 submitCc/endCc 实装**：FlowV2Definition 增根级 submitCc/endCc（validate 按审批人策略校验缺省 []）；compile 产 ccEvent——submitCc→afterStepIndex=0（提交即触发，复用现有通道），endCc→afterStepIndex=总步数（终审 approved 后触发，接 02b G5 fireTerminalCcV2 同路）。④ **O-20-5-2 发布滤停用**：forms.publish 对显式指定用户（approver.user / initiator_choice scope.users / cc 显式 userId / submitCc/endCc）活性检查——停用/不存在 412 FLOW_UNPUBLISHABLE；角色范围集停用用户由运行时解析剔除（与引擎同口径，不拦发布）。**测试**：iter20-06a.test.ts 4 用例（dedupe 尾步 approved+业务回写/中间步续走不 409/与 rearm 组合不互踩；pm 三探针；submitCc/endCc 提交即达+终审后达+拒绝不发+通知聚合口径；停用 412 双形态+角色集放行）。**质量门逐条真实执行**：typecheck✓/build✓/db:migrate✓/server **318=314+4**/根 test **352=318+34**。**dev 实弹**（:3001 已重启）：5-7 中间步 cur=3→act3 200→approved、尾步 approved；5-6 pm getById **200**；5-8 submitcc=1→after_approve=2。**排障留痕**：dev 实弹脚本中 forms.create 偶发 500（无日志明细、孤立调用全通、测试套件 348 绿不复现——登记为 dev 环境瞬时态疑云，不阻塞交付）；[returned]/dedupe 语义互斥的推进守卫为本棒自审发现。**遗留**：无新增；20-06b 前端继续（O-20-5-5/1/4/9/3）。
 
 - 2026-11-17｜架构｜迭代20-05通过·缺陷阻塞裁定·20-06a发布｜**20-05 验收棒通过（矩阵/回归/手册证据扎实），但五项高优缺陷裁定阻塞迭代收口——发布 20-06a 后端修棒（当前唯一可执行任务），20-06b 前端修棒已备单。** 验收棒复核：六组矩阵双 6/6、根 348 复跑全绿、e2e 双 16/16、计数零增长、两册 v1.1 校验全绿均采信；**四高缺陷架构代码级坐实**：O-20-5-5（stepIndex 映射与渲染条件互斥，134/326 行）、O-20-5-6（requireFlowAdmin 空 projectId 恒不命中，违 §13）、O-20-5-8（server grep submitCc/endCc 零命中）、O-20-5-7（dedupe 指针滞留机理与探针三重复现一致）。**裁定**：O-20-5-1/5/6/7/8 五项高优**阻塞收口**——06a 后端修（dedupe 视同通过推进/pm 放行/submitCc·endCc 实装/发布滤停用）→ 06b 前端修（stepIndex 映射/dirty 门控/自选审批人选择器/AI 预填消费端/部门负责人配置入口）→ 20-04b 补发 → 20-05b 复验收口；O-20-5-2/4/9 随修，O-20-5-3 顺带补。全部九项已入仲裁表。**测试侧环境动作留痕知情**：dev 库 v1→v2 对齐（10/10）与 prod viewer 启用（可逆）均已报备，无异议。
 
