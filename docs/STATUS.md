@@ -174,7 +174,7 @@
 | 工单 | 会话 | 状态 | 认领人 | 日期 | 备注 |
 |---|---|---|---|---|---|
 | 系统操作手册全量版 | 测试 | **通过** | 测试会话 | 2026-11-15 | 架构复核：两轮打回复修全闭环（D-OP-1~5 图文重拍/改写、D-OP-9 角色表整表按实测重写、「置灰」措辞如实）；154 项三方一一对应独立复跑全绿；audit-checklist 留痕诚实；产物手册 v1.0+资产库+采集脚本入库 |
-| git 远端挂载与首次推送 | git 版本同步 | **待验收** | git 版本同步会话 | 2026-11-26 | 远端 `git@github.com:onlyfor7/zhiyuan_OA.git` 挂载+main（`5aa9659`）与 102 个 iter 分支全量首推完成；`git ls-remote origin` 104 行（HEAD+main+102 iter），远端 103 个分支 SHA 与本地逐一比对全等；README/开发环境「远端仓库与同步」节已补；凭据由用户直接提供（不入库不回显）；偏差：工单预估 103 个 iter 分支，实测本地 102 个（本地全量已推，无遗漏可推）——提请架构验收 |
+| git 远端挂载与首次推送 | git 版本同步 | **通过** | git 版本同步会话 | 2026-11-18 | 架构复核：ls-remote 104（HEAD+main+102 iter）与本地逐支全等、远端 main=89d7aa8=本地、README/开发环境同步节在位、远端 URL 无凭据、文档无凭据痕迹 |
 | 系统功能手册全量版 | 测试 | **通过** | 测试会话 | 2026-11-14 | 架构复核：D-MAN-1/2/3/4 全闭环；66 嵌入图+67 项 manifest 双向一一对应独立校验全绿；产物 docs/系统功能手册_超级详细版.md v1.0 |
 
 ## 迭代 17 工单状态（arch/12 §20 v2.6）
@@ -497,6 +497,8 @@
 ## 交接记录（新条目置顶，格式：日期｜会话｜工单｜内容）
 
 - 2026-11-26｜git 版本同步｜专项-git远端挂载与首次推送｜**远端挂载与首次全量推送完成，转「待验收」。** 远端 `git@github.com:onlyfor7/zhiyuan_OA.git`（GitHub 私有库，Deploy Key 写权限）；本机直连 github.com 的 22 与 443-TLS 均被拦，全程经 `ssh.github.com:443` 通道推送；凭据由用户直接提供，不入库、不回显、不写进任何项目文件。执行：挂 origin→推 main（`5aa9659`）→`refs/heads/iter*` 全量推送。校验：`git ls-remote origin` 共 104 行（HEAD+main+102 iter），远端 main 与本地 `git rev-parse main` 一致，远端 103 个分支 SHA 与本地逐一比对全等（排序规范化后 md5 相同）。**偏差说明**：工单预估「main+103 个 iter=104」，实测本地 iter 分支为 102 个（本地总分支 103 含 main），本地全量已推、远端完整镜像本地，无遗漏可推——104 行实为 HEAD+main+102 iter，请架构验收时按此口径核对。README.md 与 docs/开发环境.md 已各补「远端仓库与同步」节（clone 地址/main 唯一主干/日常 `git pull --ff-only`+任务分支 push）。收尾提交 `[部署] git 远端挂载与首次全量推送完成` 已随 main 推送同步；`D:\tmp\gitsync\` 临时副本已清理。
+
+- 2026-11-18｜架构｜专项-git远端挂载验收通过｜**git 远端挂载与首次全量推送验收通过，专项关闭。** 独立复核：`git ls-remote origin` **104 行**（HEAD+main+102 个 iter 分支；工单预估 103 系把 main 一并计入的口径差，本地全量已推、远端完整镜像本地，无遗漏）；远端 main `89d7aa8` 与本地 `git rev-parse main` **逐字一致**；远端 URL 为干净 SSH 地址（git@github.com:onlyfor7/zhiyuan_OA.git，无凭据）；README「远端仓库与同步」与 `docs/开发环境.md`「git 远端与同步」两节在位；文档 grep 无凭据痕迹；私钥仅存 `~/.ssh`（600）、`D:\tmp\gitsync` 临时副本已清。**通道留痕**：本机直连 github.com 的 443-TLS 与 22 端口被拦，既定绕行=ssh.github.com:443（~/.ssh/config 已配置，后续 pull/push 无感）。**后续协作口径生效**：main 为唯一主干，任务分支推送、定期 `git pull --ff-only`；后续迭代任务均基于最新 main 起分支。
 
 - 2026-11-18｜架构｜专项-git远端挂载发布｜**用户指令：系统作为代码仓库用 git 管理（GitHub 私有仓库+全量推送+配套文档）。架构已完成本地准备并发布专项工单，待 git 版本同步会话认领（用户直接对接凭据，不经过架构）。** 本地准备：main 主干快进到 `754b887`（迭代 20 收口全量代码+文档）；`.gitignore` 加固（`.env*`/`deepseek api.txt`/`*-cred.txt`/`server/storage/`/`backups/`/探针与临时脚本永不入库）；`README.md`（开发者上手+文档地图）与 `docs/开发环境.md` 刷新就位；敏感内容扫描通过（tracked 无密钥明文，Demo@2026 为既定演示口径）。工单 `docs/work-orders/专项-git远端挂载与首次推送.md`：挂 origin→push main→103 个 iter 分支全量推送→ls-remote 104 校验→凭据用完即清并提醒轮换→README/开发环境补「远端与同步」节。**后续协作口径**：其他开发者以 main 为唯一主干 clone，任务分支推送、定期 `git pull --ff-only`。
 
