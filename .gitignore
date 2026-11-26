@@ -8,3 +8,12 @@ server/storage/
 backups/
 *.log
 .DS_Store
+
+# 本地凭据与私密文件（永不入库）
+deepseek api.txt
+*-cred.txt
+*.local
+
+# 测试探针与临时脚本（约定：探针不入库，可本地复跑）
+e2e/probe-*.cjs
+e2e/tmp-*.cjs
